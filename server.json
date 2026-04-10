@@ -1,0 +1,22 @@
+{
+  "name": "io.github.ridiocompany/socialcrawl",
+  "description": "Access 21+ social media platforms through one unified API. Get profiles, posts, comments, search results, and analytics from TikTok, Instagram, YouTube, Twitter, LinkedIn, Reddit, and more.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ridiocompany/socialcrawl-mcp"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "socialcrawl-mcp",
+      "transport": "stdio"
+    }
+  ],
+  "environmentVariables": [
+    {
+      "name": "SOCIALCRAWL_API_KEY",
+      "description": "Your SocialCrawl API key. Get a free key at socialcrawl.com (100 credits, no credit card required).",
+      "required": true
+    }
+  ]
+}
