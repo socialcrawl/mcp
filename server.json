@@ -1,22 +1,30 @@
 {
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.ridiocompany/socialcrawl",
+  "title": "SocialCrawl",
   "description": "Access 21+ social media platforms through one unified API. Get profiles, posts, comments, search results, and analytics from TikTok, Instagram, YouTube, Twitter, LinkedIn, Reddit, and more.",
   "repository": {
-    "type": "git",
-    "url": "https://github.com/ridiocompany/socialcrawl-mcp"
+    "url": "https://github.com/ridiocompany/socialcrawl-mcp",
+    "source": "github"
   },
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "transport": "stdio"
-    }
-  ],
-  "environmentVariables": [
-    {
-      "name": "SOCIALCRAWL_API_KEY",
-      "description": "Your SocialCrawl API key. Get a free key at socialcrawl.com (100 credits, no credit card required).",
-      "required": true
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "SOCIALCRAWL_API_KEY",
+          "description": "Your SocialCrawl API key. Get a free key at socialcrawl.com (100 credits, no credit card required).",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
     }
   ]
 }
