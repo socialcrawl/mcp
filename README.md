@@ -30,7 +30,17 @@ Retrieve profiles, posts, comments, search results, trending content, and analyt
 
 ## Installation
 
-Add the SocialCrawl MCP server to your AI client's configuration. Pick the one you use:
+### Claude Code (quickest)
+
+```bash
+claude mcp add --scope user socialcrawl -- npx -y socialcrawl-mcp
+```
+
+Then set your API key:
+
+```bash
+claude mcp add-env socialcrawl SOCIALCRAWL_API_KEY sc_your_key_here
+```
 
 ### Claude Desktop
 
