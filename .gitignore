@@ -4,3 +4,5 @@ dist/
 .env.local
 *.tgz
 notes/
+.mcpregistry_*
+mcp-publisher.exe
