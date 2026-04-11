@@ -17,7 +17,7 @@ SocialCrawl MCP Server (local, npx)
     |
     | HTTPS (GET requests)
     |
-SocialCrawl API (api.socialcrawl.com)
+SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
@@ -171,7 +171,7 @@ Agent calls socialcrawl_request({
   |     b. Resource "profile" exists for tiktok? → Yes (found in endpoints.ts)
   |     c. Required param "handle" provided? → Yes
   |
-  |  3. Build URL: https://api.socialcrawl.com/v1/tiktok/profile?handle=charlidamelio
+  |  3. Build URL: https://www.socialcrawl.dev/v1/tiktok/profile?handle=charlidamelio
   |
   |  4. HTTP GET with x-api-key header (30s timeout)
   |
@@ -206,7 +206,7 @@ The API client maps every HTTP error to an actionable message that tells the age
 | Status | Response to Agent |
 |--------|-------------------|
 | 401 | "Invalid API key. Check your SOCIALCRAWL_API_KEY configuration." |
-| 402 | "Insufficient credits (X remaining). Top up at socialcrawl.com/billing." |
+| 402 | "Insufficient credits (X remaining). Top up at socialcrawl.dev/billing." |
 | 404 | "Endpoint not found. Use socialcrawl_list_endpoints..." |
 | 503 | "Platform temporarily unavailable. Try again shortly." |
 | 502 | "Upstream error. Credits have been auto-refunded." |
@@ -224,7 +224,7 @@ The server reads two environment variables at runtime (not at module load time, 
 | Variable | Required | Default |
 |----------|----------|---------|
 | `SOCIALCRAWL_API_KEY` | Yes (for `request` tool) | Empty string |
-| `SOCIALCRAWL_BASE_URL` | No | `https://api.socialcrawl.com` |
+| `SOCIALCRAWL_BASE_URL` | No | `https://www.socialcrawl.dev` |
 
 If no API key is set, the server still starts and the discovery/docs tools work normally. Only `socialcrawl_request` requires the key — it returns a clear error message with instructions when the key is missing.
 

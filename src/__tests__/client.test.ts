@@ -66,7 +66,7 @@ describe("API client", () => {
 
     const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("Insufficient credits");
-    expect(result).toContain("socialcrawl.com/billing");
+    expect(result).toContain("socialcrawl.dev/dashboard/billing");
   });
 
   it("maps 404 to endpoint not found message", async () => {

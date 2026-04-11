@@ -7,19 +7,19 @@
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "SOCIALCRAWL_API_KEY",
-          "description": "Your SocialCrawl API key. Get a free key at socialcrawl.com (100 credits, no credit card required).",
+          "description": "Your SocialCrawl API key. Get a free key at socialcrawl.dev (100 credits, no credit card required).",
           "isRequired": true,
           "isSecret": true,
           "format": "string"

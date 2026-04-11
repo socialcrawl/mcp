@@ -18,7 +18,7 @@ All data comes back in a clean, unified format — the same response structure w
 
 ## Step 1: Get Your API Key
 
-1. Go to [socialcrawl.com](https://socialcrawl.com) and create an account
+1. Go to [socialcrawl.dev](https://socialcrawl.dev) and create an account
 2. You'll receive **100 free credits** instantly (no credit card required)
 3. Navigate to your dashboard and copy your API key — it starts with `sc_`
 
@@ -232,7 +232,7 @@ The MCP handles errors gracefully and gives the agent actionable guidance:
 |-------|---------------------|
 | Missing API key | "No API key configured. Set SOCIALCRAWL_API_KEY..." |
 | Invalid API key | "Invalid API key. Check your SOCIALCRAWL_API_KEY configuration." |
-| Insufficient credits | "Insufficient credits (X remaining). Top up at socialcrawl.com/billing." |
+| Insufficient credits | "Insufficient credits (X remaining). Top up at socialcrawl.dev/billing." |
 | Bad platform/resource | "Unknown platform/resource. Use socialcrawl_list_endpoints to see available endpoints." |
 | Missing parameters | "Missing required parameter: handle. This endpoint requires: handle." |
 | Platform down | "Platform temporarily unavailable. Try again shortly." |

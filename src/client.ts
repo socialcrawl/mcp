@@ -1,7 +1,7 @@
 import { TIMEOUT_MS, CHARACTER_LIMIT } from "./constants.js";
 
 function getBaseUrl(): string {
-  return process.env.SOCIALCRAWL_BASE_URL ?? "https://api.socialcrawl.com";
+  return process.env.SOCIALCRAWL_BASE_URL ?? "https://www.socialcrawl.dev";
 }
 
 function getApiKey(): string {
@@ -17,7 +17,7 @@ interface RequestOptions {
 export async function makeRequest(options: RequestOptions): Promise<string> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    return "Error: No API key configured. Set SOCIALCRAWL_API_KEY in your MCP server environment. Get a free key at socialcrawl.com (100 credits, no credit card required).";
+    return "Error: No API key configured. Set SOCIALCRAWL_API_KEY in your MCP server environment. Get a free key at socialcrawl.dev (100 credits, no credit card required).";
   }
 
   const url = buildUrl(options);
@@ -82,7 +82,7 @@ function formatHttpError(status: number, body: string, options: RequestOptions):
     case 401:
       return "Error: Invalid API key. Check your SOCIALCRAWL_API_KEY configuration.";
     case 402:
-      return `Error: Insufficient credits (${parsed?.credits_remaining ?? 0} remaining). Top up at socialcrawl.com/billing.`;
+      return `Error: Insufficient credits (${parsed?.credits_remaining ?? 0} remaining). Top up at socialcrawl.dev/dashboard/billing.`;
     case 400:
       return `Error: ${errorMessage}`;
     case 404:
