@@ -20,12 +20,24 @@ export async function request(input: RequestParams): Promise<string> {
   }
 
   const providedParams = input.params ?? {};
-  const missingParams = endpoint.params
-    .filter((p) => p.required && !providedParams[p.name])
-    .map((p) => `\`${p.name}\` (e.g., "${p.example}")`);
+  const missingParts: string[] = [];
 
-  if (missingParams.length > 0) {
-    return `Error: Missing required parameter(s): ${missingParams.join(", ")}. Use socialcrawl_list_endpoints with platform "${input.platform}" for full parameter details.`;
+  for (const p of endpoint.params) {
+    if (p.required && !providedParams[p.name]) {
+      missingParts.push(`\`${p.name}\` (e.g., "${p.example}")`);
+    }
+  }
+
+  for (const group of endpoint.oneOfGroups) {
+    const satisfied = group.some((name) => providedParams[name] !== undefined && providedParams[name] !== "");
+    if (!satisfied) {
+      const list = group.map((name) => `\`${name}\``).join(", ");
+      missingParts.push(`one of ${list}`);
+    }
+  }
+
+  if (missingParts.length > 0) {
+    return `Error: Missing required parameter(s): ${missingParts.join(", ")}. Use socialcrawl_list_endpoints with platform "${input.platform}" for full parameter details.`;
   }
 
   const response = await makeRequest({

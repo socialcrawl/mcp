@@ -7,7 +7,7 @@
 [![npm](https://img.shields.io/npm/v/socialcrawl-mcp?style=flat-square&color=blue)](https://www.npmjs.com/package/socialcrawl-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-green?style=flat-square)](https://registry.modelcontextprotocol.io)
 [![Platforms](https://img.shields.io/badge/Platforms-21-blue?style=flat-square)](https://socialcrawl.dev)
-[![Endpoints](https://img.shields.io/badge/Endpoints-105-green?style=flat-square)](https://socialcrawl.dev/docs)
+[![Endpoints](https://img.shields.io/badge/Endpoints-108-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 [Overview](#overview) | [Installation](#installation) | [Setup](#setup) | [Usage](#usage) | [Tools](#available-tools) | [Platforms](#supported-platforms)
@@ -18,7 +18,7 @@
 
 ## Overview
 
-`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified social media data API covering 21 platforms and 105 endpoints.
+`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified social media data API covering 21 platforms and 108 endpoints.
 
 Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, and 15 more platforms. One API key, one consistent response format, every platform.
 
@@ -230,9 +230,9 @@ Before making any API call, `socialcrawl_request` validates locally that the pla
 
 | Platform | Endpoints | Data Available |
 |----------|-----------|----------------|
-| **TikTok** | 24 | Profiles, videos, comments, followers, search, trending, live, Shop |
+| **TikTok** | 26 | Profiles, videos, comments, followers, search, trending, live, Shop, showcase |
 | **Instagram** | 12 | Profiles, posts, reels, comments, highlights, search |
-| **YouTube** | 11 | Channels, videos, shorts, playlists, comments, trending |
+| **YouTube** | 12 | Channels, videos, shorts, playlists, comments, trending, comment replies |
 | **Facebook** | 12 | Profiles, posts, reels, photos, groups, Ad Library |
 | **Twitter/X** | 6 | Profiles, tweets, communities |
 | **LinkedIn** | 6 | Profiles, company pages, posts, Ad Library |
@@ -252,7 +252,7 @@ Before making any API call, `socialcrawl_request` validates locally that the pla
 | **Pillar** | 1 | Link pages |
 | **Utility** | 1 | Age & gender detection |
 
-**Total: 105 endpoints across 21 platforms.**
+**Total: 108 endpoints across 21 platforms.**
 
 ## Error Handling
 

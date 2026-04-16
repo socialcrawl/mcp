@@ -5,6 +5,16 @@ export interface ParamDef {
   example: string;
 }
 
+export type OptionalParamType = "string" | "boolean" | "integer" | "enum";
+
+export interface OptionalParam {
+  name: string;
+  type: OptionalParamType;
+  enumValues?: string[];
+  description?: string;
+  example?: string;
+}
+
 export interface Platform {
   slug: string;
   name: string;
@@ -16,7 +26,16 @@ export interface Endpoint {
   platform: string;
   resource: string;
   method: "GET";
+  /** Required query params. */
   params: ParamDef[];
+  /** Optional query params forwarded to upstream when provided. */
+  optionalParams: OptionalParam[];
+  /**
+   * Groups of mutually-substitutable params. Each inner array is a set
+   * where at least ONE member must be provided at request time.
+   * Members always live in `optionalParams`, never in `params`.
+   */
+  oneOfGroups: string[][];
   creditTier: "standard" | "advanced" | "premium";
   creditCost: number;
   archetype: string;

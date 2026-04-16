@@ -38,8 +38,8 @@ describe("Platform data integrity", () => {
 });
 
 describe("Endpoint data integrity", () => {
-  it("has at least 100 endpoints", () => {
-    expect(ENDPOINTS.length).toBeGreaterThanOrEqual(100);
+  it("has exactly 108 endpoints", () => {
+    expect(ENDPOINTS.length).toBe(108);
   });
 
   it("every endpoint has required fields", () => {
@@ -95,6 +95,49 @@ describe("Endpoint data integrity", () => {
 
   it("findEndpoint returns undefined for unknown resource", () => {
     expect(findEndpoint("tiktok", "nonexistent")).toBeUndefined();
+  });
+
+  it("every oneOfGroups member is present in optionalParams", () => {
+    for (const endpoint of ENDPOINTS) {
+      if (endpoint.oneOfGroups.length === 0) continue;
+      const optionalNames = new Set(endpoint.optionalParams.map((p) => p.name));
+      for (const group of endpoint.oneOfGroups) {
+        for (const member of group) {
+          expect(
+            optionalNames.has(member),
+            `${endpoint.platform}/${endpoint.resource}: oneOf member "${member}" not in optionalParams`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("no oneOfGroups member appears in required params", () => {
+    for (const endpoint of ENDPOINTS) {
+      if (endpoint.oneOfGroups.length === 0) continue;
+      const requiredNames = new Set(endpoint.params.map((p) => p.name));
+      for (const group of endpoint.oneOfGroups) {
+        for (const member of group) {
+          expect(
+            requiredNames.has(member),
+            `${endpoint.platform}/${endpoint.resource}: oneOf member "${member}" wrongly listed as required`,
+          ).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("every optional param has a name and type", () => {
+    for (const endpoint of ENDPOINTS) {
+      for (const opt of endpoint.optionalParams) {
+        expect(opt.name).toBeTruthy();
+        expect(["string", "boolean", "integer", "enum"]).toContain(opt.type);
+        if (opt.type === "enum") {
+          expect(opt.enumValues).toBeDefined();
+          expect(opt.enumValues!.length).toBeGreaterThan(0);
+        }
+      }
+    }
   });
 });
 

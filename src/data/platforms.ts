@@ -4,7 +4,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 24,
+    endpointCount: 26,
     description:
       "Profiles, videos, comments, search, trending, hashtags, followers, following, live streams, songs, TikTok Shop products, and audience demographics.",
   },
@@ -18,7 +18,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "youtube",
     name: "YouTube",
-    endpointCount: 11,
+    endpointCount: 12,
     description:
       "Channels, videos, shorts, comments, playlists, community posts, search, hashtag search, trending shorts, and video transcripts.",
   },

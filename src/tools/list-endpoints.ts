@@ -22,25 +22,57 @@ export function listEndpoints(platform: string): string {
   ];
 
   for (const endpoint of endpoints) {
-    const params = endpoint.params.length > 0
-      ? endpoint.params.map((p) => `\`${p.name}\` (${p.example})`).join(", ")
-      : "*(none)*";
+    let paramsCell: string;
+    if (endpoint.params.length > 0) {
+      paramsCell = endpoint.params.map((p) => `\`${p.name}\` (${p.example})`).join(", ");
+    } else if (endpoint.oneOfGroups.length > 0) {
+      paramsCell = endpoint.oneOfGroups
+        .map((g) => `one of ${g.map((n) => `\`${n}\``).join(", ")}`)
+        .join("; ");
+    } else {
+      paramsCell = "*(none)*";
+    }
     const cost = `${endpoint.creditCost}cr (${endpoint.creditTier})`;
-    lines.push(`| \`${endpoint.resource}\` | ${params} | ${cost} | ${endpoint.archetype} | ${endpoint.summary} |`);
+    lines.push(`| \`${endpoint.resource}\` | ${paramsCell} | ${cost} | ${endpoint.archetype} | ${endpoint.summary} |`);
   }
 
-  lines.push(
-    "",
-    "## Parameter Details",
-    "",
-  );
+  lines.push("", "## Parameter Details", "");
 
   for (const endpoint of endpoints) {
-    if (endpoint.params.length === 0) continue;
+    const hasAnything =
+      endpoint.params.length > 0 ||
+      endpoint.optionalParams.length > 0 ||
+      endpoint.oneOfGroups.length > 0;
+    if (!hasAnything) continue;
+
     lines.push(`### \`${endpoint.resource}\``);
-    for (const param of endpoint.params) {
-      lines.push(`- **\`${param.name}\`** (${param.required ? "required" : "optional"}): ${param.description}. Example: \`${param.example}\``);
+
+    if (endpoint.params.length > 0) {
+      lines.push("Required:");
+      for (const param of endpoint.params) {
+        lines.push(`- **\`${param.name}\`**: ${param.description}. Example: \`${param.example}\``);
+      }
     }
+
+    if (endpoint.oneOfGroups.length > 0) {
+      for (const group of endpoint.oneOfGroups) {
+        const list = group.map((n) => `\`${n}\``).join(", ");
+        lines.push(`- Constraint: one of ${list} (at least one required)`);
+      }
+    }
+
+    if (endpoint.optionalParams.length > 0) {
+      lines.push("Optional:");
+      for (const opt of endpoint.optionalParams) {
+        const typeLabel =
+          opt.type === "enum" && opt.enumValues
+            ? `enum: ${opt.enumValues.join("|")}`
+            : opt.type;
+        const desc = opt.description ? `: ${opt.description}` : "";
+        lines.push(`- \`${opt.name}\` (${typeLabel})${desc}`);
+      }
+    }
+
     lines.push("");
   }
 

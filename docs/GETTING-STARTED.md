@@ -6,13 +6,13 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 4 tools that let it interact with 21 social media platforms:
+Once installed, your AI agent gains 4 tools that let it interact with 21 social media platforms and 108 endpoints:
 
 - **Discover** what platforms and endpoints are available
 - **Fetch** profiles, posts, comments, search results, trending content, and analytics
 - **Read** detailed API documentation on demand
 
-All data comes back in a clean, unified format — the same response structure whether you're querying TikTok, Instagram, YouTube, or any other platform.
+All data comes back in a clean, unified response envelope (`success`, `platform`, `endpoint`, `data`, `credits_used`, `credits_remaining`, `request_id`, `cached`) — the same structure whether you're querying TikTok, Instagram, YouTube, or any other platform. Only the inner `data` payload changes shape, and it's typed per archetype (`Author`, `Post`, `PostList`, etc.) so a post looks like a post no matter where it came from.
 
 ---
 
@@ -121,7 +121,7 @@ The agent calls `socialcrawl_list_platforms` and shows all 21 platforms with end
 
 > "Show me all the TikTok endpoints"
 
-The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 24 endpoints with their required parameters and credit costs.
+The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 26 endpoints with their required parameters and credit costs.
 
 ### Cross-platform research
 
@@ -171,9 +171,9 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 **Input:**
 - `platform` (required) — platform slug
 - `resource` (required) — the endpoint resource path (e.g., `"profile"`, `"post/comments"`, `"search"`)
-- `params` (optional) — query parameters as key-value pairs (e.g., `{ "handle": "charlidamelio" }`)
+- `params` (optional) — query parameters as key-value pairs (e.g., `{ "handle": "charlidamelio" }`). Includes required parameters, any optional parameters the endpoint accepts (forwarded through when provided), and at least one member of each `oneOf` group the endpoint declares.
 
-**Output:** The full SocialCrawl API response with social media data, credit usage, and cache status.
+**Output:** A unified response envelope containing `success`, `platform`, `endpoint`, `data` (the actual social media payload, typed per archetype — `Author`, `Post`, `PostList`, etc.), `credits_used`, `credits_remaining`, `request_id`, and `cached`. The envelope shape is stable across every endpoint — only `data` varies.
 
 **Requires API key.** This makes a real HTTP request to the SocialCrawl API.
 
@@ -181,8 +181,9 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 1. The platform exists
 2. The endpoint exists for that platform
 3. All required parameters are present
+4. Every `oneOf` parameter group on the endpoint is satisfied by at least one provided identifier (e.g. an endpoint that accepts either `url` or `id` needs one of them, not both)
 
-If validation fails, it tells the agent exactly what's wrong and what tool to use to fix it — without consuming any credits.
+If validation fails, it tells the agent exactly what's wrong and what tool to use to fix it — without consuming any credits. Optional parameters are never required by pre-flight; they're simply forwarded through when the agent includes them.
 
 ---
 

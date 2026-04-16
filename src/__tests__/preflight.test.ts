@@ -29,4 +29,26 @@ describe("Pre-flight validation", () => {
     const result = await request({ platform: "tiktok", resource: "songs/popular" });
     expect(result).toContain("No API key configured");
   });
+
+  it("rejects oneOf endpoint when no group member is provided", async () => {
+    const result = await request({
+      platform: "facebook",
+      resource: "profile/posts",
+      params: {},
+    });
+    expect(result).toContain("Missing required parameter");
+    expect(result).toContain("one of");
+    expect(result).toContain("url");
+    expect(result).toContain("pageId");
+  });
+
+  it("passes validation for oneOf endpoint when one group member is provided", async () => {
+    const result = await request({
+      platform: "facebook",
+      resource: "profile/posts",
+      params: { url: "https://www.facebook.com/Meta" },
+    });
+    // Should skip preflight and reach the API-key-required stage.
+    expect(result).toContain("No API key configured");
+  });
 });
