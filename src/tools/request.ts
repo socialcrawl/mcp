@@ -6,6 +6,7 @@ interface RequestParams {
   platform: string;
   resource: string;
   params?: Record<string, string>;
+  idempotencyKey?: string;
 }
 
 export async function request(input: RequestParams): Promise<string> {
@@ -44,6 +45,7 @@ export async function request(input: RequestParams): Promise<string> {
     platform: input.platform,
     resource: input.resource,
     params: input.params,
+    idempotencyKey: input.idempotencyKey,
   });
 
   const header = [

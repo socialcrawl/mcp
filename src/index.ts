@@ -7,11 +7,13 @@ import {
   ListPlatformsInputSchema,
   ListEndpointsInputSchema,
   RequestInputSchema,
+  CheckBalanceInputSchema,
   GetDocsInputSchema,
 } from "./schemas/tools.js";
 import { listPlatforms } from "./tools/list-platforms.js";
 import { listEndpoints } from "./tools/list-endpoints.js";
 import { request } from "./tools/request.js";
+import { checkBalance } from "./tools/check-balance.js";
 import { getDocs } from "./tools/get-docs.js";
 
 const server = new McpServer({
@@ -64,7 +66,7 @@ server.registerTool(
   {
     title: "Make a SocialCrawl API Request",
     description:
-      "Make an API request to any SocialCrawl endpoint. Fetches real-time social media data (profiles, posts, comments, search results, analytics) from 21 platforms. Requires a valid SOCIALCRAWL_API_KEY. Validates platform, resource, and parameters before making the call to avoid wasting credits.",
+      "Make an API request to any SocialCrawl endpoint. Fetches real-time social media data (profiles, posts, comments, search results, analytics) from 21 platforms. Requires a valid SOCIALCRAWL_API_KEY. Validates platform, resource, and parameters before making the call to avoid wasting credits. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).",
     inputSchema: RequestInputSchema,
     annotations: {
       readOnlyHint: true,
@@ -78,7 +80,28 @@ server.registerTool(
       platform: params.platform,
       resource: params.resource,
       params: params.params,
+      idempotencyKey: params.idempotencyKey,
     });
+    return { content: [{ type: "text", text: output }] };
+  },
+);
+
+server.registerTool(
+  "socialcrawl_check_balance",
+  {
+    title: "Check SocialCrawl Credit Balance",
+    description:
+      "Check the remaining credit balance and recent deductions for the authenticated SocialCrawl account. Calls the meta endpoint GET /v1/credits/balance — costs 0 credits. Requires a valid SOCIALCRAWL_API_KEY.",
+    inputSchema: CheckBalanceInputSchema,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+  },
+  async () => {
+    const output = await checkBalance();
     return { content: [{ type: "text", text: output }] };
   },
 );

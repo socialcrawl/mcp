@@ -1,6 +1,6 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.0.2",
+  "version": "1.2.0",
   "description": "MCP server for SocialCrawl — access 21+ social media platforms through one unified API",
   "type": "module",
   "main": "dist/index.js",

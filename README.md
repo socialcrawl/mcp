@@ -211,20 +211,25 @@ Every response follows a unified envelope format:
 
 ## Available Tools
 
-The MCP server exposes 4 tools:
+The MCP server exposes 5 tools:
 
 | Tool | Description | Needs API key? |
 |------|-------------|----------------|
 | `socialcrawl_list_platforms` | Discover all 21 platforms with their endpoints and capabilities | No |
 | `socialcrawl_list_endpoints` | See all endpoints, required parameters, and credit costs for a platform | No |
-| `socialcrawl_request` | Make any SocialCrawl API call — profiles, posts, comments, search, analytics | Yes |
+| `socialcrawl_request` | Make any SocialCrawl API call — profiles, posts, comments, search, analytics. Supports an optional `idempotencyKey` for retry-safe calls. | Yes |
+| `socialcrawl_check_balance` | Check remaining credits and recent deduction summary. Calls `/v1/credits/balance` — costs 0 credits. | Yes |
 | `socialcrawl_get_docs` | Access detailed API documentation by topic or platform | No |
 
-Three of the four tools work without an API key — they query local bundled data. Only `socialcrawl_request` (which makes actual API calls) requires a key.
+Three of the five tools work without an API key — they query local bundled data. `socialcrawl_request` and `socialcrawl_check_balance` require a key.
 
 ### Smart validation
 
 Before making any API call, `socialcrawl_request` validates locally that the platform exists, the endpoint exists, and all required parameters are present. If something is wrong, it tells the agent exactly how to fix it — without consuming any credits.
+
+### Retry-safe requests
+
+Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make the call retry-safe. If the request is replayed within 24h, the server returns the original response and deducts **0 credits** (`X-Idempotent-Replay: true`).
 
 ## Supported Platforms
 
@@ -265,7 +270,13 @@ The MCP server handles errors gracefully and gives the agent actionable guidance
 | Insufficient credits | Shows balance and links to billing page |
 | Bad platform/resource | Suggests using discovery tools to find the right endpoint |
 | Missing parameters | Lists exactly what's missing with examples |
-| Platform unavailable | Reports the outage; credits are refunded automatically |
+| Resource not found (404) | Reports the upstream resource doesn't exist; credits auto-refunded (BIL-01) |
+| Idempotency-Key conflict (409) | Tells the agent the key was used by another account — generate a fresh one |
+| Idempotency-Key payload mismatch (422) | Tells the agent the same key was reused with different params |
+| Method not allowed (405) | Reminds the caller that `/v1/*` is GET-only |
+| Concurrency limit (429) | Asks the caller to back off (50 concurrent/key max) |
+| Upstream error (502) | Reports the failure; credits refunded automatically |
+| Platform unavailable (503) | Circuit breaker open; credits refunded; retry in 30s |
 
 ## Links
 

@@ -12,6 +12,13 @@ interface RequestOptions {
   platform: string;
   resource: string;
   params?: Record<string, string>;
+  /**
+   * Optional `Idempotency-Key` header value (BIL-02). Pass an opaque, client-generated
+   * string (UUIDv4 recommended) to enable safe retries. The first response is stored
+   * server-side for 24h; replays return the original body, status, and credits_used
+   * (with a `X-Idempotent-Replay: true` header), and deduct 0 new credits.
+   */
+  idempotencyKey?: string;
 }
 
 export async function makeRequest(options: RequestOptions): Promise<string> {
@@ -24,12 +31,15 @@ export async function makeRequest(options: RequestOptions): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
+  const headers: Record<string, string> = { "x-api-key": apiKey };
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
+
   try {
     const response = await fetch(url, {
       method: "GET",
-      headers: {
-        "x-api-key": apiKey,
-      },
+      headers,
       signal: controller.signal,
     });
 
@@ -54,7 +64,11 @@ export async function makeRequest(options: RequestOptions): Promise<string> {
 }
 
 function buildUrl(options: RequestOptions): string {
-  const base = `${getBaseUrl()}/v1/${options.platform}/${options.resource}`;
+  const path =
+    options.platform === "meta"
+      ? `/v1/${options.resource}`
+      : `/v1/${options.platform}/${options.resource}`;
+  const base = `${getBaseUrl()}${path}`;
   if (!options.params || Object.keys(options.params).length === 0) {
     return base;
   }
@@ -63,7 +77,7 @@ function buildUrl(options: RequestOptions): string {
 }
 
 interface ParsedError {
-  error?: { type?: string; message?: string };
+  error?: { type?: string; message?: string; doc_url?: string };
   credits_remaining?: number;
 }
 
@@ -77,6 +91,7 @@ function formatHttpError(status: number, body: string, options: RequestOptions):
 
   const errorType = parsed?.error?.type ?? "UNKNOWN_ERROR";
   const errorMessage = parsed?.error?.message ?? body;
+  const docUrl = parsed?.error?.doc_url;
 
   switch (status) {
     case 401:
@@ -86,15 +101,26 @@ function formatHttpError(status: number, body: string, options: RequestOptions):
     case 400:
       return `Error: ${errorMessage}`;
     case 404:
+      if (errorType === "RESOURCE_NOT_FOUND") {
+        return `Error: Resource not found upstream. The requested ${options.platform} resource doesn't exist. Credits have been refunded automatically.`;
+      }
       return `Error: Endpoint /v1/${options.platform}/${options.resource} not found. Use socialcrawl_list_endpoints to see available endpoints for ${options.platform}.`;
-    case 503:
-      return `Error: Platform ${options.platform} is temporarily unavailable. Try again shortly.`;
+    case 405:
+      return "Error: Method not allowed. SocialCrawl /v1/* endpoints accept GET requests only.";
+    case 409:
+      return "Error: Idempotency-Key conflict. The key you supplied was already used by another account. Generate a fresh key (UUIDv4 recommended).";
+    case 422:
+      return "Error: Idempotency-Key payload mismatch. You reused the same key with different parameters. Either use a different key, or repeat the original request exactly.";
+    case 429:
+      return "Error: Too many concurrent requests on this API key (50 max). Wait a moment and try again.";
     case 502:
       return "Error: Upstream error fetching data. Credits have been auto-refunded.";
-    case 429:
-      return "Error: Too many concurrent requests. Wait a moment and try again.";
-    default:
-      return `Error (${status}): ${errorType} — ${errorMessage}`;
+    case 503:
+      return `Error: Platform ${options.platform} is temporarily unavailable. Credits have been auto-refunded — retry in 30 seconds.`;
+    default: {
+      const docHint = docUrl ? ` See ${docUrl}` : "";
+      return `Error (${status}): ${errorType} — ${errorMessage}${docHint}`;
+    }
   }
 }
 

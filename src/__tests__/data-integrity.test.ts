@@ -164,4 +164,71 @@ describe("Documentation data integrity", () => {
   it("getAvailableTopics returns at least 26 topics", () => {
     expect(getAvailableTopics().length).toBeGreaterThanOrEqual(26);
   });
+
+  it("getAvailableTopics includes the new idempotency topic", () => {
+    expect(getAvailableTopics()).toContain("idempotency");
+  });
+});
+
+describe("Errors documentation reflects 2026-04-17 backend", () => {
+  it("documents METHOD_NOT_ALLOWED (405)", () => {
+    const errors = getDoc("errors")!;
+    expect(errors).toContain("METHOD_NOT_ALLOWED");
+    expect(errors).toContain("405");
+  });
+
+  it("documents IDEMPOTENCY_KEY_CONFLICT (409)", () => {
+    const errors = getDoc("errors")!;
+    expect(errors).toContain("IDEMPOTENCY_KEY_CONFLICT");
+    expect(errors).toContain("409");
+  });
+
+  it("documents IDEMPOTENCY_KEY_PAYLOAD_MISMATCH (422)", () => {
+    const errors = getDoc("errors")!;
+    expect(errors).toContain("IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
+    expect(errors).toContain("422");
+  });
+
+  it("notes that RESOURCE_NOT_FOUND auto-refunds credits (BIL-01)", () => {
+    const errors = getDoc("errors")!;
+    // The RESOURCE_NOT_FOUND row should mention refund / auto-refund.
+    expect(errors).toMatch(/RESOURCE_NOT_FOUND[\s\S]*?refund/i);
+  });
+
+  it("uses the path-style doc_url format (no anchor fragment)", () => {
+    const errors = getDoc("errors")!;
+    expect(errors).not.toContain("docs/errors#");
+    expect(errors).toMatch(/docs\/errors\/[a-z-]+/);
+  });
+});
+
+describe("Credits documentation reflects 2026-04-17 backend", () => {
+  it("mentions the optional data._warnings advisory channel (ENV-03)", () => {
+    const credits = getDoc("credits")!;
+    expect(credits).toContain("_warnings");
+  });
+});
+
+describe("Idempotency documentation (BIL-02)", () => {
+  it("has an idempotency topic", () => {
+    expect(getDoc("idempotency")).toBeTruthy();
+  });
+
+  it("documents the Idempotency-Key header", () => {
+    const doc = getDoc("idempotency")!;
+    expect(doc).toContain("Idempotency-Key");
+  });
+
+  it("explains the 24h TTL and zero-credit replay", () => {
+    const doc = getDoc("idempotency")!;
+    expect(doc).toMatch(/24\s*h/i);
+    expect(doc).toContain("0 credit");
+  });
+});
+
+describe("Meta endpoint documentation (SEC-02)", () => {
+  it("overview mentions /v1/credits/balance", () => {
+    const overview = getDoc("overview")!;
+    expect(overview).toContain("/v1/credits/balance");
+  });
 });

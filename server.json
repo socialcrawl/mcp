@@ -7,12 +7,12 @@
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.0.2",
+  "version": "1.2.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.0.2",
+      "version": "1.2.0",
       "transport": {
         "type": "stdio"
       },
