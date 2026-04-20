@@ -9,6 +9,11 @@
 [![Platforms](https://img.shields.io/badge/Platforms-21-blue?style=flat-square)](https://socialcrawl.dev)
 [![Endpoints](https://img.shields.io/badge/Endpoints-108-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
+[![mcp MCP server](https://glama.ai/mcp/servers/socialcrawl/mcp/badges/score.svg)](https://glama.ai/mcp/servers/socialcrawl/mcp)
+
+<a href="https://glama.ai/mcp/servers/socialcrawl/mcp">
+  <img width="380" src="https://glama.ai/mcp/servers/socialcrawl/mcp/badges/card.svg" alt="Socialcrawl MCP server" />
+</a>
 
 [Overview](#overview) | [Installation](#installation) | [Setup](#setup) | [Usage](#usage) | [Tools](#available-tools) | [Platforms](#supported-platforms)
 
@@ -29,6 +34,14 @@ Retrieve profiles, posts, comments, search results, trending content, and analyt
 - Provides built-in API documentation the agent can query on demand
 
 ## Installation
+
+### npm
+
+```bash
+npm install -g socialcrawl-mcp
+```
+
+Available on [npm](https://www.npmjs.com/package/socialcrawl-mcp). Most users don't need this — the MCP client configs below use `npx` and auto-install on first run.
 
 ### Claude Code (quickest)
 
