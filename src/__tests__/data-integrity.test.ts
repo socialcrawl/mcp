@@ -4,8 +4,8 @@ import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoin
 import { DOCS, getDoc, getAvailableTopics } from "../data/docs.js";
 
 describe("Platform data integrity", () => {
-  it("has exactly 21 platforms", () => {
-    expect(PLATFORMS).toHaveLength(21);
+  it("has exactly 27 platforms", () => {
+    expect(PLATFORMS).toHaveLength(27);
   });
 
   it("every platform has a non-empty slug, name, and description", () => {
@@ -32,14 +32,14 @@ describe("Platform data integrity", () => {
     expect(findPlatform("nonexistent")).toBeUndefined();
   });
 
-  it("getAllPlatformSlugs returns 21 slugs", () => {
-    expect(getAllPlatformSlugs()).toHaveLength(21);
+  it("getAllPlatformSlugs returns 27 slugs", () => {
+    expect(getAllPlatformSlugs()).toHaveLength(27);
   });
 });
 
 describe("Endpoint data integrity", () => {
-  it("has exactly 108 endpoints", () => {
-    expect(ENDPOINTS.length).toBe(108);
+  it("has exactly 133 endpoints", () => {
+    expect(ENDPOINTS.length).toBe(133);
   });
 
   it("every endpoint has required fields", () => {
@@ -48,7 +48,9 @@ describe("Endpoint data integrity", () => {
       expect(endpoint.resource).toBeTruthy();
       expect(endpoint.method).toBe("GET");
       expect(["standard", "advanced", "premium"]).toContain(endpoint.creditTier);
-      expect([1, 5, 10]).toContain(endpoint.creditCost);
+      // 20 is the flat-cost override for /v1/search/everywhere; every other
+      // endpoint follows the standard 1/5/10 ladder.
+      expect([1, 5, 10, 20]).toContain(endpoint.creditCost);
       expect(endpoint.archetype).toBeTruthy();
       expect(endpoint.summary).toBeTruthy();
     }
@@ -57,6 +59,11 @@ describe("Endpoint data integrity", () => {
   it("creditCost matches creditTier", () => {
     const tierCosts: Record<string, number> = { standard: 1, advanced: 5, premium: 10 };
     for (const endpoint of ENDPOINTS) {
+      // Universal-search endpoint overrides the tier ladder with a flat 20.
+      if (endpoint.platform === "search" && endpoint.resource === "everywhere") {
+        expect(endpoint.creditCost).toBe(20);
+        continue;
+      }
       expect(endpoint.creditCost).toBe(tierCosts[endpoint.creditTier]);
     }
   });

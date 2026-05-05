@@ -2,12 +2,12 @@
 
 # socialcrawl-mcp
 
-**Give your AI agent access to 21 social media platforms through a single API**
+**Give your AI agent access to 27 platforms — social media, web research, prediction markets, and a universal cross-platform meta-search — through a single API**
 
 [![npm](https://img.shields.io/npm/v/socialcrawl-mcp?style=flat-square&color=blue)](https://www.npmjs.com/package/socialcrawl-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-green?style=flat-square)](https://registry.modelcontextprotocol.io)
-[![Platforms](https://img.shields.io/badge/Platforms-21-blue?style=flat-square)](https://socialcrawl.dev)
-[![Endpoints](https://img.shields.io/badge/Endpoints-108-green?style=flat-square)](https://socialcrawl.dev/docs)
+[![Platforms](https://img.shields.io/badge/Platforms-27-blue?style=flat-square)](https://socialcrawl.dev)
+[![Endpoints](https://img.shields.io/badge/Endpoints-133-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![mcp MCP server](https://glama.ai/mcp/servers/socialcrawl/mcp/badges/score.svg)](https://glama.ai/mcp/servers/socialcrawl/mcp)
 
@@ -23,9 +23,9 @@
 
 ## Overview
 
-`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified social media data API covering 21 platforms and 108 endpoints.
+`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 27 platforms and 133 endpoints.
 
-Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, and 15 more platforms. One API key, one consistent response format, every platform.
+Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, GitHub, Hacker News, Polymarket, and 18 more platforms — plus web research via Tavily and Perplexity, AI-powered X search via Grok, and a single `/search/everywhere` endpoint that fans out across 12 sources in one call. One API key, one consistent response format, every platform.
 
 **What the MCP server does:**
 - Discovers available platforms and endpoints dynamically
@@ -252,14 +252,20 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **Instagram** | 12 | Profiles, posts, reels, comments, highlights, search |
 | **YouTube** | 12 | Channels, videos, shorts, playlists, comments, trending, comment replies |
 | **Facebook** | 12 | Profiles, posts, reels, photos, groups, Ad Library |
-| **Twitter/X** | 6 | Profiles, tweets, communities |
-| **LinkedIn** | 6 | Profiles, company pages, posts, Ad Library |
+| **GitHub** | 12 | Users, repos, issues, PRs, READMEs, releases, search, repo dossier, user profile-velocity |
+| **Twitter/X** | 7 | Profiles, tweets, communities, video transcripts, AI search via Grok |
 | **Reddit** | 7 | Subreddits, posts, comments, search, ads |
+| **LinkedIn** | 6 | Profiles, company pages, posts, Ad Library |
 | **Threads** | 5 | Profiles, posts, search |
 | **Pinterest** | 4 | Search, pins, boards |
 | **Google** | 4 | Search, Ad Library |
+| **Tavily** | 4 | Web search (with LLM answer), URL extraction, sitemap, full crawl |
+| **Hacker News** | 4 | Story search, story, comment tree, profile |
 | **Truth Social** | 3 | Profiles, posts |
 | **Twitch** | 2 | Profiles, clips |
+| **Polymarket** | 2 | Prediction-market search + multi-query research fan-out |
+| **Perplexity** | 1 | Sonar web research with cited sources |
+| **Universal Search** | 1 | One query, fanned out across 12 platforms (20cr) |
 | **Snapchat** | 1 | Profiles |
 | **Kick** | 1 | Clips |
 | **Amazon** | 1 | Shop pages |
@@ -270,7 +276,7 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **Pillar** | 1 | Link pages |
 | **Utility** | 1 | Age & gender detection |
 
-**Total: 108 endpoints across 21 platforms.**
+**Total: 133 endpoints across 27 platforms.**
 
 ## Error Handling
 

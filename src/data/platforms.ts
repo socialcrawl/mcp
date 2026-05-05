@@ -32,9 +32,9 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "twitter",
     name: "X (Twitter)",
-    endpointCount: 6,
+    endpointCount: 7,
     description:
-      "Profiles, tweets, communities, community tweets, search, and video transcripts.",
+      "Profiles, tweets, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   },
   {
     slug: "linkedin",
@@ -142,6 +142,48 @@ export const PLATFORMS: Platform[] = [
     endpointCount: 1,
     description:
       "AI-powered utility tools including age and gender detection from image URLs.",
+  },
+  {
+    slug: "github",
+    name: "GitHub",
+    endpointCount: 12,
+    description:
+      "Users, repositories, issues, pull requests, READMEs, releases, issue/PR search, and composite repo dossier + user profile-velocity reports. Backed by the official GitHub REST API.",
+  },
+  {
+    slug: "hackernews",
+    name: "Hacker News",
+    endpointCount: 4,
+    description:
+      "Story search, story details, story comment trees, and user profiles. Backed by the public Algolia HN API.",
+  },
+  {
+    slug: "polymarket",
+    name: "Polymarket",
+    endpointCount: 2,
+    description:
+      "Prediction-market event search and a server-side fan-out research endpoint that expands a topic across multiple queries and ranks the merged results.",
+  },
+  {
+    slug: "tavily",
+    name: "Tavily",
+    endpointCount: 4,
+    description:
+      "Web search with optional LLM-synthesised answer, content extraction from URLs, lightweight sitemap discovery, and full multi-page crawl.",
+  },
+  {
+    slug: "perplexity",
+    name: "Perplexity",
+    endpointCount: 1,
+    description:
+      "Web research via Perplexity Sonar — returns a grounded answer with cited source URLs.",
+  },
+  {
+    slug: "search",
+    name: "Universal Search",
+    endpointCount: 1,
+    description:
+      "Meta-search across 12 platforms in a single call. LLM-planned, RRF-fused, LLM-reranked. Flat 20 credits per call.",
   },
 ];
 

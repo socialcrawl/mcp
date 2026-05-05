@@ -11,7 +11,7 @@ import type { Endpoint } from "../types.js";
 const HANDWRITTEN: Record<string, string> = {
   overview: `# SocialCrawl API
 
-Unified social media data API. One API key, one response format, 21 platforms, 108 endpoints.
+Unified social media data API. One API key, one response format, 27 platforms, 133 endpoints.
 
 ## Base URL
 
@@ -80,8 +80,10 @@ Every request costs credits. The MCP server pre-calculates cost from the endpoin
 | Tier | Cost per request | Typical use |
 |------|------------------|-------------|
 | standard | 1 credit | Profile, post, comment, search endpoints |
-| advanced | 5 credits | Trending feeds, audience analytics, ad transparency |
-| premium | 10 credits | AI-powered utilities (e.g. transcript generation, age/gender detection) |
+| advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composite endpoints, Polymarket research |
+| premium | 10 credits | AI-powered utilities (transcript generation, age/gender detection, GitHub user/profile-velocity) |
+
+A single endpoint overrides this ladder: \`GET /v1/search/everywhere\` (universal meta-search) costs a flat **20 credits** because it fans out across 12 platforms in parallel.
 
 ## Caching
 

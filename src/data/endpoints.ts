@@ -1266,6 +1266,27 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Returns the transcript of a video attached to a tweet. Supports auto-generated captions.",
   },
+  {
+    platform: "twitter",
+    resource: "ai-search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Natural-language prompt — answered by Grok with autonomous X (Twitter) search", example: "What is Elon Musk saying about xAI this week?" },
+    ],
+    optionalParams: [
+      { name: "from_handles", type: "string", description: "Comma-separated list of X handles to restrict the search to (max 10). Mutually exclusive with exclude_handles." },
+      { name: "exclude_handles", type: "string", description: "Comma-separated list of X handles to exclude from the search (max 10). Mutually exclusive with from_handles." },
+      { name: "from_date", type: "string", description: "ISO 8601 YYYY-MM-DD lower bound on tweet recency." },
+      { name: "to_date", type: "string", description: "ISO 8601 YYYY-MM-DD upper bound on tweet recency." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "AI-powered X (Twitter) search via Grok",
+    description:
+      "Calls xAI Grok 4.20 Reasoning with the built-in x_search tool to answer a natural-language question about X. Returns { answer, sources, tool_calls_count } where sources are the X URLs Grok cited. Supports handle filters and date ranges.",
+  },
   // --- linkedin (6 endpoints) ---
   {
     platform: "linkedin",
@@ -1986,6 +2007,483 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Detect age and gender",
     description:
       "Uses AI to detect the estimated age and gender of a person from an image URL. Returns age estimate, gender, and confidence score.",
+  },
+  // --- github (12 endpoints) ---
+  {
+    platform: "github",
+    resource: "profile",
+    method: "GET",
+    params: [
+      { name: "handle", required: true, description: "GitHub username (login)", example: "octocat" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Author",
+    summary: "Get GitHub user profile",
+    description:
+      "Returns public profile information for a GitHub user including followers, following, public repo count, bio, avatar, and account creation date. Mapped to the unified Author archetype via the github-author field map.",
+  },
+  {
+    platform: "github",
+    resource: "profile/repos",
+    method: "GET",
+    params: [
+      { name: "handle", required: true, description: "GitHub username (login)", example: "octocat" },
+    ],
+    optionalParams: [
+      { name: "type", type: "enum", enumValues: ["all", "owner", "member"], description: "Filter by ownership relationship. Defaults to owner." },
+      { name: "sort", type: "enum", enumValues: ["created", "updated", "pushed", "full_name"], description: "Sort the results." },
+      { name: "direction", type: "enum", enumValues: ["asc", "desc"], description: "Sort direction." },
+      { name: "per_page", type: "integer", description: "Page size (1–100)." },
+      { name: "page", type: "integer", description: "1-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "List a user's repositories",
+    description:
+      "Returns a paginated list of public repositories owned by a GitHub user, with stars, forks, language, and last-pushed timestamp.",
+  },
+  {
+    platform: "github",
+    resource: "repo",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL (https://github.com/{owner}/{repo})", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Author",
+    summary: "Get repository details",
+    description:
+      "Returns detailed metadata about a public GitHub repository including stars, forks, open issues, watchers, default branch, license, and description. Mapped to the unified Author archetype via the github-repo field map (stars → followers, forks → following).",
+  },
+  {
+    platform: "github",
+    resource: "repo/readme",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Post",
+    summary: "Get repository README",
+    description:
+      "Fetches the rendered README contents of a public GitHub repository as raw markdown. Uses Accept: application/vnd.github.raw+json upstream so the body is the file contents, not a base64-wrapped JSON envelope.",
+  },
+  {
+    platform: "github",
+    resource: "repo/releases",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [
+      { name: "per_page", type: "integer", description: "Page size (1–100)." },
+      { name: "page", type: "integer", description: "1-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "List repository releases",
+    description:
+      "Returns a paginated list of releases for a public GitHub repository, including tag, name, body, author, draft/prerelease flags, and published timestamp.",
+  },
+  {
+    platform: "github",
+    resource: "repo/issues",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [
+      { name: "state", type: "enum", enumValues: ["open", "closed", "all"], description: "Filter by issue state. Defaults to open." },
+      { name: "labels", type: "string", description: "Comma-separated list of label names to filter by." },
+      { name: "sort", type: "enum", enumValues: ["created", "updated", "comments"], description: "Sort by." },
+      { name: "direction", type: "enum", enumValues: ["asc", "desc"], description: "Sort direction." },
+      { name: "since", type: "string", description: "ISO 8601 timestamp — only issues updated at or after this time." },
+      { name: "per_page", type: "integer", description: "Page size (1–100)." },
+      { name: "page", type: "integer", description: "1-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "List repository issues",
+    description:
+      "Returns a paginated list of issues for a public GitHub repository. NOTE: GitHub's /issues endpoint returns pull requests too — every PR is also an issue under the hood. Filter by checking the pull_request field on each item.",
+  },
+  {
+    platform: "github",
+    resource: "issue",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub issue or pull-request URL (https://github.com/{owner}/{repo}/issues/{n} or .../pull/{n})", example: "https://github.com/facebook/react/issues/1" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Post",
+    summary: "Get issue or pull-request details",
+    description:
+      "Returns detailed information about a GitHub issue or pull request including title, body, state, labels, author, assignees, reactions, comment count, and creation timestamp. Mapped to the unified Post archetype via the github-post field map (title → content.text, reactions.total_count → engagement.likes).",
+  },
+  {
+    platform: "github",
+    resource: "issue/comments",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub issue or pull-request URL", example: "https://github.com/facebook/react/issues/1" },
+    ],
+    optionalParams: [
+      { name: "sort", type: "enum", enumValues: ["created", "updated"], description: "Sort by." },
+      { name: "direction", type: "enum", enumValues: ["asc", "desc"], description: "Sort direction." },
+      { name: "since", type: "string", description: "ISO 8601 timestamp — only comments updated at or after this time." },
+      { name: "per_page", type: "integer", description: "Page size (1–100)." },
+      { name: "page", type: "integer", description: "1-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "CommentList",
+    summary: "List issue or pull-request comments",
+    description:
+      "Returns a paginated list of comments on a GitHub issue or pull request. Each comment includes the author, body, reactions, and creation timestamp.",
+  },
+  {
+    platform: "github",
+    resource: "search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "GitHub search query — supports the full GitHub issues/PRs query syntax (e.g. is:issue is:open label:bug)", example: "claude code repo:anthropics/claude-code is:issue is:open" },
+    ],
+    optionalParams: [
+      { name: "sort", type: "enum", enumValues: ["comments", "reactions", "reactions-+1", "reactions--1", "reactions-smile", "reactions-thinking_face", "reactions-heart", "reactions-tada", "interactions", "created", "updated"], description: "Sort field." },
+      { name: "order", type: "enum", enumValues: ["asc", "desc"], description: "Sort order." },
+      { name: "per_page", type: "integer", description: "Page size (1–100)." },
+      { name: "page", type: "integer", description: "1-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Search issues and pull requests",
+    description:
+      "Searches issues and pull requests across GitHub using the same query syntax as github.com search. Subject to GitHub's 30 req/min search rate limit shared across all SocialCrawl callers; cache hits are free.",
+  },
+  {
+    platform: "github",
+    resource: "repo/top-issues",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Top feature request and complaint for a repo",
+    description:
+      "Composite endpoint — runs 2-3 server-side searches against the repository to surface the top open feature request (sorted by reactions) and the top open complaint (sorted by comment count). Returns { top_feature_request, top_complaint }; either can be null. 404s with auto-refund if both are null.",
+  },
+  {
+    platform: "github",
+    resource: "repo/dossier",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Canonical GitHub repository URL", example: "https://github.com/facebook/react" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Repository dossier (info + readme + releases + top issues)",
+    description:
+      "Composite endpoint — runs 5 GitHub calls in parallel and returns { info, readme, releases, top_issues } as a single dossier. Repo info is the critical call; if it 404s the whole composite refunds. README, releases, and top-issue searches degrade gracefully on partial failure.",
+  },
+  {
+    platform: "github",
+    resource: "user/profile-velocity",
+    method: "GET",
+    params: [
+      { name: "handle", required: true, description: "GitHub username (login)", example: "octocat" },
+    ],
+    optionalParams: [
+      { name: "depth", type: "enum", enumValues: ["quick", "default", "deep"], description: "How wide to fan out: quick = 3 own repos + 5 external; default = 5 own + 10 external; deep = 5 own + 15 external. Default is 'default'." },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "Analytics",
+    summary: "User PR velocity + contribution dossier",
+    description:
+      "Composite endpoint — fans out 5–15 GitHub calls in three phases: PR velocity totals, own-repos discovery, and per-repo enrichment for both contributed-to and own repos. Returns { velocity, contributed_repos, own_repos }. Critical call is the user's repo list; 404s on nonexistent users with auto-refund.",
+  },
+  // --- hackernews (4 endpoints) ---
+  {
+    platform: "hackernews",
+    resource: "search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword or phrase to find Hacker News stories", example: "claude code" },
+    ],
+    optionalParams: [
+      { name: "tags", type: "string", description: "Algolia tag filter (e.g. 'story', 'comment', 'poll'). Defaults to 'story'." },
+      { name: "numericFilters", type: "string", description: "Algolia numeric filter expression (e.g. 'points>2'). Defaults to 'points>2'." },
+      { name: "hitsPerPage", type: "integer", description: "Results per page (1–1000). Defaults to 30." },
+      { name: "page", type: "integer", description: "0-indexed page number." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "Search Hacker News stories",
+    description:
+      "Searches Hacker News (via the public Algolia HN API) for stories matching a keyword query. Returns hits with title, url, author, points, comment count, and creation timestamp. Algolia's _highlightResult / _snippetResult / children fields are stripped server-side to keep payloads lean.",
+  },
+  {
+    platform: "hackernews",
+    resource: "story",
+    method: "GET",
+    params: [
+      { name: "id", required: true, description: "Hacker News story id (numeric)", example: "8863" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Post",
+    summary: "Get Hacker News story details",
+    description:
+      "Returns detailed metadata about a single Hacker News story including title, url, author, points, comment count, and creation timestamp. Mapped to the unified Post archetype via the hackernews-post field map.",
+  },
+  {
+    platform: "hackernews",
+    resource: "story/comments",
+    method: "GET",
+    params: [
+      { name: "id", required: true, description: "Hacker News story id (numeric)", example: "8863" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "CommentList",
+    summary: "Get Hacker News comment tree",
+    description:
+      "Returns the full nested comment tree for a Hacker News story. Each comment carries author, text, points, parent_id, story_id, and recursive children replies.",
+  },
+  {
+    platform: "hackernews",
+    resource: "profile",
+    method: "GET",
+    params: [
+      { name: "handle", required: true, description: "Hacker News username", example: "pg" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Author",
+    summary: "Get Hacker News user profile",
+    description:
+      "Returns public profile information for a Hacker News user including karma, about/bio, and account creation timestamp. HN has no follower/following/avatar concept; those fields resolve to null.",
+  },
+  // --- polymarket (2 endpoints) ---
+  {
+    platform: "polymarket",
+    resource: "search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Free-text search query against Polymarket Gamma's public-search index", example: "trump" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Search active Polymarket events",
+    description:
+      "Returns active prediction-market events matching a keyword. Each event carries the canonical Polymarket Gamma shape (outcomes, outcomePrices, volume, liquidity, end date, etc.) — no field mapping is applied. Closed markets are excluded upstream.",
+  },
+  {
+    platform: "polymarket",
+    resource: "research",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Natural-language research topic — framing prefixes like 'last 30 days …' or 'what are people saying about …' are stripped server-side", example: "last 30 days bitcoin halving" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "Server-side fan-out research over Polymarket",
+    description:
+      "Server-side topic expansion + ranking. Strips framing, expands the topic into up to 6 deduped sub-queries, fans out in parallel against Polymarket Gamma, dedupes by event id, applies a topic filter, and returns events sorted by text similarity. Partial-success: if at least one sub-call succeeds the merged result is returned.",
+  },
+  // --- tavily (4 endpoints) ---
+  {
+    platform: "tavily",
+    resource: "search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Free-text web-search query", example: "who founded anthropic" },
+    ],
+    optionalParams: [
+      { name: "search_depth", type: "enum", enumValues: ["basic", "advanced", "fast", "ultra-fast"], description: "Search depth. Defaults to basic." },
+      { name: "topic", type: "enum", enumValues: ["general", "news", "finance"], description: "Topic vertical. Defaults to general." },
+      { name: "time_range", type: "enum", enumValues: ["day", "week", "month", "year", "d", "w", "m", "y"], description: "Recency window." },
+      { name: "max_results", type: "integer", description: "1–20. Defaults to 5." },
+      { name: "chunks_per_source", type: "integer", description: "1–5. Only honoured when search_depth=advanced." },
+      { name: "include_images", type: "boolean", description: "Include images in results." },
+      { name: "include_image_descriptions", type: "boolean", description: "Include AI captions for returned images." },
+      { name: "include_answer", type: "boolean", description: "Include an LLM-synthesised answer string alongside ranked results — Tavily's main differentiator." },
+      { name: "include_raw_content", type: "boolean", description: "Include raw HTML/text alongside cleaned content." },
+      { name: "include_domains", type: "string", description: "Comma-separated list of domains to restrict results to." },
+      { name: "exclude_domains", type: "string", description: "Comma-separated list of domains to exclude from results." },
+      { name: "country", type: "string", description: "ISO 3166-1 alpha-2 country code." },
+      { name: "start_date", type: "string", description: "YYYY-MM-DD lower bound." },
+      { name: "end_date", type: "string", description: "YYYY-MM-DD upper bound." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Tavily web search",
+    description:
+      "Web search returning ranked results plus an optional LLM-synthesised answer and metadata (suggestions, query_analysis, total_results, time_taken). Uses the Analytics archetype to preserve every top-level field — passing through SearchResult would silently drop the answer.",
+  },
+  {
+    platform: "tavily",
+    resource: "extract",
+    method: "GET",
+    params: [
+      { name: "urls", required: true, description: "Comma-separated list of up to 20 URLs to extract clean AI-ready content from", example: "https://en.wikipedia.org/wiki/Lionel_Messi" },
+    ],
+    optionalParams: [
+      { name: "extract_depth", type: "enum", enumValues: ["basic", "advanced"], description: "Extraction depth. Defaults to basic." },
+      { name: "format", type: "enum", enumValues: ["markdown", "text"], description: "Output format. Defaults to markdown." },
+      { name: "include_images", type: "boolean", description: "Include images." },
+      { name: "include_favicon", type: "boolean", description: "Include favicon." },
+      { name: "timeout", type: "integer", description: "Per-URL timeout in seconds (1–60)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Tavily URL content extraction",
+    description:
+      "Pull clean AI-ready text from up to 20 URLs in a single call. The 'urls' param accepts a comma-separated list which is split server-side into a JSON array before hitting Tavily.",
+  },
+  {
+    platform: "tavily",
+    resource: "map",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Root URL whose sitegraph should be discovered", example: "https://docs.tavily.com" },
+    ],
+    optionalParams: [
+      { name: "max_depth", type: "integer", description: "Crawl depth. Defaults to 1." },
+      { name: "max_breadth", type: "integer", description: "Per-page link cap. Defaults to 20." },
+      { name: "limit", type: "integer", description: "Total pages cap. Defaults to 50." },
+      { name: "instructions", type: "string", description: "Natural-language guidance for the mapper." },
+      { name: "select_paths", type: "string", description: "Comma-separated regex whitelist for paths." },
+      { name: "select_domains", type: "string", description: "Comma-separated regex whitelist for domains." },
+      { name: "exclude_paths", type: "string", description: "Comma-separated regex blacklist for paths." },
+      { name: "exclude_domains", type: "string", description: "Comma-separated regex blacklist for domains." },
+      { name: "allow_external", type: "boolean", description: "Allow following links outside the root domain. Defaults to true." },
+      { name: "timeout", type: "integer", description: "Total timeout in seconds (10–150)." },
+      { name: "categories", type: "string", description: "Comma-separated category hints." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Tavily lightweight sitegraph",
+    description:
+      "Returns URLs only — no full content. Cheaper and faster than crawl when you only need to enumerate pages.",
+  },
+  {
+    platform: "tavily",
+    resource: "crawl",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Root URL to crawl", example: "https://docs.tavily.com" },
+    ],
+    optionalParams: [
+      { name: "max_depth", type: "integer", description: "Crawl depth." },
+      { name: "max_breadth", type: "integer", description: "Per-page link cap." },
+      { name: "limit", type: "integer", description: "Total pages cap." },
+      { name: "instructions", type: "string", description: "Natural-language guidance — the LLM uses this to score which paths to follow." },
+      { name: "select_paths", type: "string", description: "Comma-separated regex whitelist for paths." },
+      { name: "select_domains", type: "string", description: "Comma-separated regex whitelist for domains." },
+      { name: "exclude_paths", type: "string", description: "Comma-separated regex blacklist for paths." },
+      { name: "exclude_domains", type: "string", description: "Comma-separated regex blacklist for domains." },
+      { name: "allow_external", type: "boolean", description: "Allow following links outside the root domain." },
+      { name: "extract_depth", type: "enum", enumValues: ["basic", "advanced"], description: "Per-page extraction strategy." },
+      { name: "format", type: "enum", enumValues: ["markdown", "text"], description: "Output format." },
+      { name: "categories", type: "string", description: "Comma-separated category hints." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Tavily multi-page crawl",
+    description:
+      "Multi-page crawl with per-page extraction. LLM-driven path selection when 'instructions' is set. Heavier than map; use map first if you only need URLs.",
+  },
+  // --- perplexity (1 endpoint) ---
+  {
+    platform: "perplexity",
+    resource: "research",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Natural-language research prompt", example: "What is the capital of France?" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Web research via Perplexity Sonar",
+    description:
+      "Calls Perplexity Sonar through the Vercel AI Gateway and returns { answer, sources } where sources are the URLs the model cited. Sources can be empty for one-line factual answers. Cached responses are free for 120 seconds.",
+  },
+  // --- search (1 endpoint) ---
+  {
+    platform: "search",
+    resource: "everywhere",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Natural-language search query — fanned out across 12 platforms in parallel", example: "claude code review skills" },
+    ],
+    optionalParams: [
+      { name: "lookback_days", type: "integer", description: "Restrict results to the trailing N days (where supported by the underlying source)." },
+      { name: "from_date", type: "string", description: "ISO 8601 YYYY-MM-DD lower bound." },
+      { name: "to_date", type: "string", description: "ISO 8601 YYYY-MM-DD upper bound." },
+      { name: "sources", type: "string", description: "Comma-separated allowlist of source slugs (reddit, twitter-ai-search, youtube, tiktok, instagram, hackernews, polymarket, github, threads, pinterest, perplexity, tavily). Mutually exclusive with exclude." },
+      { name: "exclude", type: "string", description: "Comma-separated blocklist of source slugs. Mutually exclusive with sources." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 20,
+    archetype: "Analytics",
+    summary: "Universal search across 12 platforms",
+    description:
+      "Meta-search endpoint that fans out one query across 12 platforms (Reddit, Twitter AI search, YouTube, TikTok, Instagram, Hacker News, Polymarket, GitHub, Threads, Pinterest, Perplexity, Tavily) in parallel. Pipeline: deterministic plan → parallel LLM plan refine → fan-out → per-source mappers → dedupe → weighted RRF fusion → LLM rerank → greedy clustering. Flat 20 credits per call regardless of how many sources respond. Refunds automatically if every source returns empty. Streaming SSE is also available on the same path when Accept: text/event-stream is sent — but the MCP client receives the JSON envelope (cached, transformed, refund-on-failure).",
   },
 ];
 

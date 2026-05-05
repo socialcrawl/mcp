@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RidioDevelopment/socialcrawl",
   "title": "SocialCrawl",
-  "description": "Access 21+ social media platforms through one unified API. Profiles, posts, search.",
+  "description": "Access 27 platforms through one unified API — social media, web research (Tavily, Perplexity), GitHub, Hacker News, Polymarket, AI X-search via Grok, plus a universal /search/everywhere meta-search across 12 platforms.",
   "repository": {
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.2.0",
+  "version": "1.3.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "transport": {
         "type": "stdio"
       },
