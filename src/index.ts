@@ -15,6 +15,8 @@ import { listEndpoints } from "./tools/list-endpoints.js";
 import { request } from "./tools/request.js";
 import { checkBalance } from "./tools/check-balance.js";
 import { getDocs } from "./tools/get-docs.js";
+import { PLATFORMS } from "./data/platforms.js";
+import { ENDPOINTS } from "./data/endpoints.js";
 
 const server = new McpServer({
   name: SERVER_NAME,
@@ -25,8 +27,7 @@ server.registerTool(
   "socialcrawl_list_platforms",
   {
     title: "List SocialCrawl Platforms",
-    description:
-      "List all 21 social media platforms available through SocialCrawl. Returns platform names, endpoint counts, and descriptions. No API key required.",
+    description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce & reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, universal meta-search). Returns platform names, endpoint counts, and descriptions. No API key required.`,
     inputSchema: ListPlatformsInputSchema,
     annotations: {
       readOnlyHint: true,
@@ -46,7 +47,7 @@ server.registerTool(
   {
     title: "List Endpoints for a Platform",
     description:
-      "List all available endpoints for a specific platform with required parameters, credit costs, and response types. No API key required.",
+      "List all available endpoints for a specific platform with required + optional parameters, per-endpoint credit costs (pricing), and response types. No API key required.",
     inputSchema: ListEndpointsInputSchema,
     annotations: {
       readOnlyHint: true,
@@ -65,8 +66,7 @@ server.registerTool(
   "socialcrawl_request",
   {
     title: "Make a SocialCrawl API Request",
-    description:
-      "Make an API request to any SocialCrawl endpoint. Fetches real-time social media data (profiles, posts, comments, search results, analytics) from 21 platforms. Requires a valid SOCIALCRAWL_API_KEY. Validates platform, resource, and parameters before making the call to avoid wasting credits. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).",
+    description: `Make an API request to any SocialCrawl endpoint. Fetches real-time data (profiles, posts, comments, search results, products, reviews, apps, places, analytics) from ${PLATFORMS.length} platforms. Requires a valid SOCIALCRAWL_API_KEY. Validates platform, resource, and parameters before making the call to avoid wasting credits. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
     inputSchema: RequestInputSchema,
     annotations: {
       readOnlyHint: true,
@@ -111,7 +111,7 @@ server.registerTool(
   {
     title: "Get SocialCrawl Documentation",
     description:
-      "Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference), 'authentication', 'credits', 'errors', or any platform slug (e.g., 'tiktok') for platform-specific docs. No API key required.",
+      "Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference), 'authentication', 'credits', 'errors', 'idempotency', 'pricing' (per-endpoint cost for every endpoint), or any platform slug (e.g., 'tiktok') for platform-specific docs. No API key required.",
     inputSchema: GetDocsInputSchema,
     annotations: {
       readOnlyHint: true,

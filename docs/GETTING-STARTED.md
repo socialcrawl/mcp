@@ -6,11 +6,12 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 4 tools that let it interact with 21 social media platforms and 108 endpoints:
+Once installed, your AI agent gains 5 tools that let it interact with 39 platforms and 221 endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, and a universal meta-search:
 
 - **Discover** what platforms and endpoints are available
-- **Fetch** profiles, posts, comments, search results, trending content, and analytics
-- **Read** detailed API documentation on demand
+- **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, and analytics
+- **Read** detailed API documentation on demand, including per-endpoint pricing
+- **Check** your credit balance
 
 All data comes back in a clean, unified response envelope (`success`, `platform`, `endpoint`, `data`, `credits_used`, `credits_remaining`, `request_id`, `cached`) — the same structure whether you're querying TikTok, Instagram, YouTube, or any other platform. Only the inner `data` payload changes shape, and it's typed per archetype (`Author`, `Post`, `PostList`, etc.) so a post looks like a post no matter where it came from.
 
@@ -117,7 +118,7 @@ The agent calls `socialcrawl_request` with `platform: "instagram"`, `resource: "
 
 > "What social media platforms can you access?"
 
-The agent calls `socialcrawl_list_platforms` and shows all 21 platforms with endpoint counts.
+The agent calls `socialcrawl_list_platforms` and shows all 39 platforms with endpoint counts.
 
 > "Show me all the TikTok endpoints"
 
@@ -145,7 +146,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Input:** None.
 
-**Output:** A table of all 21 platforms with their slug, endpoint count, and description of available data.
+**Output:** A table of all 39 platforms with their slug, endpoint count, and description of available data.
 
 **No API key required.** This queries local bundled data.
 

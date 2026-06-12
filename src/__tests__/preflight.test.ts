@@ -26,7 +26,7 @@ describe("Pre-flight validation", () => {
   });
 
   it("passes validation for endpoints with no required params", async () => {
-    const result = await request({ platform: "tiktok", resource: "songs/popular" });
+    const result = await request({ platform: "youtube", resource: "shorts/trending" });
     expect(result).toContain("No API key configured");
   });
 

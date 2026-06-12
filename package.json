@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.3.0",
-  "description": "MCP server for SocialCrawl — access 27 platforms (social media, web research, prediction markets, universal meta-search) through one unified API",
+  "version": "1.4.0",
+  "description": "MCP server for SocialCrawl — access 39 platforms and 221 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, universal meta-search) through one unified API",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -15,6 +15,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "clean": "rm -rf dist",
+    "generate:data": "tsx scripts/generate-data.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build"

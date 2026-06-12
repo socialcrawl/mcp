@@ -4,8 +4,8 @@ import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoin
 import { DOCS, getDoc, getAvailableTopics } from "../data/docs.js";
 
 describe("Platform data integrity", () => {
-  it("has exactly 27 platforms", () => {
-    expect(PLATFORMS).toHaveLength(27);
+  it("has exactly 39 platforms", () => {
+    expect(PLATFORMS).toHaveLength(39);
   });
 
   it("every platform has a non-empty slug, name, and description", () => {
@@ -32,14 +32,14 @@ describe("Platform data integrity", () => {
     expect(findPlatform("nonexistent")).toBeUndefined();
   });
 
-  it("getAllPlatformSlugs returns 27 slugs", () => {
-    expect(getAllPlatformSlugs()).toHaveLength(27);
+  it("getAllPlatformSlugs returns 39 slugs", () => {
+    expect(getAllPlatformSlugs()).toHaveLength(39);
   });
 });
 
 describe("Endpoint data integrity", () => {
-  it("has exactly 133 endpoints", () => {
-    expect(ENDPOINTS.length).toBe(133);
+  it("has exactly 221 endpoints", () => {
+    expect(ENDPOINTS.length).toBe(221);
   });
 
   it("every endpoint has required fields", () => {
@@ -96,8 +96,9 @@ describe("Endpoint data integrity", () => {
     const ep = findEndpoint("tiktok", "profile");
     expect(ep).toBeDefined();
     expect(ep!.archetype).toBe("Author");
-    expect(ep!.params.length).toBeGreaterThan(0);
-    expect(ep!.params[0].name).toBe("handle");
+    // handle/user_id are a oneOf group: at least one must be provided.
+    expect(ep!.oneOfGroups).toEqual([["handle", "user_id"]]);
+    expect(ep!.optionalParams.map((p) => p.name)).toContain("handle");
   });
 
   it("findEndpoint returns undefined for unknown resource", () => {
@@ -168,12 +169,38 @@ describe("Documentation data integrity", () => {
     expect(getDoc("nonexistent")).toBeUndefined();
   });
 
-  it("getAvailableTopics returns at least 26 topics", () => {
-    expect(getAvailableTopics().length).toBeGreaterThanOrEqual(26);
+  it("getAvailableTopics returns 7 fixed topics + one per platform", () => {
+    expect(getAvailableTopics()).toHaveLength(7 + PLATFORMS.length);
   });
 
-  it("getAvailableTopics includes the new idempotency topic", () => {
+  it("getAvailableTopics includes the idempotency and pricing topics", () => {
     expect(getAvailableTopics()).toContain("idempotency");
+    expect(getAvailableTopics()).toContain("pricing");
+  });
+});
+
+describe("Pricing documentation", () => {
+  it("has a pricing topic", () => {
+    expect(getDoc("pricing")).toBeTruthy();
+  });
+
+  it("lists every endpoint with its credit cost", () => {
+    const pricing = getDoc("pricing")!;
+    for (const e of ENDPOINTS) {
+      expect(
+        pricing,
+        `pricing doc missing /v1/${e.platform}/${e.resource}`,
+      ).toContain(`| \`GET /v1/${e.platform}/${e.resource}\` | ${e.creditCost}cr | ${e.creditTier} |`);
+    }
+  });
+
+  it("documents the flat 20-credit override for search/everywhere", () => {
+    const pricing = getDoc("pricing")!;
+    expect(pricing).toContain("| flat override | 20 credits | `/v1/search/everywhere` |");
+  });
+
+  it("stays under the 25k truncation limit so it is never cut off", () => {
+    expect(getDoc("pricing")!.length).toBeLessThanOrEqual(25_000);
   });
 });
 

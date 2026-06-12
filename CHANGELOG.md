@@ -4,6 +4,67 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-12
+
+Full re-sync with the backend registry, bringing total coverage from
+27 platforms / 133 endpoints to **39 platforms / 221 active endpoints**.
+The data layer is now generated straight from the backend registry via a
+durable pipeline (`scripts/generate-data.ts` + the backend's
+`extract-mcp-data.ts`) instead of one-off extraction scripts.
+
+### Added
+
+- **Commerce & product reviews** — Amazon (5: product search, ASIN
+  detail, reviews, sellers, shop pages) and Google Shopping (4: product
+  search, product detail, cross-retailer reviews, sellers).
+- **App stores** — Google Play (8) and Apple App Store (8): app search,
+  full app details, reviews, store charts, the premium listings-search
+  database, and categories/locations/languages reference data.
+- **Places & travel** — Tripadvisor (2: place search, traveler reviews)
+  and Google Business Profile / Travel under `google` (info, extended
+  reviews, owner updates, Q&A, hotel search, hotel details).
+- **Business reputation** — Trustpilot (2: business search, company
+  reviews).
+- **Naver** (11) — Korea's #1 search portal: blog, news, book,
+  encyclopedia, cafe article, KiN, local, shopping, doc, image, web.
+- **Content Analysis** (10) — cross-web brand mentions with 6-axis
+  sentiment, summaries, rating distributions, phrase/category trends,
+  and reference data.
+- **New social platforms** — Kwai (3), Bluesky (3), Rumble (5),
+  Spotify (6), TikTok Shop (5, split out of `tiktok`).
+- **Many endpoint additions on existing platforms** — Facebook events +
+  Marketplace + ad transcripts (now 21), TikTok comment replies / songs
+  / profile region (18), Instagram trending reels + hashtag/profile
+  search (15), YouTube sponsors / playlists / lives / community posts
+  (16), LinkedIn post search + transcripts (8), Pinterest url-stats (5),
+  Twitch videos + schedules (4).
+- **`pricing` docs topic** — `socialcrawl_get_docs` now serves a
+  generated per-endpoint pricing reference: tier ladder with live
+  counts, flat overrides, and the cost of every endpoint grouped by
+  platform. Computed from the endpoint data so it can never drift.
+- **`npm run generate:data`** — regenerates `src/data/endpoints.ts` and
+  `src/data/platforms.ts` from `registry-dump.json` (produced by the
+  backend's `packages/social-api/scripts/extract-mcp-data.ts`).
+
+### Changed
+
+- Tool descriptions, README, badges, `server.json`, and the platform
+  table now report 39 platforms / 221 endpoints, with counts computed
+  from the bundled data instead of hardcoded strings.
+- `credits` docs topic expanded: tier examples cover the commerce /
+  app-store / content-analysis surfaces and point to the new `pricing`
+  topic.
+- Endpoint data now reflects current registry semantics — e.g.
+  `tiktok/profile` accepts `handle` OR `user_id` (oneOf group).
+
+### Removed
+
+- Soft-disabled endpoints are no longer advertised (they 503 at the
+  router): TikTok Creative Center (`songs/popular`, `creators/popular`,
+  `hashtags/popular`, `videos/popular`), `reddit/ad` + `reddit/ads/search`
+  (dropped upstream), SoundCloud (all 3, broken upstream), and
+  `polymarket/search`.
+
 ## [1.3.0] - 2026-05-05
 
 Adds 6 new platforms and 25 new endpoints, bringing total coverage to

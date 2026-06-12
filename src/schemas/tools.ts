@@ -40,6 +40,6 @@ export const GetDocsInputSchema = z.object({
     .optional()
     .default("overview")
     .describe(
-      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'errors', 'idempotency', or a platform slug (e.g., 'tiktok')",
+      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'errors', 'idempotency', 'pricing', or a platform slug (e.g., 'tiktok')",
     ),
 }).strict();

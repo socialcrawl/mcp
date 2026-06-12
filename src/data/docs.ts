@@ -11,7 +11,7 @@ import type { Endpoint } from "../types.js";
 const HANDWRITTEN: Record<string, string> = {
   overview: `# SocialCrawl API
 
-Unified social media data API. One API key, one response format, 27 platforms, 133 endpoints.
+Unified social media data API. One API key, one response format, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Korean search (Naver), content/sentiment analysis, and universal meta-search.
 
 ## Base URL
 
@@ -30,8 +30,9 @@ ${PLATFORMS.map((p) => `- ${p.slug} (${p.endpointCount} endpoint${p.endpointCoun
 - Standard: 1 credit per request
 - Advanced: 5 credits per request
 - Premium: 10 credits per request
+- Flat overrides: \`GET /v1/search/everywhere\` costs a flat 20 credits
 
-Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, AI-powered utilities) cost 5 or 10.
+Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, commerce/app-store data, content analysis, AI-powered utilities) cost 5 or 10. Use the \`pricing\` docs topic for the cost of every individual endpoint.
 
 ## Meta Endpoints
 
@@ -79,11 +80,13 @@ Every request costs credits. The MCP server pre-calculates cost from the endpoin
 
 | Tier | Cost per request | Typical use |
 |------|------------------|-------------|
-| standard | 1 credit | Profile, post, comment, search endpoints |
-| advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composite endpoints, Polymarket research |
-| premium | 10 credits | AI-powered utilities (transcript generation, age/gender detection, GitHub user/profile-velocity) |
+| standard | 1 credit | Profile, post, comment, and search endpoints; static reference data (app-store categories/locations/languages) |
+| advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composites, Polymarket research, Amazon/Google Shopping product detail, Trustpilot reviews, Google Business reviews/Q&A, hotel details, app-store search/info/reviews/charts, content-analysis aggregates |
+| premium | 10 credits | AI-powered utilities (transcript generation, age/gender detection, GitHub user/profile-velocity) and the app-store listings-search database (Google Play / App Store \`app-listings-search\`) |
 
-A single endpoint overrides this ladder: \`GET /v1/search/everywhere\` (universal meta-search) costs a flat **20 credits** because it fans out across 12 platforms in parallel.
+A single endpoint overrides this ladder: \`GET /v1/search/everywhere\` (universal meta-search) costs a flat **20 credits** because it fans out across 12+ platforms in parallel.
+
+For the exact cost of every endpoint, use the \`pricing\` docs topic — it lists all ${ENDPOINTS.length} endpoints with their per-request cost. \`socialcrawl_list_endpoints\` also shows the cost per endpoint for a single platform, and \`socialcrawl_request\` echoes the cost in its response header.
 
 ## Caching
 
@@ -256,6 +259,58 @@ function buildEndpointBlock(e: Endpoint): string {
   return lines.join("\n");
 }
 
+/**
+ * Per-endpoint pricing reference, generated from ENDPOINTS so it can never
+ * drift from the registry-derived data. Tier counts, overrides, and the
+ * full per-platform cost table are all computed.
+ */
+function buildPricingDoc(): string {
+  const tierCounts = { standard: 0, advanced: 0, premium: 0 };
+  const overrides: Endpoint[] = [];
+  for (const e of ENDPOINTS) {
+    tierCounts[e.creditTier] += 1;
+    const ladder = { standard: 1, advanced: 5, premium: 10 }[e.creditTier];
+    if (e.creditCost !== ladder) overrides.push(e);
+  }
+
+  const lines: string[] = [
+    "# SocialCrawl API — Per-Endpoint Pricing",
+    "",
+    `Every one of the ${ENDPOINTS.length} endpoints is billed in credits per request. Three tiers plus flat per-endpoint overrides:`,
+    "",
+    "| Tier | Cost | Endpoints |",
+    "|------|------|-----------|",
+    `| standard | 1 credit | ${tierCounts.standard} |`,
+    `| advanced | 5 credits | ${tierCounts.advanced} |`,
+    `| premium | 10 credits | ${tierCounts.premium} |`,
+    ...overrides.map(
+      (e) =>
+        `| flat override | ${e.creditCost} credits | \`/v1/${e.platform}/${e.resource}\` |`,
+    ),
+    "",
+    "Cache hits, idempotent replays, and `GET /v1/credits/balance` cost 0 credits. Empty upstream results (404 RESOURCE_NOT_FOUND), upstream errors (502), circuit-breaker rejections (503), and internal errors (500) are auto-refunded — see the `credits` topic.",
+    "",
+    "## Cost per endpoint",
+    "",
+  ];
+
+  for (const platform of PLATFORMS) {
+    const endpoints = getEndpointsByPlatform(platform.slug);
+    lines.push(`### ${platform.name} (\`${platform.slug}\`)`);
+    lines.push("");
+    lines.push("| Endpoint | Cost | Tier |");
+    lines.push("|----------|------|------|");
+    for (const e of endpoints) {
+      lines.push(
+        `| \`GET /v1/${e.platform}/${e.resource}\` | ${e.creditCost}cr | ${e.creditTier} |`,
+      );
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
 function buildPlatformDoc(slug: string): string {
   const platform = PLATFORMS.find((p) => p.slug === slug);
   if (!platform) return "";
@@ -337,6 +392,7 @@ export const DOCS: Record<string, string> = (() => {
     credits: HANDWRITTEN.credits,
     errors: HANDWRITTEN.errors,
     idempotency: HANDWRITTEN.idempotency,
+    pricing: buildPricingDoc(),
     full: buildFullDoc(),
   };
   for (const platform of PLATFORMS) {
@@ -357,9 +413,7 @@ export function getAvailableTopics(): string[] {
     "credits",
     "errors",
     "idempotency",
+    "pricing",
     ...PLATFORMS.map((p) => p.slug),
   ];
 }
-
-// Silence unused-import warning if tree-shakers ever prune the re-read of ENDPOINTS.
-void ENDPOINTS;

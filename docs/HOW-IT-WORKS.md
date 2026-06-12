@@ -21,7 +21,7 @@ SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
-Social Media Platforms (21 platforms)
+Data Platforms (39 platforms)
 ```
 
 The MCP server exposes 4 tools. Three of them (list_platforms, list_endpoints, get_docs) query local bundled data and work without an API key or network connection. One tool (request) makes actual API calls.
@@ -57,8 +57,8 @@ src/
 │   ├── get-docs.ts       # Retrieves bundled documentation
 │   └── request.ts        # Pre-flight validation + API call execution
 ├── data/
-│   ├── platforms.ts      # 21 platforms with metadata
-│   ├── endpoints.ts      # 108 endpoints with full parameter definitions
+│   ├── platforms.ts      # 39 platforms with metadata
+│   ├── endpoints.ts      # 221 endpoints with full parameter definitions
 │   └── docs.ts           # Bundled llms.txt documentation (26 topics)
 └── schemas/
     └── tools.ts          # Zod input validation schemas for all 4 tools
@@ -99,7 +99,7 @@ Smart agents learn the API structure after 1-2 discovery calls and skip straight
 
 The MCP bundles all SocialCrawl knowledge as static TypeScript data. This means the discovery and documentation tools work without any network calls.
 
-### `data/platforms.ts` — 21 Platforms
+### `data/platforms.ts` — 39 Platforms
 
 A static array of platform metadata:
 
@@ -114,7 +114,7 @@ interface Platform {
 
 Queried by `socialcrawl_list_platforms` and used for pre-flight validation in `socialcrawl_request`.
 
-### `data/endpoints.ts` — 108 Endpoints
+### `data/endpoints.ts` — 221 Endpoints
 
 A static array of every endpoint definition:
 
@@ -243,7 +243,7 @@ Every successful `socialcrawl_request` call returns the same top-level shape, re
 }
 ```
 
-The envelope is stable across all 108 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
+The envelope is stable across all 221 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
 
 ### Response Truncation
 
@@ -323,7 +323,7 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| Data integrity | 18 | All 21 platforms present, 108 endpoints valid, 26 doc topics exist, no duplicates, counts match |
+| Data integrity | 18 | All 39 platforms present, 221 endpoints valid, all doc topics exist, no duplicates, counts match |
 | Pre-flight validation | 5 | Bad platform/resource/params caught locally, no-param endpoints pass through |
 | API client | 9 | URL building, API key handling, HTTP error mapping for all status codes |
 | Response truncation | 3 | Under-limit untouched, over-limit truncated, full length reported |

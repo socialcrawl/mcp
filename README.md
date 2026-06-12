@@ -2,12 +2,12 @@
 
 # socialcrawl-mcp
 
-**Give your AI agent access to 27 platforms — social media, web research, prediction markets, and a universal cross-platform meta-search — through a single API**
+**Give your AI agent access to 39 platforms — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, and a universal cross-platform meta-search — through a single API**
 
 [![npm](https://img.shields.io/npm/v/socialcrawl-mcp?style=flat-square&color=blue)](https://www.npmjs.com/package/socialcrawl-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-green?style=flat-square)](https://registry.modelcontextprotocol.io)
-[![Platforms](https://img.shields.io/badge/Platforms-27-blue?style=flat-square)](https://socialcrawl.dev)
-[![Endpoints](https://img.shields.io/badge/Endpoints-133-green?style=flat-square)](https://socialcrawl.dev/docs)
+[![Platforms](https://img.shields.io/badge/Platforms-39-blue?style=flat-square)](https://socialcrawl.dev)
+[![Endpoints](https://img.shields.io/badge/Endpoints-221-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![mcp MCP server](https://glama.ai/mcp/servers/socialcrawl/mcp/badges/score.svg)](https://glama.ai/mcp/servers/socialcrawl/mcp)
 
@@ -23,9 +23,9 @@
 
 ## Overview
 
-`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 27 platforms and 133 endpoints.
+`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 39 platforms and 221 endpoints.
 
-Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, GitHub, Hacker News, Polymarket, and 18 more platforms — plus web research via Tavily and Perplexity, AI-powered X search via Grok, and a single `/search/everywhere` endpoint that fans out across 12 sources in one call. One API key, one consistent response format, every platform.
+Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, GitHub, Hacker News, Polymarket, and 30 more platforms. Pull products, reviews, and sellers from Amazon and Google Shopping; apps, charts, and reviews from Google Play and the Apple App Store; places, hotels, and traveler reviews from Tripadvisor and Google Business; brand reputation from Trustpilot; Korean search across 11 Naver corpora; cross-web brand mentions with sentiment via Content Analysis — plus web research via Tavily and Perplexity, AI-powered X search via Grok, and a single `/search/everywhere` endpoint that fans out across 12+ sources in one call. One API key, one consistent response format, every platform.
 
 **What the MCP server does:**
 - Discovers available platforms and endpoints dynamically
@@ -228,7 +228,7 @@ The MCP server exposes 5 tools:
 
 | Tool | Description | Needs API key? |
 |------|-------------|----------------|
-| `socialcrawl_list_platforms` | Discover all 21 platforms with their endpoints and capabilities | No |
+| `socialcrawl_list_platforms` | Discover all 39 platforms with their endpoints and capabilities | No |
 | `socialcrawl_list_endpoints` | See all endpoints, required parameters, and credit costs for a platform | No |
 | `socialcrawl_request` | Make any SocialCrawl API call — profiles, posts, comments, search, analytics. Supports an optional `idempotencyKey` for retry-safe calls. | Yes |
 | `socialcrawl_check_balance` | Check remaining credits and recent deduction summary. Calls `/v1/credits/balance` — costs 0 credits. | Yes |
@@ -248,27 +248,39 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 
 | Platform | Endpoints | Data Available |
 |----------|-----------|----------------|
-| **TikTok** | 26 | Profiles, videos, comments, followers, search, trending, live, Shop, showcase |
-| **Instagram** | 12 | Profiles, posts, reels, comments, highlights, search |
-| **YouTube** | 12 | Channels, videos, shorts, playlists, comments, trending, comment replies |
-| **Facebook** | 12 | Profiles, posts, reels, photos, groups, Ad Library |
+| **Facebook** | 21 | Pages, posts, comments, groups, photos, reels, events, Marketplace, transcripts, full Ad Library |
+| **TikTok** | 18 | Profiles, videos, comments & replies, search, trending, audience, followers, live, songs, transcripts |
+| **YouTube** | 16 | Channels, videos, shorts, comments & replies, sponsors, playlists, community posts, search, trending, transcripts |
+| **Instagram** | 15 | Profiles, posts, reels, comments, highlights, search, trending reels, audio reels, embed, transcripts |
 | **GitHub** | 12 | Users, repos, issues, PRs, READMEs, releases, search, repo dossier, user profile-velocity |
+| **Naver** | 11 | Korea's #1 portal — blog, news, book, encyclopedia, cafe, KiN, local, shopping, doc, image, web search |
+| **Google** | 10 | Web search, Ads Transparency, Business Profile (info, reviews, updates, Q&A), Travel hotels |
+| **Content Analysis** | 10 | Cross-web brand mentions, sentiment, rating distributions, phrase/category trends |
+| **Google Play** | 8 | App search, app details, reviews, charts, listings database, reference data |
+| **Apple App Store** | 8 | App search, app details, reviews, charts, listings database, reference data |
+| **LinkedIn** | 8 | Profiles, company pages, posts, post search, transcripts, Ad Library |
 | **Twitter/X** | 7 | Profiles, tweets, communities, video transcripts, AI search via Grok |
-| **Reddit** | 7 | Subreddits, posts, comments, search, ads |
-| **LinkedIn** | 6 | Profiles, company pages, posts, Ad Library |
-| **Threads** | 5 | Profiles, posts, search |
-| **Pinterest** | 4 | Search, pins, boards |
-| **Google** | 4 | Search, Ad Library |
-| **Tavily** | 4 | Web search (with LLM answer), URL extraction, sitemap, full crawl |
+| **Reddit** | 6 | Subreddits, posts, comments, search, transcripts |
+| **Spotify** | 6 | Artists, tracks, albums, podcasts, episodes, search |
+| **TikTok Shop** | 5 | Products, reviews, listings, search, creator showcases |
+| **Threads** | 5 | Profiles, posts, keyword search, user search |
+| **Pinterest** | 5 | Pins, boards, search, URL save-counts |
+| **Amazon** | 5 | Product search, ASIN details, reviews, sellers, shop pages |
+| **Rumble** | 5 | Search, channel videos, video details, comments, transcripts |
+| **Twitch** | 4 | Profiles, clips, videos, schedules |
 | **Hacker News** | 4 | Story search, story, comment tree, profile |
+| **Tavily** | 4 | Web search (with LLM answer), URL extraction, sitemap, full crawl |
+| **Google Shopping** | 4 | Product search, product details, cross-retailer reviews, sellers |
 | **Truth Social** | 3 | Profiles, posts |
-| **Twitch** | 2 | Profiles, clips |
-| **Polymarket** | 2 | Prediction-market search + multi-query research fan-out |
-| **Perplexity** | 1 | Sonar web research with cited sources |
-| **Universal Search** | 1 | One query, fanned out across 12 platforms (20cr) |
+| **Kwai** | 3 | Profiles, posts |
+| **Bluesky** | 3 | Profiles, posts |
+| **Trustpilot** | 2 | Business search, company reviews |
+| **Tripadvisor** | 2 | Place search, traveler reviews |
 | **Snapchat** | 1 | Profiles |
 | **Kick** | 1 | Clips |
-| **Amazon** | 1 | Shop pages |
+| **Perplexity** | 1 | Sonar web research with cited sources |
+| **Polymarket** | 1 | Prediction-market research — multi-query fan-out + ranking |
+| **Universal Search** | 1 | One query, fanned out across 12+ platforms (20cr) |
 | **Linktree** | 1 | Link pages |
 | **Linkbio** | 1 | Link pages |
 | **Linkme** | 1 | Link pages |
@@ -276,7 +288,7 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **Pillar** | 1 | Link pages |
 | **Utility** | 1 | Age & gender detection |
 
-**Total: 133 endpoints across 27 platforms.**
+**Total: 221 endpoints across 39 platforms.**
 
 ## Error Handling
 

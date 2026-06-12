@@ -8,4 +8,4 @@ export const CREDIT_COSTS: Record<string, number> = {
 } as const;
 
 export const SERVER_NAME = "socialcrawl-mcp";
-export const SERVER_VERSION = "1.0.0";
+export const SERVER_VERSION = "1.4.0";
