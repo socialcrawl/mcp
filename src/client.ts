@@ -63,6 +63,76 @@ export async function makeRequest(options: RequestOptions): Promise<string> {
   }
 }
 
+interface ApiRequestOptions {
+  method: "GET" | "POST" | "PATCH" | "DELETE";
+  /** Path under the base URL, starting with a slash (e.g. "/v1/monitors"). */
+  path: string;
+  query?: Record<string, string>;
+  /** JSON body for POST/PATCH. Serialised with a Content-Type header. */
+  body?: unknown;
+}
+
+/**
+ * General-purpose authed request for non-registry `/v1/*` resources that the
+ * GET-only `makeRequest` can't express — currently the stateful monitors
+ * family (POST/GET/PATCH/DELETE with JSON bodies and `:id` path params).
+ * Shares the same x-api-key auth, timeout, error mapping, and truncation.
+ */
+export async function apiRequest(options: ApiRequestOptions): Promise<string> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return "Error: No API key configured. Set SOCIALCRAWL_API_KEY in your MCP server environment. Get a free key at socialcrawl.dev (100 credits, no credit card required).";
+  }
+
+  let url = `${getBaseUrl()}${options.path}`;
+  if (options.query && Object.keys(options.query).length > 0) {
+    url += `?${new URLSearchParams(options.query).toString()}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+  const headers: Record<string, string> = { "x-api-key": apiKey };
+  let bodyInit: string | undefined;
+  if (options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    bodyInit = JSON.stringify(options.body);
+  }
+
+  // Reuse the registry error formatter by mapping path → a pseudo endpoint.
+  const errCtx: RequestOptions = { platform: "monitors", resource: options.path };
+
+  try {
+    const response = await fetch(url, {
+      method: options.method,
+      headers,
+      body: bodyInit,
+      signal: controller.signal,
+    });
+
+    // 204 No Content (DELETE) has an empty body — report success explicitly.
+    if (response.status === 204) {
+      return JSON.stringify({ success: true, status: 204 });
+    }
+
+    const body = await response.text();
+    if (!response.ok) {
+      return formatHttpError(response.status, body, errCtx);
+    }
+    return truncateResponse(body);
+  } catch (error: unknown) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return `Error: Request timed out after ${TIMEOUT_MS / 1000} seconds.`;
+    }
+    if (error instanceof TypeError && (error.message.includes("fetch") || error.message.includes("network"))) {
+      return `Error: Could not reach SocialCrawl API at ${getBaseUrl()}. Check your network connection.`;
+    }
+    return `Error: Unexpected error — ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function buildUrl(options: RequestOptions): string {
   const path =
     options.platform === "meta"

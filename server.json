@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RidioDevelopment/socialcrawl",
   "title": "SocialCrawl",
-  "description": "Access 39 platforms and 221 endpoints through one unified API — social media, commerce & product reviews (Amazon, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), Naver, content/sentiment analysis, GitHub, Hacker News, Polymarket, AI X-search via Grok, plus a universal /search/everywhere meta-search.",
+  "description": "Access 42 platforms and 264 endpoints through one unified API — social media, commerce & product reviews (Amazon, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), Naver, content/sentiment analysis, Google News & Finance, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites (lookup, comments, reputation, share-of-voice, AI consensus, and more), plus a universal /search/everywhere meta-search.",
   "repository": {
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.4.0",
+  "version": "1.5.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.4.0",
+      "version": "1.5.0",
       "transport": {
         "type": "stdio"
       },

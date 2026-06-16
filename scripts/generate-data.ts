@@ -85,6 +85,12 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Web research via Perplexity Sonar — returns a grounded answer with cited source URLs.",
   google:
     "Google web search, Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
+  google_news:
+    "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by DataForSEO Google News.",
+  google_finance:
+    "Financial-instrument data — full quotes, a markets overview (indices + top movers), and ticker search by name. Backed by DataForSEO Google Finance.",
+  prism:
+    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting, multi-engine AI consensus answers, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic).",
   amazon:
     "Product search, full ASIN product details, on-page reviews, buy-box sellers and offers, and Amazon shop/storefront pages — across ~13 Amazon marketplaces via the country parameter.",
   google_shopping:

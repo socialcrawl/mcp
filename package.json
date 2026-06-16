@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.4.0",
-  "description": "MCP server for SocialCrawl — access 39 platforms and 221 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, universal meta-search) through one unified API",
+  "version": "1.5.0",
+  "description": "MCP server for SocialCrawl — access 42 platforms and 264 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, Google News & Finance, cross-platform Prism composites, universal meta-search) through one unified API",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

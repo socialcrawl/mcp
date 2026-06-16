@@ -4,8 +4,8 @@ import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoin
 import { DOCS, getDoc, getAvailableTopics } from "../data/docs.js";
 
 describe("Platform data integrity", () => {
-  it("has exactly 39 platforms", () => {
-    expect(PLATFORMS).toHaveLength(39);
+  it("has exactly 42 platforms", () => {
+    expect(PLATFORMS).toHaveLength(42);
   });
 
   it("every platform has a non-empty slug, name, and description", () => {
@@ -32,15 +32,25 @@ describe("Platform data integrity", () => {
     expect(findPlatform("nonexistent")).toBeUndefined();
   });
 
-  it("getAllPlatformSlugs returns 39 slugs", () => {
-    expect(getAllPlatformSlugs()).toHaveLength(39);
+  it("getAllPlatformSlugs returns 42 slugs", () => {
+    expect(getAllPlatformSlugs()).toHaveLength(42);
   });
 });
 
 describe("Endpoint data integrity", () => {
-  it("has exactly 221 endpoints", () => {
-    expect(ENDPOINTS.length).toBe(221);
+  it("has exactly 264 endpoints", () => {
+    expect(ENDPOINTS.length).toBe(264);
   });
+
+  // Composite (prism) recipes, the per-platform `profile/full` cards, the
+  // meta-search lanes (search/*), and `naver/brief` carry flat or metered
+  // prices that intentionally break the 1/5/10 tier ladder. Everything else
+  // must follow the ladder — this predicate is the single exemption seam.
+  const isFlatPriced = (e: (typeof ENDPOINTS)[number]): boolean =>
+    e.platform === "prism" ||
+    e.platform === "search" ||
+    e.resource === "profile/full" ||
+    (e.platform === "naver" && e.resource === "brief");
 
   it("every endpoint has required fields", () => {
     for (const endpoint of ENDPOINTS) {
@@ -48,9 +58,10 @@ describe("Endpoint data integrity", () => {
       expect(endpoint.resource).toBeTruthy();
       expect(endpoint.method).toBe("GET");
       expect(["standard", "advanced", "premium"]).toContain(endpoint.creditTier);
-      // 20 is the flat-cost override for /v1/search/everywhere; every other
-      // endpoint follows the standard 1/5/10 ladder.
-      expect([1, 5, 10, 20]).toContain(endpoint.creditCost);
+      // Costs are non-negative integers; flat-priced composites override the
+      // 1/5/10 ladder (validated per-endpoint in "creditCost matches creditTier").
+      expect(Number.isInteger(endpoint.creditCost)).toBe(true);
+      expect(endpoint.creditCost).toBeGreaterThanOrEqual(0);
       expect(endpoint.archetype).toBeTruthy();
       expect(endpoint.summary).toBeTruthy();
     }
@@ -59,11 +70,8 @@ describe("Endpoint data integrity", () => {
   it("creditCost matches creditTier", () => {
     const tierCosts: Record<string, number> = { standard: 1, advanced: 5, premium: 10 };
     for (const endpoint of ENDPOINTS) {
-      // Universal-search endpoint overrides the tier ladder with a flat 20.
-      if (endpoint.platform === "search" && endpoint.resource === "everywhere") {
-        expect(endpoint.creditCost).toBe(20);
-        continue;
-      }
+      // Flat-priced composites / meta-search override the tier ladder.
+      if (isFlatPriced(endpoint)) continue;
       expect(endpoint.creditCost).toBe(tierCosts[endpoint.creditTier]);
     }
   });
@@ -169,13 +177,28 @@ describe("Documentation data integrity", () => {
     expect(getDoc("nonexistent")).toBeUndefined();
   });
 
-  it("getAvailableTopics returns 7 fixed topics + one per platform", () => {
-    expect(getAvailableTopics()).toHaveLength(7 + PLATFORMS.length);
+  it("getAvailableTopics returns 8 fixed topics + one per platform", () => {
+    expect(getAvailableTopics()).toHaveLength(8 + PLATFORMS.length);
   });
 
-  it("getAvailableTopics includes the idempotency and pricing topics", () => {
+  it("getAvailableTopics includes the idempotency, monitors, and pricing topics", () => {
     expect(getAvailableTopics()).toContain("idempotency");
+    expect(getAvailableTopics()).toContain("monitors");
     expect(getAvailableTopics()).toContain("pricing");
+  });
+
+  it("has a monitors documentation topic covering all 7 operations", () => {
+    const doc = getDoc("monitors")!;
+    expect(doc).toBeTruthy();
+    for (const op of [
+      "POST /v1/monitors",
+      "GET /v1/monitors/:id/runs",
+      "GET /v1/monitors/:id/timeseries",
+      "PATCH /v1/monitors/:id",
+      "DELETE /v1/monitors/:id",
+    ]) {
+      expect(doc).toContain(op);
+    }
   });
 });
 

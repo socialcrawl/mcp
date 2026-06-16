@@ -6,12 +6,13 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 5 tools that let it interact with 39 platforms and 221 endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, and a universal meta-search:
+Once installed, your AI agent gains 6 tools that let it interact with 42 platforms and 264 endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Google News & Finance, cross-platform Prism composites, and a universal meta-search:
 
 - **Discover** what platforms and endpoints are available
-- **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, and analytics
+- **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, analytics, and Prism composites
 - **Read** detailed API documentation on demand, including per-endpoint pricing
 - **Check** your credit balance
+- **Schedule** Monitors that re-run any recipe on a cadence and deliver each result to a signed webhook
 
 All data comes back in a clean, unified response envelope (`success`, `platform`, `endpoint`, `data`, `credits_used`, `credits_remaining`, `request_id`, `cached`) — the same structure whether you're querying TikTok, Instagram, YouTube, or any other platform. Only the inner `data` payload changes shape, and it's typed per archetype (`Author`, `Post`, `PostList`, etc.) so a post looks like a post no matter where it came from.
 
@@ -118,7 +119,7 @@ The agent calls `socialcrawl_request` with `platform: "instagram"`, `resource: "
 
 > "What social media platforms can you access?"
 
-The agent calls `socialcrawl_list_platforms` and shows all 39 platforms with endpoint counts.
+The agent calls `socialcrawl_list_platforms` and shows all 42 platforms with endpoint counts.
 
 > "Show me all the TikTok endpoints"
 
@@ -138,7 +139,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 ---
 
-## Understanding the 4 Tools
+## Understanding the 6 Tools
 
 ### `socialcrawl_list_platforms`
 
@@ -146,7 +147,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Input:** None.
 
-**Output:** A table of all 39 platforms with their slug, endpoint count, and description of available data.
+**Output:** A table of all 42 platforms with their slug, endpoint count, and description of available data.
 
 **No API key required.** This queries local bundled data.
 
@@ -199,11 +200,41 @@ If validation fails, it tells the agent exactly what's wrong and what tool to us
   - `"authentication"` — how API keys work
   - `"credits"` — credit tiers and pricing
   - `"errors"` — error codes and what they mean
+  - `"idempotency"` — retry-safe requests via the `Idempotency-Key`
+  - `"monitors"` — the scheduled-recipe wrapper (`/v1/monitors/*`)
+  - `"pricing"` — exact per-endpoint credit cost for every endpoint
   - Any platform slug (e.g., `"tiktok"`) — platform-specific endpoint reference
 
 **Output:** Markdown documentation for the requested topic.
 
 **No API key required.** This returns bundled documentation.
+
+---
+
+### `socialcrawl_check_balance`
+
+**When to use:** To check the account's remaining credit balance and recent deductions.
+
+**Input:** None.
+
+**Output:** The balance envelope from the `GET /v1/credits/balance` meta endpoint — current balance and a recent-deduction summary. Costs **0 credits**.
+
+**Requires API key.**
+
+---
+
+### `socialcrawl_monitors`
+
+**When to use:** To create and manage stateful **Monitors** — schedule any registry endpoint or Prism composite to re-run on a cadence and deliver each result to a signed webhook.
+
+**Input:**
+- `action` (required) — one of `create`, `list`, `get`, `runs`, `timeseries`, `pause`, `resume`, `delete`
+- `id` — the monitor id (required for get/runs/timeseries/pause/resume/delete)
+- `recipe`, `cadence`, `webhook_url` (required for `create`), plus optional `params`, `name`, `alert_rules`, `suppress_webhook_unless_alert`, and list/runs/timeseries filters
+
+**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 264 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
+
+**Requires API key.**
 
 ---
 

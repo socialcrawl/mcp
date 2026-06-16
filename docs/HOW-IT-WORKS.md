@@ -21,10 +21,10 @@ SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
-Data Platforms (39 platforms)
+Data Platforms (42 platforms)
 ```
 
-The MCP server exposes 4 tools. Three of them (list_platforms, list_endpoints, get_docs) query local bundled data and work without an API key or network connection. One tool (request) makes actual API calls.
+The MCP server exposes 6 tools. Three of them (list_platforms, list_endpoints, get_docs) query local bundled data and work without an API key or network connection. The other three (request, check_balance, monitors) make actual API calls and need a key.
 
 ---
 
@@ -55,13 +55,15 @@ src/
 │   ├── list-platforms.ts # Formats platform discovery output
 │   ├── list-endpoints.ts # Formats endpoint discovery output
 │   ├── get-docs.ts       # Retrieves bundled documentation
+│   ├── check-balance.ts  # Calls the /v1/credits/balance meta endpoint
+│   ├── monitors.ts       # Stateful /v1/monitors/* CRUD (POST/GET/PATCH/DELETE)
 │   └── request.ts        # Pre-flight validation + API call execution
 ├── data/
-│   ├── platforms.ts      # 39 platforms with metadata
-│   ├── endpoints.ts      # 221 endpoints with full parameter definitions
-│   └── docs.ts           # Bundled llms.txt documentation (26 topics)
+│   ├── platforms.ts      # 42 platforms with metadata
+│   ├── endpoints.ts      # 264 endpoints with full parameter definitions
+│   └── docs.ts           # Bundled llms.txt documentation (one topic per platform + fixed topics)
 └── schemas/
-    └── tools.ts          # Zod input validation schemas for all 4 tools
+    └── tools.ts          # Zod input validation schemas for all 6 tools
 ```
 
 ---
@@ -114,7 +116,7 @@ interface Platform {
 
 Queried by `socialcrawl_list_platforms` and used for pre-flight validation in `socialcrawl_request`.
 
-### `data/endpoints.ts` — 221 Endpoints
+### `data/endpoints.ts` — 264 Endpoints
 
 A static array of every endpoint definition:
 
@@ -243,7 +245,7 @@ Every successful `socialcrawl_request` call returns the same top-level shape, re
 }
 ```
 
-The envelope is stable across all 221 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
+The envelope is stable across all 264 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
 
 ### Response Truncation
 
@@ -319,13 +321,15 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 
 ## Testing
 
-35 unit tests across 4 test suites:
+81 unit tests across 6 test suites:
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| Data integrity | 18 | All 39 platforms present, 221 endpoints valid, all doc topics exist, no duplicates, counts match |
-| Pre-flight validation | 5 | Bad platform/resource/params caught locally, no-param endpoints pass through |
-| API client | 9 | URL building, API key handling, HTTP error mapping for all status codes |
+| Data integrity | 37 | All 42 platforms present, 264 endpoints valid, flat/metered composite pricing recognised, all doc topics (incl. monitors) exist, no duplicates, counts match |
+| API client | 17 | URL building, API key handling, HTTP error mapping for all status codes |
+| Monitors | 12 | Action routing, create-body assembly, cadence mapping, id/required-field validation, 204 handling |
+| Pre-flight validation | 8 | Bad platform/resource/params caught locally, no-param endpoints pass through |
+| Check balance | 4 | Meta-endpoint call shape, 0-credit header, missing-key + error handling |
 | Response truncation | 3 | Under-limit untouched, over-limit truncated, full length reported |
 
 Tests use vitest with `vi.stubGlobal("fetch", ...)` for HTTP mocking and `process.env` manipulation for API key testing.

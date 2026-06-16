@@ -1,48 +1,48 @@
 {
   "generatedFrom": "packages/social-api/src/registry/config.ts",
   "stats": {
-    "totalEndpoints": 221,
-    "totalPlatforms": 39,
+    "totalEndpoints": 264,
+    "totalPlatforms": 42,
     "socialPlatforms": 27,
-    "standardEndpoints": 170,
-    "advancedEndpoints": 37,
-    "premiumEndpoints": 14
+    "standardEndpoints": 184,
+    "advancedEndpoints": 55,
+    "premiumEndpoints": 25
   },
   "platforms": [
     {
       "slug": "tiktok",
       "name": "TikTok",
-      "endpointCount": 18
+      "endpointCount": 19
     },
     {
       "slug": "instagram",
       "name": "Instagram",
-      "endpointCount": 15
+      "endpointCount": 16
     },
     {
       "slug": "youtube",
       "name": "YouTube",
-      "endpointCount": 16
+      "endpointCount": 17
     },
     {
       "slug": "twitter",
       "name": "Twitter/X",
-      "endpointCount": 7
+      "endpointCount": 8
     },
     {
       "slug": "linkedin",
       "name": "LinkedIn",
-      "endpointCount": 8
+      "endpointCount": 9
     },
     {
       "slug": "facebook",
       "name": "Facebook",
-      "endpointCount": 21
+      "endpointCount": 22
     },
     {
       "slug": "reddit",
       "name": "Reddit",
-      "endpointCount": 6
+      "endpointCount": 7
     },
     {
       "slug": "threads",
@@ -103,6 +103,16 @@
       "slug": "google_shopping",
       "name": "Google Shopping",
       "endpointCount": 4
+    },
+    {
+      "slug": "google_news",
+      "name": "Google News",
+      "endpointCount": 1
+    },
+    {
+      "slug": "google_finance",
+      "name": "Google Finance",
+      "endpointCount": 3
     },
     {
       "slug": "trustpilot",
@@ -177,7 +187,7 @@
     {
       "slug": "naver",
       "name": "Naver",
-      "endpointCount": 11
+      "endpointCount": 12
     },
     {
       "slug": "rumble",
@@ -197,7 +207,12 @@
     {
       "slug": "search",
       "name": "Universal Search",
-      "endpointCount": 1
+      "endpointCount": 2
+    },
+    {
+      "slug": "prism",
+      "name": "Prism",
+      "endpointCount": 30
     },
     {
       "slug": "content_analysis",
@@ -299,11 +314,6 @@
         }
       ],
       "optionalParams": [
-        {
-          "name": "get_transcript",
-          "type": "boolean",
-          "description": "Get transcript of the video"
-        },
         {
           "name": "region",
           "type": "string",
@@ -1371,7 +1381,7 @@
       "oneOfGroups": [],
       "creditTier": "standard",
       "creditCost": 1,
-      "archetype": "SearchResult",
+      "archetype": "PostList",
       "summary": "Search Threads posts",
       "description": "Searches Threads for posts matching a keyword query. Returns a list of matching posts with text content, like counts, author info, and creation timestamps."
     },
@@ -2566,9 +2576,9 @@
       "oneOfGroups": [],
       "creditTier": "standard",
       "creditCost": 1,
-      "archetype": "SearchResult",
+      "archetype": "AuthorList",
       "summary": "Search Instagram profiles by keyword",
-      "description": "Searches Google for public Instagram results matching a keyword or phrase, then returns matching public profiles. Profile-page matches are marked `matched_from=profile`; reel/post caption matches are enriched into the creator profile and marked `matched_from=caption`. Best-effort against Google's index, not a native Instagram profile search."
+      "description": "Searches Google for public Instagram results matching a keyword or phrase, then returns matching public profiles mapped to the unified Author schema — `username`, `display_name`, `bio`, `verified`, `followers`, `following`, `posts_count`, `avatar_url`, and the profile `url`. Best-effort against Google's index, not a native Instagram profile search."
     },
     {
       "platform": "instagram",
@@ -4829,6 +4839,166 @@
       "description": "Returns the list of sellers/offers for a single Google Shopping product: seller name, domain, itemised price (base/tax/shipping/total/currency), rating, product condition, availability, and any special-offer annotation. Pass any one of the opaque identifiers (product_id, gid, or data_docid) from product-search."
     },
     {
+      "platform": "google_news",
+      "resource": "search",
+      "method": "GET",
+      "params": [
+        {
+          "name": "keyword",
+          "required": true,
+          "description": "Search query (e.g. 'openai'). Supports any language; pass the matching language_code. Advanced operators (site:, intitle:, cache:, …) are not supported.",
+          "example": "openai"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "depth",
+          "type": "integer",
+          "description": "Number of articles to retrieve (default 10, multiples of 10, max 100). No pagination beyond depth.",
+          "example": "20"
+        },
+        {
+          "name": "location_code",
+          "type": "integer",
+          "description": "Google location code (e.g. 2840 = United States). Use one of location_code / location_name / location_coordinate."
+        },
+        {
+          "name": "location_name",
+          "type": "string",
+          "description": "Google location name (e.g. 'South Korea')."
+        },
+        {
+          "name": "location_coordinate",
+          "type": "string",
+          "description": "GPS target as 'latitude,longitude,radius_mm' (e.g. '40.7128,-74.0060,200') for local-news radius queries."
+        },
+        {
+          "name": "language_code",
+          "type": "string",
+          "description": "Google language code (e.g. 'en', 'ko'). Default 'en'.",
+          "example": "en"
+        },
+        {
+          "name": "time_range",
+          "type": "enum",
+          "enumValues": [
+            "hour",
+            "day",
+            "week",
+            "month",
+            "year"
+          ],
+          "description": "Only return articles published within this window: hour, day, week, month, or year.",
+          "example": "day"
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "NewsArticleList",
+      "summary": "Search Google News",
+      "description": "Returns a unified NewsArticleList of the top Google News results for a keyword, right now — headline, source outlet, snippet, thumbnail, article URL, and absolute UTC publish time. Combines Google's main news ranking and the Top Stories carousel into one list (`placement` distinguishes them). Localize with `location_name`/`location_code`/`location_coordinate` + `language_code` (non-Latin scripts supported). Filter by recency with `time_range`. There is no pagination beyond `depth` — Google News exposes at most 200 articles per query (default 10, max 100 on this surface). For the full article body, scrape the returned `url`. Sourced live from DataForSEO's Google News SERP — an ordinary synchronous request (~1-3s)."
+    },
+    {
+      "platform": "google_finance",
+      "resource": "quote",
+      "method": "GET",
+      "params": [
+        {
+          "name": "keyword",
+          "required": true,
+          "description": "Instrument identifier: TICKER:EXCHANGE for stocks/ETFs/indices ('GOOGL:NASDAQ', '.INX:INDEXSP') or a forex/crypto pair ('EUR-USD', 'BTC-USD'). Use the `id` returned by ticker-search.",
+          "example": "GOOGL:NASDAQ"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "language",
+          "type": "string",
+          "description": "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English."
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "description": "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 5,
+      "archetype": "Quote",
+      "summary": "Get a financial instrument quote",
+      "description": "Returns ONE rich, unified Quote for a financial instrument keyed by its `keyword` (`TICKER:EXCHANGE` for stocks/ETFs/indices, e.g. 'GOOGL:NASDAQ' / 'VOO:NYSEARCA' / '.INX:INDEXSP', or a forex/crypto pair, e.g. 'EUR-USD' / 'BTC-USD'). A single call bundles the live price + intraday graph, fundamentals (market cap, P/E, dividend yield, 52-week range, volumes), the company profile (CEO, founded, HQ, employees), quarterly + annual financials (equities), and peer instruments — all on ONE canonical shape across stocks, ETFs, indices, crypto, and forex, distinguished by `quote.type`. Forex/crypto pairs populate `quote.pair` (base/quote symbols) and have a null `ticker`. Get the exact `keyword` from /v1/google_finance/ticker-search. Sourced live from DataForSEO's Google Finance SERP (~5-10s)."
+    },
+    {
+      "platform": "google_finance",
+      "resource": "ticker-search",
+      "method": "GET",
+      "params": [
+        {
+          "name": "keyword",
+          "required": true,
+          "description": "Company / instrument name to search for (e.g. 'Apple', 'Euro', 'Bitcoin').",
+          "example": "Apple"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "category",
+          "type": "enum",
+          "enumValues": [
+            "all",
+            "stock",
+            "index",
+            "mutual_fund",
+            "currency",
+            "futures"
+          ],
+          "description": "Restrict to one instrument class: all (default), stock, index, mutual_fund, currency, or futures. A class with no matches returns an empty list."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "description": "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English."
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "description": "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "QuoteList",
+      "summary": "Search financial instruments by name",
+      "description": "Searches Google Finance for financial instruments matching a name and returns a unified QuoteList — each row carries the `id` (e.g. 'AAPL:NASDAQ', '.INX:INDEXSP', 'EUR-USD') to feed into /v1/google_finance/quote, plus the ticker, display name, exchange, live price, and `type` discriminator. Spans stocks, ETFs, indices, and forex/crypto pairs (asset pairs populate `quote.pair`, with a null `ticker`). Filter by instrument class with `category`. Sourced live from DataForSEO's Google Finance SERP (~2-3s)."
+    },
+    {
+      "platform": "google_finance",
+      "resource": "markets",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "language",
+          "type": "string",
+          "description": "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English."
+        },
+        {
+          "name": "location",
+          "type": "string",
+          "description": "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "QuoteList",
+      "summary": "Get a markets overview (indices + movers)",
+      "description": "Returns a unified QuoteList snapshot of the global markets overview: the major regional indices (US / Europe / Asia, tagged in `quote.ext.section`) plus the day's most-active, gainers, and losers movers. Each row is the same canonical Quote shape used everywhere — re-feed any `id` into /v1/google_finance/quote for the full detail. A standing overview (no input required); the regional grouping is baked into the single response. Sourced live from DataForSEO's Google Finance SERP (~4-8s)."
+    },
+    {
       "platform": "trustpilot",
       "resource": "business-search",
       "method": "GET",
@@ -5780,7 +5950,13 @@
           "example": "trump 2028 election"
         }
       ],
-      "optionalParams": [],
+      "optionalParams": [
+        {
+          "name": "limit",
+          "type": "integer",
+          "description": "Max results per result type on each fan-out call (events / markets / profiles). Bounds the response size. Defaults to 10."
+        }
+      ],
       "oneOfGroups": [],
       "creditTier": "advanced",
       "creditCost": 5,
@@ -6054,6 +6230,16 @@
         }
       ],
       "optionalParams": [
+        {
+          "name": "type",
+          "type": "enum",
+          "enumValues": [
+            "issue",
+            "pr",
+            "all"
+          ],
+          "description": "Filter the unified issues+PRs list — `issue` returns only issues, `pr` returns only pull requests, `all` (default) returns both. Each item also carries `post.ext.type` (`issue`/`pull_request`)."
+        },
         {
           "name": "state",
           "type": "enum",
@@ -7458,6 +7644,1788 @@
       "archetype": "Analytics",
       "summary": "Universal social search across 12 platforms",
       "description": "Fans out a single query across Reddit, X (ai-search), YouTube, TikTok, Instagram, Hacker News, Polymarket, GitHub, Threads, Pinterest, Perplexity, and Tavily in parallel. Returns ranked + clustered results, enriched with **real-people comments** from each post — Reddit upvoted comments, HackerNews thread replies, YouTube/TikTok/Instagram top-liked comments, GitHub issue discussion. The top comment per result lives at `data.items[i].source_items[0].metadata.top_comments[]` (sorted by score descending, capped at 5, max 300-char excerpts). Supports streaming via `Accept: text/event-stream` (emits `comments_enriched` chunks per candidate as enrichment lands, before the terminal `done`) and sync via `Accept: application/json`. Flat 20 credits per call regardless of enrichment."
+    },
+    {
+      "platform": "search",
+      "resource": "forums",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "Search query (2–256 chars), forwarded to every forum search.",
+          "example": "airpods pro 3 battery"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "sources",
+          "type": "string",
+          "description": "Optional CSV allowlist of forum sources (reddit, hackernews, naver_kin, naver_cafe). Mutually exclusive with exclude.",
+          "example": "reddit,hackernews,naver_kin"
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "description": "Optional CSV blocklist of forum sources. Mutually exclusive with sources."
+        },
+        {
+          "name": "comments",
+          "type": "string",
+          "description": "Comment enrichment toggle (on|off, default on). 'off' returns thread-only.",
+          "example": "on"
+        },
+        {
+          "name": "timeframe",
+          "type": "string",
+          "description": "Recency window passed to Reddit; HN filtered client-side (all|day|week|month|year, default all)."
+        },
+        {
+          "name": "lookback_days",
+          "type": "integer",
+          "description": "Alt recency window in days (1–365); HN filtered client-side."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 10,
+      "archetype": "Analytics",
+      "summary": "Fused forum search across Reddit, Hacker News, and Naver 지식iN/카페 — with top comments inline on hero threads by default.",
+      "description": "Fans your topic across Reddit, Hacker News, and Korean forums, RRF-fuses + clusters the threads, and enriches hero threads with their top comments by default (East + West). Naver threads are labeled raw (no comment endpoint). Returns a fused `items[]`, raw per-source buckets, thread clusters, and a deterministic computed block (question_share, top_communities). Flat 10cr with coverage-based partial refund."
+    },
+    {
+      "platform": "prism",
+      "resource": "lookup",
+      "method": "GET",
+      "params": [
+        {
+          "name": "url",
+          "required": true,
+          "description": "Absolute http(s) URL of the post / profile / product to resolve.",
+          "example": "https://www.youtube.com/watch?v=A9TikdsD5eg"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV of optional flags to forward verbatim to the resolved endpoint (e.g. `trim`). Each member must be an optional param of that endpoint."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 0,
+      "archetype": "Analytics",
+      "summary": "Universal URL dispatcher: any social/commerce URL → the right detail endpoint's unified response.",
+      "description": "Sniffs the platform + endpoint from a URL and returns that endpoint's unified data, with no surcharge — you pay the resolved endpoint's own cost. The join key the whole API runs on is `url`. Supports TikTok, Instagram, YouTube, X/Twitter, Facebook, LinkedIn, Bluesky, Pinterest, Reddit, Threads, Rumble, Truth Social, GitHub, Amazon, and Spotify links. The `resolved` block names the platform, endpoint, and archetype of the response so agents know the shape that follows; `legs[]` reports the dispatched call's status, cost, and latency."
+    },
+    {
+      "platform": "prism",
+      "resource": "comments",
+      "method": "GET",
+      "params": [
+        {
+          "name": "url",
+          "required": true,
+          "description": "Absolute http(s) URL of the post whose comments to harvest.",
+          "example": "https://www.youtube.com/watch?v=A9TikdsD5eg"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "max",
+          "type": "integer",
+          "description": "Stop after roughly this many top-level comments (1–5000, default 1000). Whole pages are returned, so the actual count can slightly exceed this."
+        },
+        {
+          "name": "replies",
+          "type": "boolean",
+          "description": "Expand replies for comments that have them, where the platform supports it (default true; TikTok/YouTube/Facebook only).",
+          "example": "true"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Opaque composite cursor from a prior response's `next_cursor` to resume harvesting."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "Analytics",
+      "summary": "Every comment on a post, replies nested, server-paginated to completion.",
+      "description": "Give it any TikTok, YouTube, Facebook, Reddit, Hacker News, or Instagram post URL and it harvests every top-level comment — paginated to the end — with replies nested where the platform supports it (TikTok, YouTube, Facebook). Reddit and Hacker News return their whole nested thread; Instagram is top-level only. Metered at 1 credit per internal page call (minimum 2). Returns sync JSON, or a typed SSE stream when you send `Accept: text/event-stream` — a `page` chunk lands as each page settles. The `next_cursor` is one opaque token that resumes every leg; `legs[]` reports each page's status, cost, and latency."
+    },
+    {
+      "platform": "tiktok",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "handle",
+          "type": "string",
+          "example": "mrbeast"
+        },
+        {
+          "name": "user_id",
+          "type": "string"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "TikTok profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the TikTok profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "instagram",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "handle",
+          "type": "string",
+          "example": "mrbeast"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "Instagram profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the Instagram profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "youtube",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "handle",
+          "type": "string",
+          "example": "mrbeast"
+        },
+        {
+          "name": "channelId",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "YouTube profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the YouTube profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "twitter",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "handle",
+          "type": "string",
+          "example": "mrbeast"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "X (Twitter) profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the X (Twitter) profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "facebook",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://www.facebook.com/mrbeast"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "Facebook profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the Facebook profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "linkedin",
+      "resource": "profile/full",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "url",
+          "type": "string",
+          "example": "https://www.linkedin.com/company/microsoft"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to fetch + average the computed metrics over (1–100, default 25).",
+          "example": "25"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Pass a prior response's posts_cursor to deepen the post window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,computed (default both). include=computed drops the raw posts[] to save payload."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "LinkedIn company profile, recent posts, and computed analytics in one call.",
+      "description": "Fans out to the LinkedIn company profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits."
+    },
+    {
+      "platform": "reddit",
+      "resource": "omni-search",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "Keyword or phrase to sweep across Reddit.",
+          "example": "best mechanical keyboard"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "threads",
+          "type": "integer",
+          "description": "How many top threads to expand comments for (1–8, default 8).",
+          "example": "5"
+        },
+        {
+          "name": "sort",
+          "type": "enum",
+          "enumValues": [
+            "relevance",
+            "new",
+            "top",
+            "comment_count"
+          ],
+          "description": "Search sort order (relevance | new | top | comment_count)."
+        },
+        {
+          "name": "timeframe",
+          "type": "enum",
+          "enumValues": [
+            "all",
+            "day",
+            "week",
+            "month",
+            "year"
+          ],
+          "description": "Time window for the search (all | day | week | month | year)."
+        },
+        {
+          "name": "subreddit",
+          "type": "string",
+          "description": "Scope the sweep to one subreddit (bare name, no r/ prefix)."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Opaque cursor from a prior response's next_cursor to page deeper."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of subreddits,comments (default both)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "Analytics",
+      "summary": "Reddit VoC sweep: one keyword → threads across all of Reddit with subreddit attribution and top comments inline.",
+      "description": "Runs reddit/search, expands the top N threads' comments in parallel (capped 15/thread), and rolls up which subreddits are talking — volume + a per-community tone label. Returns sync JSON or a typed SSE stream that emits each thread as its comments land. Metered at 1 credit per search page + 1 credit per successfully-expanded thread (minimum 5); a failed thread isn't billed and the unused thread ceiling is refunded. `subreddit=` scopes the sweep to one community. The `next_cursor` resumes the search. Honest note: Reddit search is the slowest social search on the API (10–12s) and relevance is loose — a VoC sweep, not precision ranking."
+    },
+    {
+      "platform": "prism",
+      "resource": "brand-mentions",
+      "method": "GET",
+      "params": [
+        {
+          "name": "keyword",
+          "required": true,
+          "description": "The brand or term to track. Wrap in quotes for exact-phrase semantics.",
+          "example": "socialcrawl"
+        },
+        {
+          "name": "date_from",
+          "required": true,
+          "description": "Window start (YYYY-MM-DD). Required by the trend leg.",
+          "example": "2026-06-01"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD). Defaults to the latest crawl."
+        },
+        {
+          "name": "date_group",
+          "type": "enum",
+          "enumValues": [
+            "day",
+            "week",
+            "month"
+          ],
+          "description": "Trend bucket size: day (default), week, or month."
+        },
+        {
+          "name": "page_type",
+          "type": "enum",
+          "enumValues": [
+            "ecommerce",
+            "news",
+            "blogs",
+            "message-boards",
+            "organization"
+          ],
+          "description": "Optional surface filter: ecommerce, news, blogs, message-boards, or organization."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set `digest` to add an LLM narrative summary leg.",
+          "example": "digest"
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 20,
+      "archetype": "Analytics",
+      "summary": "Brand mention volume time-series, sentiment split, top sources, and recent mentions for one keyword.",
+      "description": "Fans out to content_analysis summary, phrase-trends, and search in parallel, then folds them into one envelope with a computed volume/sentiment trajectory (OLS slope + a noise-aware direction) and an optional LLM digest (`include=digest`). Sentiment is NLP-derived (content_analysis), and mention freshness lags the live web by days. The `computed` block carries stable keys + a `methodology_version` so a monitor can diff runs. `legs[]` reports each leg's status, cost, and latency; if one of the three data legs fails the call still returns a degraded result, and a strict-majority failure refunds half."
+    },
+    {
+      "platform": "prism",
+      "resource": "demand-signals",
+      "method": "GET",
+      "params": [
+        {
+          "name": "keyword",
+          "required": true,
+          "description": "The brand or product to nowcast. Drives the mention, Reddit, and Amazon legs.",
+          "example": "spotify"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "google_play_id",
+          "type": "string",
+          "description": "Google Play package name (e.g. com.spotify.music) for the app-review velocity axis.",
+          "example": "com.spotify.music"
+        },
+        {
+          "name": "app_store_id",
+          "type": "string",
+          "description": "Apple App Store numeric id for the app-review velocity axis."
+        },
+        {
+          "name": "signals",
+          "type": "string",
+          "description": "CSV subset of app_reviews,mentions,reddit,commerce (default all). app_reviews is dropped when no app id is supplied.",
+          "example": "app_reviews,mentions,reddit,commerce"
+        },
+        {
+          "name": "amazon_query",
+          "type": "string",
+          "description": "Override the Amazon product-search term if it differs from the brand."
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Location for the app-review legs (default United States); a 2-letter code is also applied to the Amazon leg."
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD) for the mention-slope leg. Defaults to 30 days ago."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD). Defaults to today."
+        },
+        {
+          "name": "depth",
+          "type": "integer",
+          "description": "Reviews per store for the velocity computation (1-600, default 150)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "Consumer-demand nowcast: app-review velocity, web mention slope, Reddit velocity, and commerce review levels, fused into a published demand index.",
+      "description": "Reads up to four consumer-demand axes in parallel — app-review velocity (the freshest public channel), web mention slope (content_analysis phrase-trends, a real stateless time-series), Reddit sort=new velocity, and Amazon review-count level — and fuses them into published demand-index inputs (never an opaque score; every weight, anchor, and observation window is disclosed). v1 is an honest one-shot level+slope: three of the four axes are point-in-time rates/levels whose true week-over-week deltas need a monitor (the methodology block names them). Supply google_play_id/app_store_id for the app-review axis. legs[] reports each leg status, cost, and latency; a strict-majority leg failure refunds half. Flat 30 credits."
+    },
+    {
+      "platform": "prism",
+      "resource": "campaign",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "hashtag",
+          "type": "string",
+          "description": "The campaign hashtag (with or without #). One of hashtag or phrase is required.",
+          "example": "summergiveaway"
+        },
+        {
+          "name": "phrase",
+          "type": "string",
+          "description": "A campaign slogan/phrase instead of a hashtag. One of hashtag or phrase is required."
+        },
+        {
+          "name": "window_start",
+          "type": "string",
+          "description": "Campaign launch date (YYYY-MM-DD) — the pre/during boundary. Required.",
+          "example": "2026-06-01"
+        },
+        {
+          "name": "window_end",
+          "type": "string",
+          "description": "Campaign end date (YYYY-MM-DD) — the during/post boundary. Defaults to today."
+        },
+        {
+          "name": "pre_days",
+          "type": "integer",
+          "description": "Baseline days before window_start for lift measurement (1-90, default 14)."
+        },
+        {
+          "name": "post_days",
+          "type": "integer",
+          "description": "Days after window_end for the post window (0-90, default 14; 0 = no post window)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set amplifier_dates to date YouTube amplifiers via direct youtube/video calls (undated in fusion).",
+          "example": "amplifier_dates"
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 35,
+      "archetype": "Analytics",
+      "summary": "Campaign tracker: pre/during/post volume lift, cross-platform engagement, and ranked top amplifiers for a hashtag or phrase.",
+      "description": "Fans out to content_analysis phrase-trends (pre/during/post windows), search/everywhere (consuming items_by_source for real per-platform engagement, not the capped fused items), and tiktok/youtube search for amplifier discovery, then folds them into a lift report (volume lift %, sustained-floor check, ranked amplifiers). YouTube amplifiers are undated in fusion — pass include=amplifier_dates to date the top ones via direct youtube/video calls. Supply hashtag OR phrase plus window_start; window_end defaults to today. legs[] reports each leg; losing the CA timeline or the everywhere engagement spine refunds half. Flat 35 credits."
+    },
+    {
+      "platform": "prism",
+      "resource": "ai-visibility",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "brand",
+          "type": "string",
+          "description": "The brand whose appearance-% is measured (required). Matched against each answer plus its aliases.",
+          "example": "socialcrawl"
+        },
+        {
+          "name": "prompts",
+          "type": "string",
+          "description": "The category prompts to probe, as a JSON array or a pipe-delimited list (1-20). One of prompts or topic is required."
+        },
+        {
+          "name": "topic",
+          "type": "string",
+          "description": "A topic probed as a single prompt in v1 (one of prompts or topic is required).",
+          "example": "social media data api"
+        },
+        {
+          "name": "competitors",
+          "type": "string",
+          "description": "CSV of up to 5 competitors also measured for appearance-% from the same answers.",
+          "example": "apify,bright data"
+        },
+        {
+          "name": "engines",
+          "type": "string",
+          "description": "CSV subset of perplexity,grok (default both) — the grounded-answer engines probed."
+        },
+        {
+          "name": "runs",
+          "type": "integer",
+          "description": "Reruns per (prompt, engine) to measure variance (1-20, default 8)."
+        },
+        {
+          "name": "preset",
+          "type": "enum",
+          "enumValues": [
+            "quick",
+            "standard",
+            "deep"
+          ],
+          "description": "quick|standard|deep — sets runs and caps prompts for a flat probe budget.",
+          "example": "standard"
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set web_baseline to cross-join AI-cited domains against your web top domains."
+        },
+        {
+          "name": "brand_domains",
+          "type": "string",
+          "description": "CSV of your own domains so the citation ranking can flag the ones you already rank on."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 2,
+      "archetype": "Analytics",
+      "summary": "AI Share-of-Voice / GEO monitoring: prompt set x reruns to per-brand appearance-% per AI engine plus a cited-domain ranking.",
+      "description": "Probes your brand (and competitors) across grounded-answer AI engines (Perplexity Sonar + Grok) over a prompt set with N reruns, then reports the share of runs your brand appeared in per engine (appearance-%, never volatile rank) plus a ranking of the domains those engines cite. Add include=web_baseline to see which AI-cited domains you do not yet rank on. Metered 2 credits per probe (one prompt x run x engine); use preset=quick|standard|deep for a flat budget. v1 detects mentions deterministically via recognition tokens. Supply brand plus prompts (or a topic). The self-serve entry tier of Profound/Otterly/Peec."
+    },
+    {
+      "platform": "prism",
+      "resource": "crisis-postmortem",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "brand",
+          "type": "string",
+          "description": "The brand or entity the crisis is about (required).",
+          "example": "acme"
+        },
+        {
+          "name": "window_start",
+          "type": "string",
+          "description": "Start of the crisis window (YYYY-MM-DD) — the earliest point on the timeline. Required.",
+          "example": "2026-06-02"
+        },
+        {
+          "name": "window_end",
+          "type": "string",
+          "description": "End of the crisis window (YYYY-MM-DD). Defaults to today."
+        },
+        {
+          "name": "crisis_terms",
+          "type": "string",
+          "description": "Optional CSV of up to 5 terms (e.g. recall,defect) that scope the legs to the actual incident.",
+          "example": "breach,leak"
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "narrative (default on) adds the grounded LLM propagation narrative; pass an empty value for the raw timeline only."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 35,
+      "archetype": "Analytics",
+      "summary": "Crisis post-mortem: a who-said-what-first timeline across web, Reddit, Hacker News, and social, with an origin, peak, propagation sequence, and a grounded narrative.",
+      "description": "Reconstructs a crisis window: content_analysis phrase-trends (volume curve) + anger-ordered search + reddit (sort=new) + hackernews (client-side date-filtered so stale relevance-ranked posts cannot corrupt the chronology) + search/everywhere (items_by_source cross-platform spread), merged into one chronologically-sorted event timeline with the first credible origin, the peak day, and the platform-by-platform propagation order. Pass include= (empty) to drop the LLM narrative and get the raw timeline. Origin is chosen only from natively-dated events (a lagged crawl time cannot establish who-said-it-first). Supply brand plus window_start; window_end defaults to today. Flat 35 credits; losing more than half the timeline sources refunds half."
+    },
+    {
+      "platform": "prism",
+      "resource": "crisis-radar",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "brand",
+          "type": "string",
+          "description": "The brand to watch (required).",
+          "example": "socialcrawl"
+        },
+        {
+          "name": "sensitivity",
+          "type": "string",
+          "description": "Z-score breach threshold (0.5-6, default 2.0). z>=sensitivity on volume or negative-share fires a breach.",
+          "example": "2.0"
+        },
+        {
+          "name": "confirm",
+          "type": "boolean",
+          "description": "true -> on a breach, run the escalation legs and grade severity (+30 credits, charged only when a breach fires).",
+          "example": "true"
+        },
+        {
+          "name": "baseline_days",
+          "type": "integer",
+          "description": "Rolling-mean window for the z-score (3-30, default 7)."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "The day being evaluated (YYYY-MM-DD). Defaults to today."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 10,
+      "archetype": "Analytics",
+      "summary": "Stateless crisis breach check: a z-score on daily mention volume and negative share, with on-breach confirmation and a severity grade.",
+      "description": "Stage 1 computes a 7-day-rolling z-score on content_analysis daily phrase-trends (the breach gate, always 10 credits) and returns a calm|watch|alert|crisis status. On a breach with confirm=true, Stage 2 fans out to sentiment + search/everywhere (items_by_source real counts) + reddit (sort=new) + twitter/ai-search (citations, not the chatty answer) + a triage anger-ordered search, then grades severity (+30 credits, charged only when a breach actually fires). A calm result or confirm=false costs only the 10cr baseline. The recurring alarm is delivered by wrapping this recipe in a monitor."
+    },
+    {
+      "platform": "prism",
+      "resource": "devtool-pulse",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "The devtool name to sweep across Hacker News, Reddit, and the dev-blog index (e.g. Bun, Drizzle ORM, tRPC).",
+          "example": "Bun"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "repo",
+          "type": "string",
+          "description": "The repo to dossier — owner/repo or a github.com/{owner}/{repo} URL. Recommended for a precise dossier.",
+          "example": "oven-sh/bun"
+        },
+        {
+          "name": "subreddit",
+          "type": "string",
+          "description": "Optional scope for the Reddit leg (bare name, no r/) — switches it to a subreddit search."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of dossier,hn,reddit,blogs (default all). Trims which legs run, not the flat price."
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Optional window start (YYYY-MM-DD) applied to the time-bounded legs."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Optional window end (YYYY-MM-DD)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 15,
+      "archetype": "Analytics",
+      "summary": "Developer-brand health: a devtool's repo dossier + Hacker News reaction + Reddit chatter + dev-blog echo, in one call.",
+      "description": "Fans out a GitHub repo/dossier, a Hacker News search+comment pull, a Reddit search+comment pull, and the dev-blog web echo (content_analysis), then folds them into a developer-brand health snapshot: release recency, open-issue load, the top feature request and top complaint, HN and Reddit attention, the web echo with its top domains, a deterministic pulse=strong|steady|cooling|quiet label, and a soft NLP sentiment label. No leg is individually critical — absence is signal; a strict-majority leg failure refunds half. Supply `repo=` (owner/repo or a github URL) to anchor the dossier; without it the server best-effort resolves one from the HN/web legs. `legs[]` reports each leg's status, cost, and latency."
+    },
+    {
+      "platform": "prism",
+      "resource": "leads",
+      "method": "GET",
+      "params": [
+        {
+          "name": "competitor",
+          "required": true,
+          "description": "The competitor/product to mine alternative-seeking conversations for (≤80 chars).",
+          "example": "notion"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "product_category",
+          "type": "string",
+          "description": "Optional disambiguator appended to the social queries to cut cross-domain noise (e.g. 'project management').",
+          "example": "project management"
+        },
+        {
+          "name": "freshness",
+          "type": "string",
+          "description": "Recency floor — Nd/Nw/Nm (e.g. 30d) or an ISO date. Default 30d.",
+          "example": "30d"
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set `comments` to attach top-thread Reddit comments to the top leads."
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "description": "Max leads in the fused feed (1–100, default 50)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 20,
+      "archetype": "Analytics",
+      "summary": "Ranked feed of public conversations where people seek alternatives to or are switching from a competitor.",
+      "description": "Runs three exact-intent phrases ('alternative to X', 'X vs', 'switching from X') through content_analysis search in parallel, plus a Reddit (sort=new) and a Hacker News leg, then dedupes and intent-ranks them into one feed with a per-lead phrase_matched + intent_score and a counts_by_phrase breakdown. Conversation-level intent only — page-level matching, no author PII harvesting (web leads carry no handle by design). Coverage spine is the three CA legs: <0.5 succeed → 50% refund; all five legs fail → full refund. Deterministic (no LLM); registers cleanly for a recurring-lead-feed monitor."
+    },
+    {
+      "platform": "prism",
+      "resource": "earned-media",
+      "method": "GET",
+      "params": [
+        {
+          "name": "brand",
+          "required": true,
+          "description": "The brand/company to map earned media for.",
+          "example": "Vercel"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "competitor",
+          "type": "string",
+          "description": "Optional competitor for a share-of-coverage gap.",
+          "example": "Netlify"
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD)."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD)."
+        },
+        {
+          "name": "min_domain_rank",
+          "type": "integer",
+          "description": "Drop clips from sites below this domain authority."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set `digest` to add an LLM narrative summary."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 20,
+      "archetype": "Analytics",
+      "summary": "A brand's earned-media footprint — news + tech-press + fresh-web clips, deduped and ranked, with an outlet-coverage rollup.",
+      "description": "Fans out content_analysis news search, a Hacker News leg, and a Tavily fresh-news leg in parallel, then dedupes and ranks them into one earned-media clip feed with computed top outlets, freshness labeling (content_analysis fetch_time lags the live web), and — when a `competitor` is supplied — a coverage gap. The content_analysis news leg is the coverage spine (losing it → 50% refund); Hacker News and Tavily are enrichment. `include=digest` adds an LLM narrative summary leg."
+    },
+    {
+      "platform": "prism",
+      "resource": "truthsocial-pulse",
+      "method": "GET",
+      "params": [
+        {
+          "name": "handle",
+          "required": true,
+          "description": "The Truth Social handle (no @).",
+          "example": "realDonaldTrump"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "drill",
+          "type": "integer",
+          "description": "How many top posts to drill for full detail (0 to skip).",
+          "example": "5"
+        },
+        {
+          "name": "posts",
+          "type": "integer",
+          "description": "How many recent posts to pull (window cap)."
+        },
+        {
+          "name": "news_query",
+          "type": "string",
+          "description": "Override the content_analysis news keyword (defaults to the handle/display name)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts,news to trim which legs run."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Opaque pagination cursor for the posts leg."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 8,
+      "archetype": "Analytics",
+      "summary": "A Truth Social handle's pulse — profile, recent posts, per-post detail drill, and the news echo, in one call.",
+      "description": "Fetches a Truth Social profile + recent posts, drills the top posts for full detail (the F13 post-detail path), and runs a content_analysis news echo for the handle, folded into a deterministic activity/sentiment pulse with stable keys + a methodology_version. The profile leg is critical (404 → full refund); posts/drill/news degrade. No Truth Social search exists upstream — this is handle-scoped."
+    },
+    {
+      "platform": "prism",
+      "resource": "launch-echo",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "The launch/product name to measure reception for.",
+          "example": "Bun 1.2"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "repo",
+          "type": "string",
+          "description": "Optional owner/repo or github URL to anchor the dossier.",
+          "example": "oven-sh/bun"
+        },
+        {
+          "name": "threads",
+          "type": "integer",
+          "description": "How many top HN threads to dig comments for."
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD)."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset toggling the comments/blogs/dossier legs."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 10,
+      "archetype": "Analytics",
+      "summary": "How a launch landed — the Hacker News reaction (top threads + comments), the dev-blog echo, and an optional repo dossier.",
+      "description": "Runs a Hacker News search, digs the top threads' comments, and pulls the dev-blog web echo (content_analysis), with an optional GitHub repo/dossier (explicit `repo=` or auto-resolved from the HN/web hits), folded into a launch-reception snapshot with computed attention + echo + a methodology_version. Comment legs are the coverage spine (<0.5 → 50% refund); a dead HN search → full refund."
+    },
+    {
+      "platform": "prism",
+      "resource": "audience-overlap",
+      "method": "GET",
+      "params": [
+        {
+          "name": "handle_a",
+          "required": true,
+          "description": "First TikTok creator handle.",
+          "example": "mkbhd"
+        },
+        {
+          "name": "handle_b",
+          "required": true,
+          "description": "Second TikTok creator handle.",
+          "example": "mrwhosetheboss"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "platform",
+          "type": "string",
+          "description": "Platform (tiktok only in v1; default tiktok)."
+        },
+        {
+          "name": "videos_per_creator",
+          "type": "integer",
+          "description": "Recent videos sampled per creator (1–10, default 5) — caps the commenter pull."
+        },
+        {
+          "name": "depth",
+          "type": "string",
+          "description": "Set `deep` to widen the shared-fan enrichment sample."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 20,
+      "archetype": "Analytics",
+      "summary": "How much two TikTok creators' commenter audiences overlap — Jaccard, shared-fan count, and a confidence label.",
+      "description": "Samples each creator's recent videos and their commenters, then computes a deterministic audience-overlap: shared commenters, Jaccard index, a/b-only counts, and an honesty `confidence` label (commenters over-index super-fans — a lower bound, never full-audience truth). TikTok-only in v1 (YouTube/Instagram are a fast-follow); a non-tiktok `platform` is rejected. If either creator can't be fetched the overlap is undefined → full refund."
+    },
+    {
+      "platform": "prism",
+      "resource": "reputation",
+      "method": "GET",
+      "params": [
+        {
+          "name": "brand",
+          "required": true,
+          "description": "The brand/business/domain to assess.",
+          "example": "Notion"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "sources",
+          "type": "string",
+          "description": "CSV subset of trustpilot,google_play,app_store,google,tripadvisor,web (default the core set).",
+          "example": "trustpilot,google_play,app_store,web"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Marketplace/locale (DFS location). Defaults to United States."
+        },
+        {
+          "name": "depth",
+          "type": "integer",
+          "description": "Reviews per source (Trustpilot clamped ≤20)."
+        },
+        {
+          "name": "place",
+          "type": "string",
+          "description": "Set to enable the place-based legs (Google Business + TripAdvisor)."
+        },
+        {
+          "name": "axis",
+          "type": "enum",
+          "enumValues": [
+            "company",
+            "product",
+            "both"
+          ],
+          "description": "Which reputation axis to headline: company, product, or both (default)."
+        },
+        {
+          "name": "app_store_id",
+          "type": "string",
+          "description": "App Store id to anchor that axis directly (skips resolver)."
+        },
+        {
+          "name": "google_play_id",
+          "type": "string",
+          "description": "Google Play id to anchor that axis directly (skips resolver)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Optional leg toggles."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "A brand's cross-source reputation — Trustpilot + app stores + Google Business + web sentiment, blended into one weighted score with themed pros/cons.",
+      "description": "Resolves and pulls reviews from Trustpilot, the Google Play + App Store listings, Google Business (and TripAdvisor when `place` is set), plus a content_analysis web-sentiment + rating-distribution read, then blends them into a renormalized weighted composite_score (company vs product axes) with per-source ratings (listed aggregate preferred over sample mean) and an LLM-themed pros/cons pass (counts + verbatim quotes recomputed in code). Coverage spine = the resolved sources (<0.5 → 50% refund; none → full refund); the theme pass degrades to empty without refund. Trustpilot review depth is clamped to 20."
+    },
+    {
+      "platform": "prism",
+      "resource": "employer-brand",
+      "method": "GET",
+      "params": [
+        {
+          "name": "company",
+          "required": true,
+          "description": "The employer/company name.",
+          "example": "Stripe"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "linkedin_url",
+          "type": "string",
+          "description": "The company's LinkedIn URL — enables the LinkedIn voice axis + the posting-vs-reality gap.",
+          "example": "https://www.linkedin.com/company/stripe"
+        },
+        {
+          "name": "surfaces",
+          "type": "string",
+          "description": "CSV subset of the surfaces to include."
+        },
+        {
+          "name": "phrases",
+          "type": "string",
+          "description": "Optional extra Reddit search phrases."
+        },
+        {
+          "name": "timeframe",
+          "type": "string",
+          "description": "Reddit timeframe window."
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD)."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "A company's employer brand — what people say about working there across Reddit, the web, YouTube, Naver, and the company's own LinkedIn voice.",
+      "description": "Fans out a LinkedIn company + posts read (LinkedIn comments are excluded — no upstream endpoint), Reddit search + comment dig, content_analysis news + sentiment, a YouTube search, and Naver blog/cafe, then computes per-surface sentiment plus a posting-tone-vs-reality gap (the company's own LinkedIn voice vs the external chatter). Coverage spine = the requested surfaces (<0.5 → 50% refund; none → full refund); the LLM theme pass degrades without refund. Supply `linkedin_url` to include the LinkedIn axis (omitted silently otherwise)."
+    },
+    {
+      "platform": "prism",
+      "resource": "audience-questions",
+      "method": "GET",
+      "params": [
+        {
+          "name": "topic",
+          "required": true,
+          "description": "The topic/keyword to mine audience questions for.",
+          "example": "kubernetes operators"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "platforms",
+          "type": "string",
+          "description": "CSV subset of reddit,youtube,web (default reddit,youtube).",
+          "example": "reddit,youtube"
+        },
+        {
+          "name": "max_questions",
+          "type": "integer",
+          "description": "Cap on questions returned."
+        },
+        {
+          "name": "threads_per_source",
+          "type": "integer",
+          "description": "How many top threads to dig per source."
+        },
+        {
+          "name": "timeframe",
+          "type": "string",
+          "description": "Recency window."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set `web` to add the universal-search leg."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "The real questions a topic's audience asks — harvested from Reddit + YouTube threads and clustered by intent (who/what/why/how/vs).",
+      "description": "Searches Reddit and YouTube (and optionally the universal web search) for a topic, extracts question-shaped titles and comments, and LLM-clusters them into labeled intent groups with verbatim quotes and per-question source counts (the model only labels/groups — counts and quotes are recomputed in code). The clustering degrades to one ungrouped cluster on LLM failure (no refund). Coverage spine = the per-source search legs (<0.5 → 50% refund; all dead → full refund). Great for content/SEO briefs and FAQ generation."
+    },
+    {
+      "platform": "prism",
+      "resource": "product-reviews",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "query",
+          "type": "string",
+          "description": "Product name to auto-resolve across marketplaces.",
+          "example": "AirPods Pro 3"
+        },
+        {
+          "name": "asin",
+          "type": "string",
+          "description": "Amazon ASIN to anchor the Amazon axis directly."
+        },
+        {
+          "name": "gid",
+          "type": "string",
+          "description": "Google product id (gid) to anchor the Google Shopping axis (NOT the catalogid)."
+        },
+        {
+          "name": "sources",
+          "type": "string",
+          "description": "CSV subset of amazon,google_shopping,trustpilot (default all).",
+          "example": "amazon,google_shopping,trustpilot"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Marketplace country (DFS location)."
+        },
+        {
+          "name": "depth",
+          "type": "integer",
+          "description": "Reviews per source (Trustpilot clamped ≤20)."
+        },
+        {
+          "name": "competitors",
+          "type": "string",
+          "description": "Optional competitor products for a comparison (validated; deeper sweep is a fast-follow)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Optional leg toggles."
+        }
+      ],
+      "oneOfGroups": [
+        [
+          "query",
+          "asin",
+          "gid"
+        ]
+      ],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "A product's reviews across Amazon + Google Shopping + Trustpilot, folded into a cross-marketplace rating + themed pros/cons report.",
+      "description": "Resolves a product on Amazon (ASIN) + Google Shopping (gid) + Trustpilot and pulls each source's reviews, folded into a per-source rating summary (listed aggregate preferred over sample mean), a retailer matrix, and an LLM topic pass with per-topic rating impact (the model only assigns review ids — averages are recomputed in code). Anchor with `asin`/`gid` for precision (the gid is `product.ext.gid`, NOT the catalogid) or `query` to auto-resolve. Coverage spine = the resolved sources (<0.5 → 50% refund; none → full refund). Commerce legs take 20-60s."
+    },
+    {
+      "platform": "prism",
+      "resource": "apps-lookup",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "title",
+          "type": "string",
+          "description": "The app title to resolve across both stores.",
+          "example": "Notion"
+        },
+        {
+          "name": "google_play_id",
+          "type": "string",
+          "description": "Google Play app id to anchor that store directly."
+        },
+        {
+          "name": "app_store_id",
+          "type": "string",
+          "description": "App Store app id to anchor that store directly."
+        },
+        {
+          "name": "stores",
+          "type": "string",
+          "description": "CSV subset of google_play,app_store (default both).",
+          "example": "google_play,app_store"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Store country."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "description": "Store language."
+        },
+        {
+          "name": "match_threshold",
+          "type": "string",
+          "description": "Title-similarity threshold for the cross-store match guard (0–1, default 0.6)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Optional leg toggles."
+        }
+      ],
+      "oneOfGroups": [
+        [
+          "title",
+          "google_play_id",
+          "app_store_id"
+        ]
+      ],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "One app across Google Play + the App Store — resolved, title-matched, and compared into a cross-store rating + listing report.",
+      "description": "Resolves an app on both stores (by `title`, or directly via `google_play_id`/`app_store_id`), applies a title + developer match guard so two same-named-but-different apps aren't conflated, and folds the two listings into a cross-store comparison: per-store rating + install + price, the rating gap, and a match confidence. A clean no-match across stores is a valid (fully-charged) result; if neither store resolves the title → 404 + refund; both stores dead → full refund."
+    },
+    {
+      "platform": "prism",
+      "resource": "org-radar",
+      "method": "GET",
+      "params": [
+        {
+          "name": "org",
+          "required": true,
+          "description": "The GitHub org login or a github.com/{org} URL.",
+          "example": "vercel"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "repos",
+          "type": "integer",
+          "description": "How many top repos to dossier (1–10, default 5) — drives the metered price.",
+          "example": "5"
+        },
+        {
+          "name": "sort",
+          "type": "enum",
+          "enumValues": [
+            "stars",
+            "updated",
+            "pushed"
+          ],
+          "description": "Repo ranking: stars (default), updated, or pushed."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Optional leg toggles."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 26,
+      "archetype": "Analytics",
+      "summary": "A GitHub org's footprint — its top repos each expanded into a full dossier (releases, issue load, top request/complaint), rolled up.",
+      "description": "Lists a GitHub org's repositories, picks the top N by stars (forks/archived filtered), and runs the repo/dossier composite on each in parallel, folded into an org-level rollup. Metered: 1cr to resolve the org + 5cr per repo dossiered; the unused per-repo credits are refunded down to the dossiers that actually succeeded. The org repo-list leg is critical (unknown org → 404 + full refund)."
+    },
+    {
+      "platform": "prism",
+      "resource": "creator-vet",
+      "method": "GET",
+      "params": [
+        {
+          "name": "handle",
+          "required": true,
+          "description": "The creator handle to vet.",
+          "example": "mkbhd"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "platform",
+          "type": "string",
+          "description": "Primary platform (tiktok/youtube/instagram).",
+          "example": "youtube"
+        },
+        {
+          "name": "depth",
+          "type": "string",
+          "description": "Set `deep` to widen the post + commenter sample."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set `cross_platform` to add the universal cross-platform presence leg (+25cr)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 50,
+      "archetype": "Analytics",
+      "summary": "Vet a creator before partnering — engagement quality, commenter authenticity, posting cadence, and controversy signals, optionally across platforms.",
+      "description": "Pulls a creator's profile + recent posts + a commenter sample (TikTok / YouTube / Instagram) plus a news + Reddit + Hacker News controversy read, and computes deterministic authenticity signals: engagement rate, a low-quality-commenter share, posting cadence, and controversy inputs. `include=cross_platform` adds the universal cross-platform presence leg (+25cr, refunded if it fails). The core profile leg is critical (creator not found → full refund)."
+    },
+    {
+      "platform": "prism",
+      "resource": "korea-gap",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "The brand/topic to compare across the global and Korean conversations.",
+          "example": "Stanley cup"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Members include `social` (the everywhere leg) + `digest`. Drop `social` for the 15cr web-only variant.",
+          "example": "social,digest"
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD)."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD)."
+        },
+        {
+          "name": "display",
+          "type": "integer",
+          "description": "Naver results per corpus."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 40,
+      "archetype": "Analytics",
+      "summary": "What the world is talking about that Korea isn't (and vice versa) — the global vs Korean (Naver) conversation gap for a brand/topic.",
+      "description": "Fans the Korean Naver corpora (news/blog/cafe/kin/shop/web) against the global conversation (the universal /search/everywhere leg) and computes a directional presence gap: which surface over-indexes the topic, a per-channel Korean map, and a translated quote sample (KR→EN, soft LLM). Metered 40cr full; `include` without `social` drops the everywhere leg for the 15cr web-only variant. Korean volume is a directional per-surface presence index (item-count-bounded), not absolute counts."
+    },
+    {
+      "platform": "prism",
+      "resource": "share-of-voice",
+      "method": "GET",
+      "params": [
+        {
+          "name": "brands",
+          "required": true,
+          "description": "2-5 competitor brand names (CSV).",
+          "example": "notion,coda,airtable"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "category_code",
+          "type": "string",
+          "description": "Numeric DFS taxonomy code for true-share-of-category (use content_analysis/categories to look one up)."
+        },
+        {
+          "name": "market_shares",
+          "type": "string",
+          "description": "JSON map of real market share per brand (fraction or %), e.g. {\"notion\":0.4,\"coda\":0.25,\"airtable\":0.35}, to compute ESOV."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV toggles (default `emotions,social`). Drop `social` for the cheaper web-only variant; drop `emotions` to skip the sentiment leg.",
+          "example": "social,emotions"
+        },
+        {
+          "name": "page_type",
+          "type": "enum",
+          "enumValues": [
+            "ecommerce",
+            "news",
+            "blogs",
+            "message-boards",
+            "organization"
+          ],
+          "description": "Optional surface filter forwarded to the content_analysis legs."
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "description": "Window start (YYYY-MM-DD). Defaults to 90 days ago."
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "description": "Window end (YYYY-MM-DD). Defaults to today."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 40,
+      "archetype": "Analytics",
+      "summary": "Engagement-weighted Share of Voice across 2-5 brands, with web+social split, emotion overlay, and ESOV.",
+      "description": "Per brand, fans out to content_analysis summary/phrase-trends/sentiment plus /search/everywhere (consuming the real per-platform items_by_source counts, not the capped fused list), then computes a published-formula SOV (web + social, equal-weighted by default), optional true-share-of-category (numeric `category_code`), and ESOV (`market_shares`, Binet/Field — a planning signal, not a growth guarantee). Metered at 40cr/brand (20 web-only); a brand whose social search half-failed is automatically cheaper, with the reason legible in `legs[]` + per-brand `coverage`."
+    },
+    {
+      "platform": "prism",
+      "resource": "review-integrity",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "query",
+          "type": "string",
+          "description": "Product or brand name to evaluate.",
+          "example": "AirPods Pro 3"
+        },
+        {
+          "name": "asin",
+          "type": "string",
+          "description": "Amazon ASIN to anchor the Amazon axis directly (skips product-search)."
+        },
+        {
+          "name": "gid",
+          "type": "string",
+          "description": "Google product id (gid) to anchor the Google Shopping axis (NOT the catalogid product.id)."
+        },
+        {
+          "name": "sources",
+          "type": "string",
+          "description": "CSV subset of amazon,google_shopping,trustpilot,web,forums (default all).",
+          "example": "amazon,trustpilot,forums"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Marketplace country (DFS location). Defaults to United States."
+        }
+      ],
+      "oneOfGroups": [
+        [
+          "query",
+          "asin",
+          "gid"
+        ]
+      ],
+      "creditTier": "premium",
+      "creditCost": 30,
+      "archetype": "Analytics",
+      "summary": "Cross-source review integrity verdict (statistical, deterministic).",
+      "description": "Computes a documented, reproducible integrity grade for a product or brand by comparing ratings across Amazon, Google Shopping, Trustpilot, and the open web: cross-source rating divergence (Welch t-test), web-distribution bimodality (Sarle's coefficient), unsolicited-forum tone contrast, and spam-domain clustering. No AI/LLM — every number is a published formula (`methodology_version`). Returns the grade, per-signal evidence, per-source ratings, the divergence pair, and the raw sampled reviews. Reviewer-history tests are flagged `unavailable` (no upstream reviewer-profile source). Anchor on `asin`/`gid` for precision or `query` to auto-resolve. Commerce data takes 20-60s."
+    },
+    {
+      "platform": "prism",
+      "resource": "answers",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "The question, forwarded verbatim to every engine.",
+          "example": "will the fed cut rates in september"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "engines",
+          "type": "string",
+          "description": "CSV subset of perplexity,grok,tavily (default all three)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV of optional grounding legs: `polymarket` adds market probabilities (trimmed).",
+          "example": "polymarket"
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "premium",
+      "creditCost": 15,
+      "archetype": "Analytics",
+      "summary": "Multi-engine AI consensus: one question → Perplexity + Grok + Tavily answers verbatim, merged citations, and an agreement matrix.",
+      "description": "Fans your question to multiple AI engines in parallel and keeps each answer verbatim, merges + dedupes their citations by normalized URL (with a `cited_by` list), and computes where they agree and disagree: a pairwise `agreement_matrix` + `disputed_claims` (the one labeled LLM step — degrades to null on failure) plus a deterministic `citation_overlap` (Jaccard, hand-verifiable). The second-opinion API for agents — one question, one bounded-cost call. Streams each engine's answer as it settles (SSE). `include=polymarket` adds probabilistic-market grounding. 15cr flat; a strict-majority engine failure refunds half (the raw answers are always the floor value)."
+    },
+    {
+      "platform": "prism",
+      "resource": "video-intel",
+      "method": "GET",
+      "params": [
+        {
+          "name": "url",
+          "required": true,
+          "description": "Absolute http(s) URL of a YouTube, TikTok, Rumble, or Instagram video.",
+          "example": "https://www.youtube.com/watch?v=A9TikdsD5eg"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "comments",
+          "type": "string",
+          "description": "How many top comments to fetch (0–50, default 20). `0` skips the comments leg."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV of optional costed legs: `transcript` (adds the dedicated transcript leg, +10cr, refunded when null) and/or `commenter_profiles` (≤3 commenter mini-profiles, TikTok/Instagram in v1).",
+          "example": "transcript,commenter_profiles"
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "One video URL → detail + stats + transcript + top comments + commenter sample, across YouTube/TikTok/Rumble/Instagram.",
+      "description": "Fans out the video detail, comments, an optional transcript (10cr, never charged when the video has none), and ≤3 commenter profiles, folding them into one unified payload. Every leg joins on the same video `url`. Sync by default; streams Server-Sent Events when `include=transcript` (the transcript leg can take 20s+). `legs[]` reports each fired leg's status, cost, and latency; `coverage` + `partial_failure` flag any degraded leg. Commenter profiles ship for TikTok + Instagram in v1."
+    },
+    {
+      "platform": "prism",
+      "resource": "voice",
+      "method": "GET",
+      "params": [
+        {
+          "name": "handle",
+          "required": true,
+          "description": "The handle to look up across all four microblogs (a single leading @ is stripped).",
+          "example": "nasa"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "platforms",
+          "type": "string",
+          "description": "CSV subset of twitter,threads,bluesky,truthsocial (default all four).",
+          "example": "twitter,threads,bluesky,truthsocial"
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Opaque per-platform pagination token from a prior response's cursors_by_platform (twitter is a single non-paginatable page)."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of posts_by_platform,merged_timeline,computed to trim the payload (posts_by_platform is always returned)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "One person's public posts across X, Threads, Bluesky, and Truth Social, time-merged.",
+      "description": "Fetches a handle's recent posts from four microblogs in parallel, time-merges them into one chronological feed, and computes platform presence, a cross-post rate, and a per-platform tone label (a soft `gpt-5.4-nano` heuristic that degrades to absent on failure). Microblogs the handle isn't on return empty arrays with `platform_presence:false` — the absence map is the product. Flat 5cr; all-miss → full refund. The `legs[]` block reports each leg's status, cost, and latency. v1 is list-level (no per-post detail drill)."
+    },
+    {
+      "platform": "naver",
+      "resource": "brief",
+      "method": "GET",
+      "params": [
+        {
+          "name": "query",
+          "required": true,
+          "description": "Search query (Korean or any language).",
+          "example": "삼성전자"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "corpora",
+          "type": "string",
+          "description": "CSV subset of news,blog,cafearticle,kin,shop,webkr (default all six).",
+          "example": "news,blog,shop"
+        },
+        {
+          "name": "display",
+          "type": "integer",
+          "description": "Items per corpus (1–100, default 20)."
+        },
+        {
+          "name": "start",
+          "type": "integer",
+          "description": "1-indexed offset per corpus (1–1000, default 1). Prefer `cursor` for paging."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "description": "sim (relevance, default) or date; shop also asc/dsc (price); kin also point."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "Set to `digest` for an LLM English digest with translated quotes."
+        },
+        {
+          "name": "cursor",
+          "type": "string",
+          "description": "Opaque pagination token from a prior response's next_cursor."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 10,
+      "archetype": "Analytics",
+      "summary": "One query across the Korean internet (6 Naver corpora) + optional digest.",
+      "description": "Fans a single query across Naver News, Blog, Café (community), 지식iN (Q&A), Shopping, and the Korean web index in parallel, returning each corpus's raw items with the original Korean preserved, plus a volume-by-corpus map, top recent blogs, and a shopping price range. Add `include=digest` for an English translated synthesis with pull-quotes. The Korea-market brief no western data vendor can produce — all six corpora are native Naver. Paginate each corpus via the opaque `cursor`. Flat 10cr; coverage-based partial refund when a majority of corpora fail."
+    },
+    {
+      "platform": "prism",
+      "resource": "app-reviews",
+      "method": "GET",
+      "params": [],
+      "optionalParams": [
+        {
+          "name": "google_play_id",
+          "type": "string",
+          "description": "Google Play package name (e.g. com.spotify.music)."
+        },
+        {
+          "name": "app_store_id",
+          "type": "string",
+          "description": "App Store numeric app id (e.g. 324684580)."
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "description": "App name to auto-resolve the top hit on each requested store (when no id is given).",
+          "example": "spotify"
+        },
+        {
+          "name": "country",
+          "type": "string",
+          "description": "Storefront country (DFS location name or numeric code). Defaults to the DFS default location."
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "description": "Language code (e.g. en)."
+        },
+        {
+          "name": "depth",
+          "type": "integer",
+          "description": "Reviews per store (default 150 Google / 50 Apple, max 600). The App Store returns ~50 at depth 40.",
+          "example": "150"
+        },
+        {
+          "name": "stores",
+          "type": "string",
+          "description": "CSV subset of google_play,app_store. Defaults to whichever ids/query resolve."
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV of topics,sentiment_timeline,feature_requests,responses (default all). Omitting topics+feature_requests skips the LLM step."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 15,
+      "archetype": "Analytics",
+      "summary": "Cross-store app review intelligence (Google Play + App Store) — translated, clustered, sentiment-scored.",
+      "description": "One call returns a topic-clustered, sentiment-classified review report across Google Play and the App Store: per-store rating summary (listed aggregate), topic clusters, a pooled daily sentiment timeline, extracted feature requests, and developer-response rate — plus every raw review on the shared canonical Review shape. Resolve by store app_id (com.spotify.music / 324684580) or by `query` to auto-resolve the top app on each requested store. Sync by default; streams Server-Sent Events when the client sends `Accept: text/event-stream` (the DFS review legs + clustering run ~30s). Single-store calls are 10 credits; both stores 15."
+    },
+    {
+      "platform": "prism",
+      "resource": "creator-card",
+      "method": "GET",
+      "params": [
+        {
+          "name": "handle",
+          "required": true,
+          "description": "The handle to look up across every requested platform (a single leading @ is stripped).",
+          "example": "mrbeast"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "platforms",
+          "type": "string",
+          "description": "CSV subset of tiktok,instagram,youtube,twitter,threads,bluesky,truthsocial (default the first four). Unknown platforms are ignored.",
+          "example": "tiktok,instagram,youtube,twitter"
+        },
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of cards,totals to trim the payload (cards is always returned)."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "advanced",
+      "creditCost": 5,
+      "archetype": "Analytics",
+      "summary": "One handle, unified author cards across TikTok, Instagram, YouTube, X (and more).",
+      "description": "Looks up a single handle across multiple platforms in parallel and returns one unified author card per platform — followers, verified flag, bio, ids — with null for the platforms the handle isn't found on, plus combined follower totals and an any-verified flag. The default set is TikTok, Instagram, YouTube, and Twitter; Threads, Bluesky, and Truth Social can be added via `platforms`. A handle existing on only some platforms is a successful, complete answer (the nulls are the product); only an all-platform miss refunds. Flat 5 credits for up to 4 platforms, +1 credit per extra platform. `legs[]` reports each platform leg's status, cost, and latency."
+    },
+    {
+      "platform": "prism",
+      "resource": "post-stats",
+      "method": "POST",
+      "params": [
+        {
+          "name": "urls",
+          "required": true,
+          "description": "JSON array of 1–100 absolute http(s) post URLs (mixed platforms allowed).",
+          "example": "[\"https://www.youtube.com/watch?v=A9TikdsD5eg\"]"
+        }
+      ],
+      "optionalParams": [
+        {
+          "name": "include",
+          "type": "string",
+          "description": "CSV subset of views,likes,comments,shares,saves to trim each row's engagement block."
+        }
+      ],
+      "oneOfGroups": [],
+      "creditTier": "standard",
+      "creditCost": 1,
+      "archetype": "Analytics",
+      "summary": "Up to 100 mixed-platform post URLs → current engagement per URL, failed URLs refunded.",
+      "description": "Bulk stats refresh for verification loops (clipper payouts). POST a JSON body with a `urls` array (1–100 mixed-platform post links); returns one row per URL — platform, status (ok / not_found / error / unsupported), the unified engagement block (views/likes/comments/shares/saves), and a server `fetched_at` timestamp — in input order. Per-URL isolation: one dead link never fails the batch. Metered at 1 credit per successful URL; dead, errored, and unsupported URLs are refunded, so you pay exactly for the counts you got. Never cached (every call reads the live count). Optionally streams Server-Sent Events when the client sends `Accept: text/event-stream`."
     },
     {
       "platform": "content_analysis",

@@ -8,13 +8,16 @@ import {
   ListEndpointsInputSchema,
   RequestInputSchema,
   CheckBalanceInputSchema,
+  MonitorsInputSchema,
   GetDocsInputSchema,
 } from "./schemas/tools.js";
 import { listPlatforms } from "./tools/list-platforms.js";
 import { listEndpoints } from "./tools/list-endpoints.js";
 import { request } from "./tools/request.js";
 import { checkBalance } from "./tools/check-balance.js";
+import { monitors } from "./tools/monitors.js";
 import { getDocs } from "./tools/get-docs.js";
+import type { MonitorsParams } from "./tools/monitors.js";
 import { PLATFORMS } from "./data/platforms.js";
 import { ENDPOINTS } from "./data/endpoints.js";
 
@@ -107,11 +110,31 @@ server.registerTool(
 );
 
 server.registerTool(
+  "socialcrawl_monitors",
+  {
+    title: "Manage SocialCrawl Monitors",
+    description:
+      "Create and manage stateful monitors that re-run any SocialCrawl recipe (a registry endpoint or a Prism composite) on a cadence (hourly/daily/weekly/cron), deliver each result to a signed webhook, raise alerts on metric thresholds/changes, and accumulate a per-run time-series. 'Prism answers once; monitors watch it for you.' Actions: create, list, get, runs, timeseries, pause, resume, delete. Managing monitors costs 0 credits; each scheduled run bills the underlying recipe's normal cost plus a 1-credit scheduling premium. Requires a valid SOCIALCRAWL_API_KEY.",
+    inputSchema: MonitorsInputSchema,
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
+  },
+  async (params) => {
+    const output = await monitors(params as MonitorsParams);
+    return { content: [{ type: "text", text: output }] };
+  },
+);
+
+server.registerTool(
   "socialcrawl_get_docs",
   {
     title: "Get SocialCrawl Documentation",
     description:
-      "Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference), 'authentication', 'credits', 'errors', 'idempotency', 'pricing' (per-endpoint cost for every endpoint), or any platform slug (e.g., 'tiktok') for platform-specific docs. No API key required.",
+      "Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference), 'authentication', 'credits', 'errors', 'idempotency', 'monitors' (scheduled-recipe wrapper), 'pricing' (per-endpoint cost for every endpoint), or any platform slug (e.g., 'tiktok') for platform-specific docs. No API key required.",
     inputSchema: GetDocsInputSchema,
     annotations: {
       readOnlyHint: true,

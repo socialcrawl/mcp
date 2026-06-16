@@ -10,49 +10,49 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 18,
+    endpointCount: 19,
     description:
       "Profiles, videos, comments and replies, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
   },
   {
     slug: "instagram",
     name: "Instagram",
-    endpointCount: 15,
+    endpointCount: 16,
     description:
       "Profiles, posts, reels, comments, story highlights, reels/hashtag/profile search, trending reels, audio reels, embed HTML, and AI-powered media transcripts.",
   },
   {
     slug: "youtube",
     name: "YouTube",
-    endpointCount: 16,
+    endpointCount: 17,
     description:
       "Channels, videos, shorts, comments and replies, video sponsors, playlists, community posts, keyword/hashtag search, trending shorts, channel live streams, and video transcripts.",
   },
   {
     slug: "twitter",
     name: "Twitter/X",
-    endpointCount: 7,
+    endpointCount: 8,
     description:
       "Profiles, tweets, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   },
   {
     slug: "linkedin",
     name: "LinkedIn",
-    endpointCount: 8,
+    endpointCount: 9,
     description:
       "Personal profiles, company pages, posts, company posts, post search, post transcripts, and LinkedIn Ad Library (ad details, ad search).",
   },
   {
     slug: "facebook",
     name: "Facebook",
-    endpointCount: 21,
+    endpointCount: 22,
     description:
       "Pages, posts, comments and replies, group posts, photos, reels, events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   },
   {
     slug: "reddit",
     name: "Reddit",
-    endpointCount: 6,
+    endpointCount: 7,
     description:
       "Subreddit posts and details, post comments, keyword search, subreddit search, and post video transcripts.",
   },
@@ -139,6 +139,20 @@ export const PLATFORMS: Platform[] = [
     endpointCount: 4,
     description:
       "Google Shopping product search, full product details, reviews aggregated across retailers, and per-seller offers with itemised pricing.",
+  },
+  {
+    slug: "google_news",
+    name: "Google News",
+    endpointCount: 1,
+    description:
+      "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by DataForSEO Google News.",
+  },
+  {
+    slug: "google_finance",
+    name: "Google Finance",
+    endpointCount: 3,
+    description:
+      "Financial-instrument data — full quotes, a markets overview (indices + top movers), and ticker search by name. Backed by DataForSEO Google Finance.",
   },
   {
     slug: "trustpilot",
@@ -241,7 +255,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "naver",
     name: "Naver",
-    endpointCount: 11,
+    endpointCount: 12,
     description:
       "Korea's #1 search portal — 11 search corpora: blog, news, book, encyclopedia, cafe article, Q&A (KiN), local places, shopping, document, image, and web search.",
   },
@@ -269,9 +283,16 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "search",
     name: "Universal Search",
-    endpointCount: 1,
+    endpointCount: 2,
     description:
       "Meta-search across 12+ platforms in a single call (up to 15 sources in hashtag mode). LLM-planned, RRF-fused, LLM-reranked, clustered. Flat 20 credits per call.",
+  },
+  {
+    slug: "prism",
+    name: "Prism",
+    endpointCount: 30,
+    description:
+      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting, multi-engine AI consensus answers, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic).",
   },
   {
     slug: "content_analysis",

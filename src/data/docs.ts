@@ -30,9 +30,9 @@ ${PLATFORMS.map((p) => `- ${p.slug} (${p.endpointCount} endpoint${p.endpointCoun
 - Standard: 1 credit per request
 - Advanced: 5 credits per request
 - Premium: 10 credits per request
-- Flat overrides: \`GET /v1/search/everywhere\` costs a flat 20 credits
+- Flat / metered overrides: \`GET /v1/search/everywhere\` is a flat 20 credits; the cross-platform Prism composites (\`/v1/prism/*\`) are priced flat or metered per recipe (0–50 credits)
 
-Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, commerce/app-store data, content analysis, AI-powered utilities) cost 5 or 10. Use the \`pricing\` docs topic for the cost of every individual endpoint.
+Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, commerce/app-store data, content analysis, AI-powered utilities) cost 5 or 10, and the Prism composites cost more because they fan out across several endpoints. Use the \`pricing\` docs topic for the cost of every individual endpoint.
 
 ## Meta Endpoints
 
@@ -84,7 +84,7 @@ Every request costs credits. The MCP server pre-calculates cost from the endpoin
 | advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composites, Polymarket research, Amazon/Google Shopping product detail, Trustpilot reviews, Google Business reviews/Q&A, hotel details, app-store search/info/reviews/charts, content-analysis aggregates |
 | premium | 10 credits | AI-powered utilities (transcript generation, age/gender detection, GitHub user/profile-velocity) and the app-store listings-search database (Google Play / App Store \`app-listings-search\`) |
 
-A single endpoint overrides this ladder: \`GET /v1/search/everywhere\` (universal meta-search) costs a flat **20 credits** because it fans out across 12+ platforms in parallel.
+Some endpoints override this ladder with a flat or metered per-endpoint price. The universal meta-search \`GET /v1/search/everywhere\` is a flat **20 credits** (it fans out across 12+ platforms in parallel), and the cross-platform **Prism** composites (\`/v1/prism/*\`, plus per-platform composites like \`{platform}/profile/full\` and \`reddit/omni-search\`) are priced flat or metered per recipe — anywhere from 0 credits (\`prism/lookup\`) to 50 (\`prism/creator-vet\`) — because each one fans out across several detail endpoints. Metered composites deduct an upfront ceiling and auto-refund down to the actual work done; the response envelope's \`credits_used\` reports the real charge.
 
 For the exact cost of every endpoint, use the \`pricing\` docs topic — it lists all ${ENDPOINTS.length} endpoints with their per-request cost. \`socialcrawl_list_endpoints\` also shows the cost per endpoint for a single platform, and \`socialcrawl_request\` echoes the cost in its response header.
 
@@ -188,6 +188,38 @@ Idempotency rows live for **24h**. After that the key is reusable.
 ## Credits and cache
 
 Replays cost **0 credits** — same as cache hits.`,
+
+  monitors: `# SocialCrawl API — Monitors
+
+Monitors are the **stateful, scheduled wrapper** around any SocialCrawl recipe. A monitor re-runs a registered endpoint or a Prism composite on a cadence, delivers each result to a signed webhook, evaluates alert rules, and accumulates a per-run time-series you can read back. *"Prism answers once; monitors watch it for you."*
+
+Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and are managed through the \`socialcrawl_monitors\` tool, not \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
+
+## Operations (\`socialcrawl_monitors\` actions)
+
+| Action | HTTP | What it does |
+|--------|------|--------------|
+| \`create\` | \`POST /v1/monitors\` | Create a monitor. Validates the recipe, enforces a plan slot cap, backfills one run, returns the monitor + \`estimated_cost_per_run\`/\`estimated_monthly_cost\` and (once) the webhook signing secret. |
+| \`list\` | \`GET /v1/monitors\` | Owner-scoped, cursor-paginated list. Filter with \`status\` = active \| paused \| all. |
+| \`get\` | \`GET /v1/monitors/:id\` | A single monitor (404 if not owned — never leaks existence or the secret). |
+| \`runs\` | \`GET /v1/monitors/:id/runs\` | Reverse-chron run history, each with its \`legs[]\` envelope + \`alerts_fired\`. \`include=result\` adds the full stored result. |
+| \`timeseries\` | \`GET /v1/monitors/:id/timeseries\` | The headline read — each stored run's stable computed keys projected into a \`{ t, metrics }\` series (reads snapshots, no live API calls). |
+| \`pause\` / \`resume\` | \`PATCH /v1/monitors/:id\` | Pause or resume scheduling. |
+| \`delete\` | \`DELETE /v1/monitors/:id\` | Unschedule + cascade-delete runs and the webhook. |
+
+## Create parameters
+
+- \`recipe\` (required) — any registered endpoint or Prism composite as \`platform/resource\` (e.g. \`prism/brand-mentions\`, \`tiktok/profile\`).
+- \`cadence\` (required) — \`hourly\` \| \`daily\` \| \`weekly\`, or a cron expression.
+- \`webhook_url\` (required) — HTTPS endpoint that receives each run, signed with \`x-socialcrawl-signature\` (HMAC-SHA256, timestamped).
+- \`params\` — parameters passed to the recipe every run.
+- \`alert_rules\` — \`[{ metric, op, value, window? }]\`. Ops: \`gt\`, \`lt\`, \`gte\`, \`lte\`, \`abs_change_gt\`, \`pct_change_gt\`, \`pct_change_lt\` (the change ops compare a run to the previous comparable run; \`window\` is \`1d\` \| \`1w\`).
+- \`suppress_webhook_unless_alert\` — only deliver the webhook when a rule trips.
+- \`name\`, \`output_schema\`, \`webhook_secret\` — optional.
+
+## Billing
+
+Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget. The webhook auto-pauses after 10 consecutive delivery failures.`,
 };
 
 function buildCurl(e: Endpoint): string {
@@ -392,6 +424,7 @@ export const DOCS: Record<string, string> = (() => {
     credits: HANDWRITTEN.credits,
     errors: HANDWRITTEN.errors,
     idempotency: HANDWRITTEN.idempotency,
+    monitors: HANDWRITTEN.monitors,
     pricing: buildPricingDoc(),
     full: buildFullDoc(),
   };
@@ -413,6 +446,7 @@ export function getAvailableTopics(): string[] {
     "credits",
     "errors",
     "idempotency",
+    "monitors",
     "pricing",
     ...PLATFORMS.map((p) => p.slug),
   ];
