@@ -1,11 +1,12 @@
 import { makeRequest } from "../client.js";
+import type { ApiContext } from "../context.js";
 
 /**
  * Calls the SEC-02 meta endpoint `GET /v1/credits/balance` (api-key auth, 0 credits).
  * Returns the wrapped envelope as a markdown-formatted string the agent can read.
  */
-export async function checkBalance(): Promise<string> {
-  const response = await makeRequest({ platform: "meta", resource: "credits/balance" });
+export async function checkBalance(ctx: ApiContext): Promise<string> {
+  const response = await makeRequest(ctx, { platform: "meta", resource: "credits/balance" });
 
   const header = [
     "## SocialCrawl Credit Balance",

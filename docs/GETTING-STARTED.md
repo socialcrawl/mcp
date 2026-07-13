@@ -6,13 +6,14 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 6 tools that let it interact with 42 platforms and 264 endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Google News & Finance, cross-platform Prism composites, and a universal meta-search:
+Once installed, your AI agent gains 7 tools that let it interact with 44 platforms and 357 endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, full web scraping & browser automation, prediction markets, search trends, Google News/Finance/Trends, cross-platform Prism composites, and a universal meta-search:
 
 - **Discover** what platforms and endpoints are available
 - **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, analytics, and Prism composites
 - **Read** detailed API documentation on demand, including per-endpoint pricing
 - **Check** your credit balance
 - **Schedule** Monitors that re-run any recipe on a cadence and deliver each result to a signed webhook
+- **Scrape & browse** the open web — scrape/search/map/extract, async crawl/agent jobs, change monitors, and interactive browser sessions via `socialcrawl_web`
 
 All data comes back in a clean, unified response envelope (`success`, `platform`, `endpoint`, `data`, `credits_used`, `credits_remaining`, `request_id`, `cached`) — the same structure whether you're querying TikTok, Instagram, YouTube, or any other platform. Only the inner `data` payload changes shape, and it's typed per archetype (`Author`, `Post`, `PostList`, etc.) so a post looks like a post no matter where it came from.
 
@@ -119,11 +120,11 @@ The agent calls `socialcrawl_request` with `platform: "instagram"`, `resource: "
 
 > "What social media platforms can you access?"
 
-The agent calls `socialcrawl_list_platforms` and shows all 42 platforms with endpoint counts.
+The agent calls `socialcrawl_list_platforms` and shows all 44 platforms with endpoint counts.
 
 > "Show me all the TikTok endpoints"
 
-The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 26 endpoints with their required parameters and credit costs.
+The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 20 endpoints with their required parameters and credit costs.
 
 ### Cross-platform research
 
@@ -139,7 +140,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 ---
 
-## Understanding the 6 Tools
+## Understanding the 7 Tools
 
 ### `socialcrawl_list_platforms`
 
@@ -147,7 +148,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Input:** None.
 
-**Output:** A table of all 42 platforms with their slug, endpoint count, and description of available data.
+**Output:** A table of all 44 platforms with their slug, endpoint count, and description of available data.
 
 **No API key required.** This queries local bundled data.
 
@@ -174,6 +175,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 - `platform` (required) — platform slug
 - `resource` (required) — the endpoint resource path (e.g., `"profile"`, `"post/comments"`, `"search"`)
 - `params` (optional) — query parameters as key-value pairs (e.g., `{ "handle": "charlidamelio" }`). Includes required parameters, any optional parameters the endpoint accepts (forwarded through when provided), and at least one member of each `oneOf` group the endpoint declares.
+- `body` (optional) — JSON request body for the POST batch endpoints (e.g. `youtube/videos`, `prism/profiles`). Put array/object params here — e.g. `{ "ids": ["dQw4w9WgXcQ"] }` — while scalar query params (like `hl`) stay in `params`. Ignored for GET endpoints.
 
 **Output:** A unified response envelope containing `success`, `platform`, `endpoint`, `data` (the actual social media payload, typed per archetype — `Author`, `Post`, `PostList`, etc.), `credits_used`, `credits_remaining`, `request_id`, and `cached`. The envelope shape is stable across every endpoint — only `data` varies.
 
@@ -232,9 +234,24 @@ If validation fails, it tells the agent exactly what's wrong and what tool to us
 - `id` — the monitor id (required for get/runs/timeseries/pause/resume/delete)
 - `recipe`, `cadence`, `webhook_url` (required for `create`), plus optional `params`, `name`, `alert_rules`, `suppress_webhook_unless_alert`, and list/runs/timeseries filters
 
-**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 264 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
+**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 357 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
 
 **Requires API key.**
+
+---
+
+### `socialcrawl_web`
+
+**When to use:** For anything on the open web — scraping a page, searching the web, mapping a site, extracting structured data, crawling a whole site, running an autonomous web agent, watching a URL for changes, or driving an interactive browser session. This is the dedicated tool for the `web` platform (`/v1/web/*`), which mixes GET/POST/PATCH/DELETE and async job lifecycles that `socialcrawl_request` can't express.
+
+**Input:**
+- `action` (required) — one of the sync reads (`scrape`, `search`, `map`, `extract`), async jobs (`crawl`, `batch_scrape`, `agent`, then `job_get`/`job_list`/`job_cancel`), monitors (`monitor_create`/`list`/`get`/`update`/`delete`/`checks`), or sessions (`session_create`/`list`/`get`/`execute`/`close`)
+- `id` — the job/monitor/session id (required for the `*_get`/`*_cancel`/`*_delete`/`*_update`/`*_checks`/`*_execute` actions)
+- `input` — the operation parameters (query params for reads, JSON body for writes), e.g. `{ "url": "https://example.com", "formats": "markdown,screenshot" }`
+
+**Output:** The scraped content, search results, job envelope, monitor, or session JSON. Pricing varies by action (scrape 1cr, search 2cr, extract & session_create 5cr, agent 25cr; job/monitor/session management 0cr).
+
+**Requires API key.** See `socialcrawl_get_docs` topic `web` for the full per-action reference.
 
 ---
 

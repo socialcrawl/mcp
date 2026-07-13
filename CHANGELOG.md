@@ -4,6 +4,126 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-07-10
+
+Re-sync with the backend registry, bringing coverage from 42 platforms /
+323 endpoints to **44 platforms / 357 active endpoints** (+34). This wave adds
+the first **non-GET** endpoints to the surface, so the data layer and request
+path are now **method-aware** (GET/POST/PATCH/DELETE), and the stateful web
+platform gets its own tool. Data regenerated via the standard pipeline (the
+backend's `extract-mcp-data.ts` → `npm run generate:data`).
+
+### Added
+
+- **New `socialcrawl_web` tool → the `web` platform (22 endpoints).** Full web
+  scraping, search, and browser automation (Firecrawl-backed), driven by one
+  `action` parameter. Sync reads (`scrape`, `search`, `map`, `extract`); async
+  jobs with a poll/cancel lifecycle (`crawl`, `batch_scrape`, `agent` →
+  `job_get`/`job_list`/`job_cancel`); stateful change **monitors**
+  (`monitor_create`/`list`/`get`/`update`/`delete`/`checks`); and interactive
+  browser **sessions** (`session_create`/`list`/`get`/`execute`/`close`). Path
+  ids are validated and URL-encoded (same hardening as `socialcrawl_monitors`).
+  `web/parse` (multipart upload) is documented but served directly via REST.
+- **New `google_trends` platform (2 endpoints):** `explore` (interest-over-time)
+  and `rising` (breakout related queries), DataForSEO-backed.
+- **Batch POST endpoints on `socialcrawl_request`.** New `body` parameter carries
+  the JSON body for POST batch endpoints — `youtube/videos`, `youtube/channels`,
+  `youtube/transcripts`, `prism/comment-lookup`, `prism/profiles` (plus the
+  existing `prism/post-stats`). Array/object params (ids/urls/items) go in
+  `body`; scalar query params (e.g. YouTube `hl`, marked `in: "query"` in the
+  registry) are auto-routed to the query string. JSON-string arrays are coerced
+  to real arrays.
+- **New endpoints on existing platforms:** `tiktok/comment` and
+  `instagram/comment` (single-comment lookup), `youtube/videos` /
+  `youtube/channels` / `youtube/transcripts` (batch), `google_play/search-suggestions`,
+  `app_store/search-suggestions`, and `prism/handle-audit`.
+- **`get_docs` `web` topic** and a `[query param]` marker in `list_endpoints`
+  for `in:query` params on POST endpoints.
+
+### Changed
+
+- **Data layer is now method-aware.** `Endpoint.method` is a
+  `GET | POST | PATCH | DELETE` union (was the literal `"GET"`); optional params
+  can carry an `in: "query" | "body"` marker; `findEndpoint(platform, resource,
+  method?)` disambiguates the stateful web resources that share a resource path
+  across methods. The extract script (`extract-mcp-data.ts`) now emits the `in`
+  marker; `generate-data.ts` emits the real method.
+- **`socialcrawl_request` is method-aware** and refuses the `web` platform with a
+  pointer to `socialcrawl_web`. GET endpoints are unchanged (query params).
+- **Pricing surfaces are method-aware.** The `pricing` doc, `list_endpoints`, and
+  per-endpoint doc blocks all show the HTTP method; the pricing table is grouped
+  by platform with the shared `/v1/{slug}/…` base in the section header (keeping
+  the doc under the 25k truncation limit as the endpoint count grew).
+- **Repriced (backend):** `instagram/post/comments`, `reddit/post/comments`,
+  `instagram/search/hashtag`, and `twitter/ai-search` moved from standard (1cr)
+  to advanced (5cr). Tier split is now standard/advanced/premium = 210/117/30.
+- Bumped to **1.8.0** across `package.json`, `server.json`, `constants.ts`,
+  README, and the in-server docs; tool count is now **7**.
+
+## [1.7.0] - 2026-07-02
+
+### Added
+
+- **Remote Streamable HTTP transport.** New hosted endpoint `https://mcp.socialcrawl.dev/mcp` (spec rev 2025-11-25, stateless). Auth via `Authorization: Bearer <key>` or `x-api-key` header; the discovery tools work anonymously. New `socialcrawl-mcp-http` bin / `npm run start:http` for self-hosting, plus a Dockerfile.
+- **Internal:** credentials are now per-request (`ApiContext`) instead of process-global env; stdio behavior is unchanged.
+
+## [1.6.0] - 2026-06-26
+
+Re-sync with the backend registry, bringing coverage from 42 platforms /
+264 endpoints to **42 platforms / 323 active endpoints** (+59). No new
+platforms — the growth lands on existing surfaces via new upstreams and
+composites. Data layer regenerated via the standard pipeline (the backend's
+`extract-mcp-data.ts` → `npm run generate:data`).
+
+### Added
+
+- **LinkedIn expansion → 44 endpoints** (was 9). Re-sourced to the Fresh
+  LinkedIn Scraper upstream with a unified-schema port: canonical profiles &
+  company pages, `post`, `profile/posts`, `profile/reactions`,
+  `post/reposts`, `group/posts`, `company/posts`, `post/comments` +
+  `/replies`, people & company-people search, `company/affiliated-pages`,
+  the new **`Job`/`JobList`** archetype (`search/jobs`, `company/jobs`,
+  `job`), structured profile sub-resources (experiences, educations, skills,
+  honors, certifications, publications, volunteers, recommendations,
+  interests, images, videos), company insights & job-count, groups, and
+  location/school/industry search.
+- **Instagram expansion → 32 endpoints** (was 16). New private-API-backed
+  capabilities: `followers`, `following`, `similar`, `post/likers`,
+  `tagged`, `location/posts`, `stories`, `story/download`, `engagement`
+  analytics, `post/stats` (reshare counts), `search/location`,
+  `search/music`, `username-suggestions`, and `music/trending`; plus two
+  flat-5cr composites — **`profile/reels/full`** and **`profile/posts/full`**
+  — that return a creator's whole reels/posts page *with* the per-item share
+  count in one call (previously one `post/stats` call per item), each
+  reporting a `shares_coverage` fraction and per-leg transparency.
+- **YouTube expansion → 25 endpoints** (was 17). New second-upstream
+  capabilities: `videos/trending`, `search/advanced`, `playlist/items`,
+  `search/suggestions` (autocomplete), and the new **`MediaList`**
+  archetype for downloadable media — `video/audio`, `video/files`,
+  `video/subtitles`, `video/thumbnails`.
+
+### Changed
+
+- Bumped to **1.6.0**. Tool descriptions, README, badges, `server.json`,
+  `package.json`, and the platform table now report 42 platforms /
+  323 endpoints.
+- **`youtube/video/transcript` re-sourced & repriced — 10cr → 3cr.** Richer
+  per-segment data; the segment fields changed from `startMs`/`endMs` to
+  `offset`/`duration` (both in seconds). This is the one customer-facing
+  shape change. `data-integrity.test.ts` exempts it from the 1/5/10 tier
+  ladder (flat 3cr override).
+- **Content Analysis aggregates repriced — flat 20cr.** The six
+  `content_analysis` data endpoints (`search`, `summary`, `sentiment`,
+  `rating-distribution`, `phrase-trends`, `category-trends`) moved off the
+  5cr advanced tier to a flat 20cr (`CONTENT_ANALYSIS_COST`); the
+  `languages`/`locations`/`categories`/`filters` reference endpoints stay at
+  1cr. Credits/overview docs and the tier table updated accordingly.
+- `data-integrity.test.ts` — endpoint count → 323; the credit-cost ladder
+  exemption now also covers `youtube/video/transcript` and the flat-priced
+  `content_analysis` aggregates.
+- Platform descriptions for LinkedIn, Instagram, and YouTube refreshed in
+  the generator to reflect the new capabilities.
+
 ## [1.5.0] - 2026-06-16
 
 Re-sync with the backend registry, bringing coverage from 39 platforms /

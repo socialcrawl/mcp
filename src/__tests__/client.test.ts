@@ -1,29 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { makeRequest } from "../client.js";
+import type { ApiContext } from "../context.js";
 
 describe("API client", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv, SOCIALCRAWL_API_KEY: "sc_test_key" };
-  });
+  const ctx: ApiContext = { apiKey: "sc_test_key", baseUrl: "https://www.socialcrawl.dev" };
+  const anonCtx: ApiContext = { apiKey: "", baseUrl: "https://www.socialcrawl.dev" };
 
   afterEach(() => {
-    process.env = originalEnv;
     vi.restoreAllMocks();
   });
 
-  it("returns error when API key is empty", async () => {
-    process.env.SOCIALCRAWL_API_KEY = "";
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+  it("returns the no-key error for an anonymous context", async () => {
+    const result = await makeRequest(anonCtx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("No API key configured");
-    expect(result).toContain("SOCIALCRAWL_API_KEY");
-  });
-
-  it("returns error when API key is not set", async () => {
-    delete process.env.SOCIALCRAWL_API_KEY;
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
-    expect(result).toContain("No API key configured");
+    expect(result).toContain("SOCIALCRAWL_API_KEY");   // stdio guidance still present
+    expect(result).toContain("Authorization: Bearer"); // HTTP guidance now present
   });
 
   it("builds correct URL with params", async () => {
@@ -33,7 +24,7 @@ describe("API client", () => {
       return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
     });
 
-    await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "charlidamelio" } });
+    await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "charlidamelio" } });
     expect(capturedUrl).toContain("/v1/tiktok/profile");
     expect(capturedUrl).toContain("handle=charlidamelio");
   });
@@ -45,7 +36,7 @@ describe("API client", () => {
       return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
     });
 
-    await makeRequest({ platform: "tiktok", resource: "songs/popular" });
+    await makeRequest(ctx, { platform: "tiktok", resource: "songs/popular" });
     expect(capturedUrl).toContain("/v1/tiktok/songs/popular");
     expect(capturedUrl).not.toContain("?");
   });
@@ -55,7 +46,7 @@ describe("API client", () => {
       new Response(JSON.stringify({ success: false, error: { type: "INVALID_API_KEY", message: "Invalid key" } }), { status: 401 }),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("Invalid API key");
   });
 
@@ -64,7 +55,7 @@ describe("API client", () => {
       new Response(JSON.stringify({ success: false, error: { type: "INSUFFICIENT_CREDITS", message: "No credits" }, credits_remaining: 0 }), { status: 402 }),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("Insufficient credits");
     expect(result).toContain("socialcrawl.dev/dashboard/billing");
   });
@@ -74,7 +65,7 @@ describe("API client", () => {
       new Response(JSON.stringify({ success: false, error: { type: "ENDPOINT_NOT_FOUND" } }), { status: 404 }),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "fake", params: {} });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "fake", params: {} });
     expect(result).toContain("not found");
     expect(result).toContain("socialcrawl_list_endpoints");
   });
@@ -84,7 +75,7 @@ describe("API client", () => {
       new Response(JSON.stringify({ success: false, error: { type: "PLATFORM_UNAVAILABLE" } }), { status: 503 }),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("temporarily unavailable");
   });
 
@@ -93,7 +84,7 @@ describe("API client", () => {
       new Response(JSON.stringify({ success: false, error: { type: "UPSTREAM_ERROR" } }), { status: 502 }),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("Upstream error");
     expect(result).toContain("auto-refunded");
   });
@@ -109,7 +100,7 @@ describe("API client", () => {
       ),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "ghost" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "ghost" } });
     expect(result).toContain("Resource not found");
     expect(result).toContain("refunded");
     expect(result).not.toContain("socialcrawl_list_endpoints");
@@ -126,7 +117,7 @@ describe("API client", () => {
       ),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("Method not allowed");
     expect(result).toContain("GET");
   });
@@ -142,7 +133,7 @@ describe("API client", () => {
       ),
     );
 
-    const result = await makeRequest({
+    const result = await makeRequest(ctx, {
       platform: "tiktok",
       resource: "profile",
       params: { handle: "test" },
@@ -163,7 +154,7 @@ describe("API client", () => {
       ),
     );
 
-    const result = await makeRequest({
+    const result = await makeRequest(ctx, {
       platform: "tiktok",
       resource: "profile",
       params: { handle: "test" },
@@ -188,7 +179,7 @@ describe("API client", () => {
       ),
     );
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("INTERNAL_ERROR");
     expect(result).toContain("https://www.socialcrawl.dev/docs/errors/internal-error");
   });
@@ -200,7 +191,7 @@ describe("API client", () => {
       return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
     });
 
-    await makeRequest({
+    await makeRequest(ctx, {
       platform: "tiktok",
       resource: "profile",
       params: { handle: "charlidamelio" },
@@ -216,7 +207,7 @@ describe("API client", () => {
       return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
     });
 
-    await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "charlidamelio" } });
+    await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "charlidamelio" } });
     expect(capturedHeaders["Idempotency-Key"]).toBeUndefined();
   });
 
@@ -227,8 +218,22 @@ describe("API client", () => {
       return new Response(JSON.stringify({ success: true, data: { balance: 42 } }), { status: 200 });
     });
 
-    await makeRequest({ platform: "meta", resource: "credits/balance" });
+    await makeRequest(ctx, { platform: "meta", resource: "credits/balance" });
     expect(capturedUrl).toContain("/v1/credits/balance");
     expect(capturedUrl).not.toContain("?");
+  });
+
+  it("uses ctx.baseUrl as the request origin", async () => {
+    let capturedUrl = "";
+    vi.stubGlobal("fetch", async (url: string) => {
+      capturedUrl = url;
+      return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
+    });
+
+    await makeRequest(
+      { apiKey: "sc_test_key", baseUrl: "http://localhost:9999" },
+      { platform: "tiktok", resource: "profile", params: { handle: "test" } },
+    );
+    expect(capturedUrl.startsWith("http://localhost:9999/v1/tiktok/profile")).toBe(true);
   });
 });

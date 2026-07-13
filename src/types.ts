@@ -13,7 +13,15 @@ export interface OptionalParam {
   enumValues?: string[];
   description?: string;
   example?: string;
+  /**
+   * On non-GET endpoints, distinguishes a query-string param from a JSON-body
+   * param (e.g. the YouTube batch `hl` param must ride the query, not the
+   * body). Absent on GET endpoints, where every param is a query param.
+   */
+  in?: "query" | "body";
 }
+
+export type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
 export interface Platform {
   slug: string;
@@ -25,10 +33,16 @@ export interface Platform {
 export interface Endpoint {
   platform: string;
   resource: string;
-  method: "GET";
-  /** Required query params. */
+  /**
+   * HTTP method the backend serves this endpoint with. Most endpoints are GET
+   * (query params); batch endpoints (e.g. youtube/videos, prism/profiles) and
+   * the stateful `web` platform use POST/PATCH/DELETE with a JSON body and/or
+   * `{path}` params. The resource string embeds any path params as `{name}`.
+   */
+  method: HttpMethod;
+  /** Required params (query, path, or JSON-body depending on `method`). */
   params: ParamDef[];
-  /** Optional query params forwarded to upstream when provided. */
+  /** Optional params forwarded to upstream when provided. */
   optionalParams: OptionalParam[];
   /**
    * Groups of mutually-substitutable params. Each inner array is a set

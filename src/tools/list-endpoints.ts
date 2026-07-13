@@ -12,13 +12,20 @@ export function listEndpoints(platform: string): string {
     return `Error: No endpoints found for platform "${platform}".`;
   }
 
+  const isWeb = platform === "web";
   const lines: string[] = [
     `# ${platformInfo.name} — ${endpoints.length} Endpoints`,
     "",
     `${platformInfo.description}`,
     "",
-    "| Resource | Parameters | Credit Cost | Response Type | Description |",
-    "|----------|------------|-------------|---------------|-------------|",
+    ...(isWeb
+      ? [
+          "> Call these through the **`socialcrawl_web`** tool (not `socialcrawl_request`). Each row's method + path maps to a `socialcrawl_web` action — e.g. `GET /scrape` → `action: \"scrape\"`, `GET /jobs/{job_id}` → `action: \"job_get\"` with `id`.",
+          "",
+        ]
+      : []),
+    "| Method | Resource | Parameters | Credit Cost | Response Type | Description |",
+    "|--------|----------|------------|-------------|---------------|-------------|",
   ];
 
   for (const endpoint of endpoints) {
@@ -33,7 +40,7 @@ export function listEndpoints(platform: string): string {
       paramsCell = "*(none)*";
     }
     const cost = `${endpoint.creditCost}cr (${endpoint.creditTier})`;
-    lines.push(`| \`${endpoint.resource}\` | ${paramsCell} | ${cost} | ${endpoint.archetype} | ${endpoint.summary} |`);
+    lines.push(`| ${endpoint.method} | \`${endpoint.resource}\` | ${paramsCell} | ${cost} | ${endpoint.archetype} | ${endpoint.summary} |`);
   }
 
   lines.push("", "## Parameter Details", "");
@@ -45,10 +52,11 @@ export function listEndpoints(platform: string): string {
       endpoint.oneOfGroups.length > 0;
     if (!hasAnything) continue;
 
-    lines.push(`### \`${endpoint.resource}\``);
+    lines.push(`### \`${endpoint.method} ${endpoint.resource}\``);
 
     if (endpoint.params.length > 0) {
-      lines.push("Required:");
+      const label = endpoint.method === "POST" ? "Required (JSON body unless noted):" : "Required:";
+      lines.push(label);
       for (const param of endpoint.params) {
         lines.push(`- **\`${param.name}\`**: ${param.description}. Example: \`${param.example}\``);
       }
@@ -68,8 +76,9 @@ export function listEndpoints(platform: string): string {
           opt.type === "enum" && opt.enumValues
             ? `enum: ${opt.enumValues.join("|")}`
             : opt.type;
+        const where = opt.in === "query" && endpoint.method !== "GET" ? " [query param]" : "";
         const desc = opt.description ? `: ${opt.description}` : "";
-        lines.push(`- \`${opt.name}\` (${typeLabel})${desc}`);
+        lines.push(`- \`${opt.name}\` (${typeLabel})${where}${desc}`);
       }
     }
 
@@ -77,7 +86,9 @@ export function listEndpoints(platform: string): string {
   }
 
   lines.push(
-    "Use `socialcrawl_request` with the platform, resource, and required parameters to make an API call.",
+    isWeb
+      ? "Call these through `socialcrawl_web` — pick the `action` matching the method + resource, pass parameters in `input`, and the path id (job/monitor/session) in `id`."
+      : "Use `socialcrawl_request` with the platform, resource, and required parameters (POST batch endpoints take their array/object body in `body`) to make an API call.",
   );
 
   return lines.join("\n");

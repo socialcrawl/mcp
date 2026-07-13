@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { PLATFORMS, findPlatform, getAllPlatformSlugs } from "../data/platforms.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
-import { DOCS, getDoc, getAvailableTopics } from "../data/docs.js";
+import { getDoc, getAvailableTopics } from "../data/docs.js";
 
 describe("Platform data integrity", () => {
-  it("has exactly 42 platforms", () => {
-    expect(PLATFORMS).toHaveLength(42);
+  it("has exactly 44 platforms", () => {
+    expect(PLATFORMS).toHaveLength(44);
   });
 
   it("every platform has a non-empty slug, name, and description", () => {
@@ -32,31 +32,43 @@ describe("Platform data integrity", () => {
     expect(findPlatform("nonexistent")).toBeUndefined();
   });
 
-  it("getAllPlatformSlugs returns 42 slugs", () => {
-    expect(getAllPlatformSlugs()).toHaveLength(42);
+  it("getAllPlatformSlugs returns 44 slugs", () => {
+    expect(getAllPlatformSlugs()).toHaveLength(44);
   });
 });
 
 describe("Endpoint data integrity", () => {
-  it("has exactly 264 endpoints", () => {
-    expect(ENDPOINTS.length).toBe(264);
+  it("has exactly 357 endpoints", () => {
+    expect(ENDPOINTS.length).toBe(357);
   });
 
   // Composite (prism) recipes, the per-platform `profile/full` cards, the
-  // meta-search lanes (search/*), and `naver/brief` carry flat or metered
-  // prices that intentionally break the 1/5/10 tier ladder. Everything else
-  // must follow the ladder — this predicate is the single exemption seam.
+  // meta-search lanes (search/*), `naver/brief`, `youtube/video/transcript`
+  // (re-sourced to a cheaper upstream at a flat 3cr), and the content_analysis
+  // aggregate endpoints (flat 20cr CONTENT_ANALYSIS_COST — DataForSEO-metered,
+  // the standard 1cr reference endpoints stay on the ladder) carry flat or
+  // metered prices that intentionally break the 1/5/10 tier ladder. Everything
+  // else must follow the ladder — this predicate is the single exemption seam.
   const isFlatPriced = (e: (typeof ENDPOINTS)[number]): boolean =>
     e.platform === "prism" ||
     e.platform === "search" ||
+    // The stateful web platform: management ops are 0cr, agent is 25cr, search
+    // is 2cr — all off the 1/5/10 ladder.
+    e.platform === "web" ||
     e.resource === "profile/full" ||
-    (e.platform === "naver" && e.resource === "brief");
+    (e.platform === "naver" && e.resource === "brief") ||
+    (e.platform === "youtube" && e.resource === "video/transcript") ||
+    // Batch transcript fan-out — metered 3cr per successful id.
+    (e.platform === "youtube" && e.resource === "transcripts") ||
+    // Comment lookup — metered 2cr (TikTok tier).
+    (e.platform === "tiktok" && e.resource === "comment") ||
+    (e.platform === "content_analysis" && e.creditTier === "advanced");
 
   it("every endpoint has required fields", () => {
     for (const endpoint of ENDPOINTS) {
       expect(endpoint.platform).toBeTruthy();
       expect(endpoint.resource).toBeTruthy();
-      expect(endpoint.method).toBe("GET");
+      expect(["GET", "POST", "PATCH", "DELETE"]).toContain(endpoint.method);
       expect(["standard", "advanced", "premium"]).toContain(endpoint.creditTier);
       // Costs are non-negative integers; flat-priced composites override the
       // 1/5/10 ladder (validated per-endpoint in "creditCost matches creditTier").
@@ -210,10 +222,13 @@ describe("Pricing documentation", () => {
   it("lists every endpoint with its credit cost", () => {
     const pricing = getDoc("pricing")!;
     for (const e of ENDPOINTS) {
+      // Rows list `resource` only (method prefixed when not GET); the platform
+      // is carried by the section header, keeping the doc under 25k.
+      const label = e.method === "GET" ? e.resource : `${e.method} ${e.resource}`;
       expect(
         pricing,
-        `pricing doc missing /v1/${e.platform}/${e.resource}`,
-      ).toContain(`| \`GET /v1/${e.platform}/${e.resource}\` | ${e.creditCost}cr | ${e.creditTier} |`);
+        `pricing doc missing ${e.method} /v1/${e.platform}/${e.resource}`,
+      ).toContain(`| \`${label}\` | ${e.creditCost}cr | ${e.creditTier} |`);
     }
   });
 

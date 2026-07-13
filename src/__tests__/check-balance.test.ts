@@ -1,18 +1,15 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { checkBalance } from "../tools/check-balance.js";
+import type { ApiContext } from "../context.js";
+
+const ctx: ApiContext = { apiKey: "sc_test_key", baseUrl: "https://www.socialcrawl.dev" };
+const anonCtx: ApiContext = { apiKey: "", baseUrl: "https://www.socialcrawl.dev" };
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("socialcrawl_check_balance tool", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv, SOCIALCRAWL_API_KEY: "sc_test_key" };
-  });
-
-  afterEach(() => {
-    process.env = originalEnv;
-    vi.restoreAllMocks();
-  });
-
   it("calls /v1/credits/balance with no platform prefix and no query string", async () => {
     let capturedUrl = "";
     vi.stubGlobal("fetch", async (url: string) => {
@@ -30,16 +27,15 @@ describe("socialcrawl_check_balance tool", () => {
       );
     });
 
-    const result = await checkBalance();
+    const result = await checkBalance(ctx);
     expect(capturedUrl).toContain("/v1/credits/balance");
     expect(capturedUrl).not.toContain("/v1/meta/");
     expect(capturedUrl).not.toContain("?");
     expect(result).toContain("8432");
   });
 
-  it("returns the No-API-key error when SOCIALCRAWL_API_KEY is missing", async () => {
-    delete process.env.SOCIALCRAWL_API_KEY;
-    const result = await checkBalance();
+  it("returns the No-API-key error for an anonymous context", async () => {
+    const result = await checkBalance(anonCtx);
     expect(result).toContain("No API key configured");
   });
 
@@ -58,7 +54,7 @@ describe("socialcrawl_check_balance tool", () => {
       ),
     );
 
-    const result = await checkBalance();
+    const result = await checkBalance(ctx);
     expect(result).toContain("/v1/credits/balance");
     expect(result).toContain("0 credits");
   });
@@ -71,7 +67,7 @@ describe("socialcrawl_check_balance tool", () => {
       ),
     );
 
-    const result = await checkBalance();
+    const result = await checkBalance(ctx);
     expect(result).toContain("Invalid API key");
   });
 });

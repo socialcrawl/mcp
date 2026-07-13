@@ -8,25 +8,32 @@ import type { Platform } from "../types.js";
  */
 export const PLATFORMS: Platform[] = [
   {
+    slug: "web",
+    name: "Web Scraping",
+    endpointCount: 22,
+    description:
+      "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
+  },
+  {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 19,
+    endpointCount: 20,
     description:
       "Profiles, videos, comments and replies, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
   },
   {
     slug: "instagram",
     name: "Instagram",
-    endpointCount: 16,
+    endpointCount: 33,
     description:
-      "Profiles, posts, reels, comments, story highlights, reels/hashtag/profile search, trending reels, audio reels, embed HTML, and AI-powered media transcripts.",
+      "Profiles, posts, reels, comments, story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
   },
   {
     slug: "youtube",
     name: "YouTube",
-    endpointCount: 17,
+    endpointCount: 28,
     description:
-      "Channels, videos, shorts, comments and replies, video sponsors, playlists, community posts, keyword/hashtag search, trending shorts, channel live streams, and video transcripts.",
+      "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, downloadable media files (audio, video, subtitles, thumbnails), and video transcripts.",
   },
   {
     slug: "twitter",
@@ -38,9 +45,9 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "linkedin",
     name: "LinkedIn",
-    endpointCount: 9,
+    endpointCount: 44,
     description:
-      "Personal profiles, company pages, posts, company posts, post search, post transcripts, and LinkedIn Ad Library (ad details, ad search).",
+      "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   },
   {
     slug: "facebook",
@@ -155,6 +162,13 @@ export const PLATFORMS: Platform[] = [
       "Financial-instrument data — full quotes, a markets overview (indices + top movers), and ticker search by name. Backed by DataForSEO Google Finance.",
   },
   {
+    slug: "google_trends",
+    name: "Google Trends",
+    endpointCount: 2,
+    description:
+      "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
+  },
+  {
     slug: "trustpilot",
     name: "Trustpilot",
     endpointCount: 2,
@@ -164,14 +178,14 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "google_play",
     name: "Google Play",
-    endpointCount: 8,
+    endpointCount: 9,
     description:
       "Google Play app search, full app details, app reviews with developer replies, store charts (top free/paid/grossing), a filterable app listings database, and categories/locations/languages reference data.",
   },
   {
     slug: "app_store",
     name: "Apple App Store",
-    endpointCount: 8,
+    endpointCount: 9,
     description:
       "Apple App Store app search, full app details, app reviews, store charts (top free/paid/grossing for iPhone and iPad), a filterable app listings database, and categories/locations/languages reference data.",
   },
@@ -290,7 +304,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "prism",
     name: "Prism",
-    endpointCount: 30,
+    endpointCount: 33,
     description:
       "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting, multi-engine AI consensus answers, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic).",
   },

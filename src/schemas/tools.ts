@@ -22,7 +22,15 @@ export const RequestInputSchema = z.object({
   params: z
     .record(z.string())
     .optional()
-    .describe("Query parameters as key-value pairs (e.g., { handle: 'charlidamelio' })"),
+    .describe(
+      "Query parameters as key-value pairs (e.g., { handle: 'charlidamelio' }). For GET endpoints these are the query string. For POST batch endpoints, put scalar query params here (e.g. { hl: 'en' }) and the array/object body in `body`.",
+    ),
+  body: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      "JSON request body for POST batch endpoints (e.g. youtube/videos, prism/profiles). Put array/object params here — e.g. { ids: ['dQw4w9WgXcQ'] } or { items: [{ platform: 'tiktok', handle: '@scout2015' }] }. Ignored for GET endpoints. Use socialcrawl_list_endpoints to see which params belong in the body. For the web-scraping platform use the socialcrawl_web tool instead.",
+    ),
   idempotencyKey: z
     .string()
     .min(16, "Idempotency-Key should be at least 16 characters (UUIDv4 recommended)")
@@ -42,6 +50,10 @@ export const MonitorsInputSchema = z.object({
     ),
   id: z
     .string()
+    .regex(
+      /^[A-Za-z0-9_-]{1,64}$/,
+      "Monitor id must be 1-64 characters of letters, digits, '_' or '-'",
+    )
     .optional()
     .describe("Monitor id. Required for get/runs/timeseries/pause/resume/delete."),
   recipe: z
@@ -114,6 +126,59 @@ export const MonitorsInputSchema = z.object({
     .string()
     .optional()
     .describe("timeseries: comma-separated metric keys to project (defaults to all stable computed keys)."),
+}).strict();
+
+export const WebInputSchema = z.object({
+  action: z
+    .enum([
+      "scrape",
+      "search",
+      "map",
+      "extract",
+      "crawl",
+      "batch_scrape",
+      "agent",
+      "job_list",
+      "job_get",
+      "job_cancel",
+      "monitor_create",
+      "monitor_list",
+      "monitor_get",
+      "monitor_update",
+      "monitor_delete",
+      "monitor_checks",
+      "session_create",
+      "session_list",
+      "session_get",
+      "session_execute",
+      "session_close",
+    ])
+    .describe(
+      "Web operation. Sync (returns data now): scrape, search, map, extract. Async jobs: crawl, batch_scrape, agent → then job_get/job_list/job_cancel to poll. Change detection: monitor_create/list/get/update/delete/checks. Interactive browser: session_create/list/get/execute/close.",
+    ),
+  id: z
+    .string()
+    .regex(
+      /^[A-Za-z0-9_-]{1,128}$/,
+      "Web resource id must be 1-128 chars of letters, digits, '_' or '-'",
+    )
+    .optional()
+    .describe(
+      "Job / monitor / session id. Required for *_get, *_cancel, *_delete, *_update, *_checks, *_execute actions. Returned by the matching *_create / *_list action.",
+    ),
+  input: z
+    .record(z.unknown())
+    .optional()
+    .describe(
+      "Operation parameters. For sync/GET actions these are query params (e.g. { url: 'https://example.com', formats: 'markdown,screenshot' } for scrape; { query: 'ai agents', limit: 10 } for search). For POST/PATCH actions this is the JSON body (e.g. { url, prompt, model } for agent; { url, cadence_minutes, webhook_url } for monitor_create; { code, language } for session_execute). Use socialcrawl_list_endpoints for platform 'web', or the 'web' get_docs topic, for the full per-action parameter list.",
+    ),
+  idempotencyKey: z
+    .string()
+    .min(16, "Idempotency-Key should be at least 16 characters (UUIDv4 recommended)")
+    .optional()
+    .describe(
+      "Optional Idempotency-Key for the async job submitters (crawl, batch_scrape). Replays return the original job and deduct 0 credits.",
+    ),
 }).strict();
 
 export const GetDocsInputSchema = z.object({

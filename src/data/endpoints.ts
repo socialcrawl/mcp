@@ -8,7 +8,452 @@ import type { Endpoint } from "../types.js";
  * hand-edit.
  */
 export const ENDPOINTS: Endpoint[] = [
-  // --- tiktok (19 endpoints) ---
+  // --- web (22 endpoints) ---
+  {
+    platform: "web",
+    resource: "scrape",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Public URL to fetch.", example: "https://example.com" },
+    ],
+    optionalParams: [
+      { name: "formats", type: "string", description: "Comma-separated output formats such as markdown,screenshot.", example: "markdown" },
+      { name: "only_main_content", type: "boolean" },
+      { name: "wait_for", type: "integer" },
+      { name: "mobile", type: "boolean" },
+      { name: "timeout", type: "integer" },
+      { name: "max_age", type: "integer" },
+      { name: "location_country", type: "string" },
+      { name: "screenshot_full_page", type: "boolean" },
+      { name: "include_tags", type: "string" },
+      { name: "exclude_tags", type: "string" },
+      { name: "proxy", type: "enum", enumValues: ["basic", "auto", "enhanced"], description: "Proxy tier: basic, auto, or enhanced." },
+      { name: "pdf_parse", type: "boolean" },
+      { name: "block_ads", type: "boolean" },
+      { name: "remove_base64_images", type: "boolean" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "WebPage",
+    summary: "Scrape a web page",
+    description:
+      "Fetches a public web page and returns clean content, metadata, and optional media in the unified WebPage schema.",
+  },
+  {
+    platform: "web",
+    resource: "search",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search query.", example: "social media data api" },
+    ],
+    optionalParams: [
+      { name: "sources", type: "string", description: "Comma-separated sources: web,news,images." },
+      { name: "categories", type: "string" },
+      { name: "limit", type: "integer", description: "Results per source, from 1 to 100.", example: "10" },
+      { name: "country", type: "string" },
+      { name: "location", type: "string" },
+      { name: "time_range", type: "string" },
+      { name: "sort_by_date", type: "boolean" },
+      { name: "include_domains", type: "string" },
+      { name: "exclude_domains", type: "string" },
+      { name: "include_content", type: "boolean" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 2,
+    archetype: "WebPageList",
+    summary: "Search the web",
+    description:
+      "Searches web, news, and image sources and returns a single normalized list of web page results.",
+  },
+  {
+    platform: "web",
+    resource: "map",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Site URL to map.", example: "https://example.com" },
+    ],
+    optionalParams: [
+      { name: "search", type: "string", description: "Optional path or keyword filter." },
+      { name: "limit", type: "integer", description: "Maximum URLs to return, up to 5000.", example: "100" },
+      { name: "sitemap", type: "enum", enumValues: ["include", "skip", "only"] },
+      { name: "include_subdomains", type: "boolean" },
+      { name: "ignore_query_parameters", type: "boolean" },
+      { name: "fresh", type: "boolean" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "WebPageList",
+    summary: "Map URLs on a site",
+    description:
+      "Discovers URLs for a public site and returns them as a normalized WebPageList.",
+  },
+  {
+    platform: "web",
+    resource: "extract",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Public URL to extract from.", example: "https://example.com/pricing" },
+    ],
+    optionalParams: [
+      { name: "schema", type: "string", description: "JSON object schema describing the data to return." },
+      { name: "prompt", type: "string", description: "Plain-language extraction instruction.", example: "Extract plan names and prices." },
+      { name: "only_main_content", type: "boolean" },
+      { name: "timeout", type: "integer" },
+      { name: "max_age", type: "integer" },
+      { name: "proxy", type: "enum", enumValues: ["basic", "auto", "enhanced"] },
+    ],
+    oneOfGroups: [["schema", "prompt"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "WebPage",
+    summary: "Extract structured data from a web page",
+    description:
+      "Fetches one web page and returns structured extraction output under the WebPage extraction field.",
+  },
+  {
+    platform: "web",
+    resource: "crawl",
+    method: "POST",
+    params: [
+      { name: "url", required: true, description: "Root URL to crawl.", example: "https://example.com" },
+    ],
+    optionalParams: [
+      { name: "limit", type: "integer", description: "Maximum pages to crawl.", example: "10" },
+      { name: "max_depth", type: "integer" },
+      { name: "allow_backward_links", type: "boolean" },
+      { name: "allow_external_links", type: "boolean" },
+      { name: "include_paths", type: "string" },
+      { name: "exclude_paths", type: "string" },
+      { name: "webhook_url", type: "string", description: "Optional webhook URL for terminal job updates." },
+      { name: "formats", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Start an async web crawl",
+    description:
+      "Starts an async crawl job and returns a SocialCrawl job id (job_...). Poll or cancel it via GET/DELETE /v1/web/jobs/{job_id}, or track it with a webhook.",
+  },
+  {
+    platform: "web",
+    resource: "batch-scrape",
+    method: "POST",
+    params: [
+      { name: "urls", required: true, description: "Array or comma-separated list of public URLs to scrape.", example: "https://example.com/a,https://example.com/b" },
+    ],
+    optionalParams: [
+      { name: "ignore_invalid_urls", type: "boolean", description: "Skip invalid URLs instead of failing the job." },
+      { name: "formats", type: "string" },
+      { name: "only_main_content", type: "boolean" },
+      { name: "proxy", type: "enum", enumValues: ["basic", "auto", "enhanced"] },
+      { name: "webhook_url", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Start an async batch scrape",
+    description:
+      "Starts an async batch scrape job for multiple URLs and returns a SocialCrawl job id (job_...). Poll or cancel it via GET/DELETE /v1/web/jobs/{job_id}.",
+  },
+  {
+    platform: "web",
+    resource: "jobs",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "limit", type: "integer", description: "Page size, capped at 100.", example: "20" },
+      { name: "cursor", type: "string", description: "Previous response cursor." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPageList",
+    summary: "List async web jobs",
+    description:
+      "Lists async crawl, batch scrape, and agent jobs for the API key.",
+  },
+  {
+    platform: "web",
+    resource: "jobs/{job_id}",
+    method: "GET",
+    params: [
+      { name: "job_id", required: true, description: "Job id (job_...) returned by POST /v1/web/crawl, POST /v1/web/batch-scrape, or POST /v1/web/agent as data.job_id.", example: "job_9f3k2n8d1" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Get an async web job",
+    description:
+      "Returns the current status, billing settlement, progress, and any available result metadata for one async web job — crawl, batch scrape, or agent. Append /errors to the same path to list per-page failures and robots-blocked URLs (crawl and batch scrape jobs).",
+  },
+  {
+    platform: "web",
+    resource: "jobs/{job_id}",
+    method: "DELETE",
+    params: [
+      { name: "job_id", required: true, description: "Job id (job_...) returned by POST /v1/web/crawl, POST /v1/web/batch-scrape, or POST /v1/web/agent as data.job_id.", example: "job_9f3k2n8d1" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Cancel an async web job",
+    description:
+      "Cancels one async web job of any kind (crawl, batch scrape, or agent), closes the upstream work when possible, and refunds any unsettled held credits.",
+  },
+  {
+    platform: "web",
+    resource: "agent",
+    method: "POST",
+    params: [
+      { name: "url", required: true, description: "Starting URL folded into the agent instruction.", example: "https://example.com" },
+      { name: "prompt", required: true, description: "Task instruction.", example: "Find the pricing page." },
+    ],
+    optionalParams: [
+      { name: "model", type: "enum", enumValues: ["spark-1-mini", "spark-1-pro"], description: "Firecrawl Spark model: spark-1-mini or spark-1-pro.", example: "spark-1-mini" },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 25,
+    archetype: "WebPage",
+    summary: "Start an async web agent job",
+    description:
+      "Runs a model-neutral browser agent task and returns a SocialCrawl async job id (job_...). Poll it via GET /v1/web/jobs/{job_id}.",
+  },
+  {
+    platform: "web",
+    resource: "monitors",
+    method: "POST",
+    params: [
+      { name: "url", required: true, description: "URL or root target to monitor.", example: "https://example.com" },
+    ],
+    optionalParams: [
+      { name: "name", type: "string", description: "Human-readable monitor name.", example: "Example monitor" },
+      { name: "mode", type: "enum", enumValues: ["scrape", "search"], description: "Monitor target type.", example: "scrape" },
+      { name: "cadence_minutes", type: "integer", description: "Check interval in minutes: 5-60, or a whole number of hours up to 1440 (120, 180, ...). Hour cadences are scheduled as cron.", example: "15" },
+      { name: "schedule_text", type: "string", description: "Plain-language schedule, such as every 15 minutes." },
+      { name: "schedule_cron", type: "string", description: "Cron schedule. Mutually exclusive with schedule_text." },
+      { name: "timezone", type: "string", description: "IANA timezone for the schedule." },
+      { name: "webhook_url", type: "string" },
+      { name: "query", type: "string" },
+      { name: "goal", type: "string" },
+      { name: "retention_days", type: "integer" },
+      { name: "judge_enabled", type: "boolean" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Create a web monitor",
+    description:
+      "Creates an upstream-backed monitor. Checks are billed when they run, not at creation.",
+  },
+  {
+    platform: "web",
+    resource: "monitors",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor." },
+      { name: "limit", type: "integer", description: "Page size.", example: "20" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPageList",
+    summary: "List web monitors",
+    description:
+      "Lists web monitors created by the current API key.",
+  },
+  {
+    platform: "web",
+    resource: "monitors/{monitor_id}",
+    method: "GET",
+    params: [
+      { name: "monitor_id", required: true, description: "Monitor id (wm_...) returned by POST /v1/web/monitors as data.monitor_id.", example: "wm_5d1p8s3k7" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Get a web monitor",
+    description:
+      "Returns configuration, cadence, status, and billing metadata for one web monitor.",
+  },
+  {
+    platform: "web",
+    resource: "monitors/{monitor_id}",
+    method: "PATCH",
+    params: [
+      { name: "monitor_id", required: true, description: "Monitor id (wm_...) returned by POST /v1/web/monitors as data.monitor_id.", example: "wm_5d1p8s3k7" },
+    ],
+    optionalParams: [
+      { name: "status", type: "enum", enumValues: ["active", "paused"], example: "paused" },
+      { name: "cadence_minutes", type: "integer" },
+      { name: "schedule_text", type: "string" },
+      { name: "schedule_cron", type: "string" },
+      { name: "timezone", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Update a web monitor",
+    description:
+      "Updates one web monitor's status or cadence while preserving its check history and billing metadata.",
+  },
+  {
+    platform: "web",
+    resource: "monitors/{monitor_id}",
+    method: "DELETE",
+    params: [
+      { name: "monitor_id", required: true, description: "Monitor id (wm_...) returned by POST /v1/web/monitors as data.monitor_id.", example: "wm_5d1p8s3k7" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "Analytics",
+    summary: "Delete a web monitor",
+    description:
+      "Deletes one web monitor, stops future scheduled checks, and keeps historical check records available.",
+  },
+  {
+    platform: "web",
+    resource: "monitors/{monitor_id}/checks",
+    method: "GET",
+    params: [
+      { name: "monitor_id", required: true, description: "Monitor id (wm_...) returned by POST /v1/web/monitors as data.monitor_id.", example: "wm_5d1p8s3k7" },
+    ],
+    optionalParams: [
+      { name: "limit", type: "integer" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPageList",
+    summary: "List web monitor checks",
+    description:
+      "Lists checks recorded for one monitor.",
+  },
+  {
+    platform: "web",
+    resource: "sessions",
+    method: "POST",
+    params: [
+      { name: "url", required: true, description: "URL to open in the session after creation.", example: "https://example.com" },
+    ],
+    optionalParams: [
+      { name: "ttl_seconds", type: "integer", description: "Session TTL in seconds.", example: "60" },
+      { name: "activity_ttl_seconds", type: "integer" },
+      { name: "stream_web_view", type: "boolean" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "WebPage",
+    summary: "Create an interactive web session",
+    description:
+      "Creates a short-lived browser session for follow-up interactions.",
+  },
+  {
+    platform: "web",
+    resource: "sessions",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "limit", type: "integer", description: "Page size.", example: "20" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPageList",
+    summary: "List interactive web sessions",
+    description:
+      "Lists sessions created by the current API key.",
+  },
+  {
+    platform: "web",
+    resource: "sessions/{session_id}",
+    method: "GET",
+    params: [
+      { name: "session_id", required: true, description: "Session id (ws_...) returned by POST /v1/web/sessions as data.session_id.", example: "ws_3g7x1v5m2" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPage",
+    summary: "Get an interactive web session",
+    description:
+      "Returns status, expiry, billing hold, and settlement metadata for one interactive web session.",
+  },
+  {
+    platform: "web",
+    resource: "sessions/{session_id}/execute",
+    method: "POST",
+    params: [
+      { name: "session_id", required: true, description: "SocialCrawl session id.", example: "ws_3g7x1v5m2" },
+      { name: "code", required: true, description: "Code to execute in the browser sandbox.", example: "await page.goto(\"https://example.com\"); console.log(await page.title());" },
+    ],
+    optionalParams: [
+      { name: "language", type: "enum", enumValues: ["node", "python", "bash"], description: "Execution language: node, python, or bash.", example: "node" },
+      { name: "timeout", type: "integer", description: "Execution timeout in seconds." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPage",
+    summary: "Execute an interaction in a web session",
+    description:
+      "Runs code in an existing browser session and returns the execution result.",
+  },
+  {
+    platform: "web",
+    resource: "sessions/{session_id}",
+    method: "DELETE",
+    params: [
+      { name: "session_id", required: true, description: "Session id (ws_...) returned by POST /v1/web/sessions as data.session_id.", example: "ws_3g7x1v5m2" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    archetype: "WebPage",
+    summary: "Close an interactive web session",
+    description:
+      "Closes one interactive web session and settles any held credits that have not already been billed.",
+  },
+  {
+    platform: "web",
+    resource: "parse",
+    method: "POST",
+    params: [
+      { name: "file", required: true, description: "Multipart file field.", example: "document.pdf" },
+    ],
+    optionalParams: [
+      { name: "filename", type: "string", example: "document.pdf" },
+      { name: "mime_type", type: "string", description: "Optional MIME type override." },
+      { name: "url", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "WebPage",
+    summary: "Parse an uploaded document",
+    description:
+      "Uploads a document through multipart/form-data and returns parsed web-style content.",
+  },
+  // --- tiktok (20 endpoints) ---
   {
     platform: "tiktok",
     resource: "profile",
@@ -58,7 +503,7 @@ export const ENDPOINTS: Endpoint[] = [
     optionalParams: [
       { name: "region", type: "string", description: "Region of the proxy. Sometimes you'll need to specify the region if you're not getting a response. Commonly for videos from the Phillipines, in which case you'd use 'PH'. Use 2 letter country codes like US, GB, FR, etc" },
       { name: "trim", type: "boolean", description: "Set to true to get a trimmed response" },
-      { name: "download_media", type: "boolean", description: "Set to true to download the video/images and get back permanent Supabase URLs. Costs 10 credits if media is found, 1 credit otherwise." },
+      { name: "download_media", type: "boolean", description: "Set to true to also download the video/images and get back permanent, durable media URLs under `data.post.ext.download_media_urls` (`[{ post_id, cdn_url, type, cached }]`). Use these for archiving — the raw `media_urls` are short-lived signed CDN links that expire. Adds a few seconds of latency while the media is fetched." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -105,6 +550,30 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok comment replies",
     description:
       "Fetches replies to a specific TikTok comment by its ID. Returns an array of comment objects each with text, user info, and creation time. Paginate with the cursor from the previous response.",
+  },
+  {
+    platform: "tiktok",
+    resource: "comment",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "comment_url", type: "string", description: "A TikTok comment URL: `https://www.tiktok.com/@{handle}/video/{videoId}?comment_id={cid}`, the `m.tiktok.com/v/{id}.html?...&share_comment_id={cid}` share form, or a `vm.tiktok.com/{code}` / `tiktok.com/t/{code}` shortlink. Mutually exclusive with `post_url`+`comment_id`.", example: "https://www.tiktok.com/@mrbeast/video/7654638524729216287?comment_id=7654640784985211670" },
+      { name: "post_url", type: "string", description: "The post URL (`https://www.tiktok.com/@{handle}/video/{videoId}`). Combine with `comment_id`, or with `author_username`/`text_contains` for a search." },
+      { name: "comment_id", type: "string", description: "The target comment's numeric id (the `cid` from the comments endpoint). Requires `post_url`." },
+      { name: "parent_comment_id", type: "string", description: "The parent comment's numeric id — supply this when the target is a reply so it can be resolved directly via the native replies endpoint." },
+      { name: "author_username", type: "string", description: "Return up to `max` comments authored by this username (no comment id needed). Mutually exclusive with `text_contains` and any comment id." },
+      { name: "text_contains", type: "string", description: "Return up to `max` comments whose text contains this snippet (case-insensitive). Mutually exclusive with `author_username` and any comment id." },
+      { name: "deep_scan", type: "boolean", description: "Widen the scan budget for deeply-buried comments (raises the page ceiling and deadline). Bills 6 credits instead of 2." },
+      { name: "position_hint", type: "string", description: "Opaque token from a prior lookup's `lookup.position_hint`. Passing it back probes the comment's last-known location first, making a re-check of an already-found comment cheap." },
+      { name: "max", type: "integer", description: "For `author_username`/`text_contains` search: max matches to return (1–20, default 5)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 2,
+    archetype: "Comment",
+    summary: "Look up one TikTok comment by URL or id",
+    description:
+      "Resolves a single TikTok comment to a live comment object (current like count, reply count, pinned flag, author, timestamp) without you paginating the comment section. Pass `comment_url` (a `.../@{handle}/video/{id}?comment_id={cid}` link, an `m.tiktok.com` share link, or a `vm.tiktok.com`/`.../t/` shortlink — resolved automatically) OR `post_url` + `comment_id`. For a reply, also pass `parent_comment_id` (a reply URL does not carry its parent). Instead of a comment id you can search the comment section: `author_username` (find a specific author's comments) or `text_contains` (exact snippet) return up to `max` matches. The response includes a `lookup.position_hint` — pass it back on a later lookup of the same comment to make the re-check nearly free. Flat 2 credits (6 with `deep_scan=true`, which widens the scan budget); a not-found returns 404 and is fully refunded.",
   },
   {
     platform: "tiktok",
@@ -363,7 +832,7 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Fans out to the TikTok profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits.",
   },
-  // --- instagram (16 endpoints) ---
+  // --- instagram (33 endpoints) ---
   {
     platform: "instagram",
     resource: "profile",
@@ -399,7 +868,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "List Instagram user posts",
     description:
-      "Returns a list of recent posts from an Instagram user's profile. Each post includes like count, comment count, caption, media URL, media type, and timestamp.",
+      "Returns a list of recent posts from an Instagram user's profile. Each post includes like count, comment count, caption, media URL, media type, and timestamp. Note: engagement.shares is null on this endpoint (the upstream carries no per-post share count); to additionally merge in per-post share counts where a second source exposes them (coverage varies by account), use /v1/instagram/profile/posts/full.",
   },
   {
     platform: "instagram",
@@ -411,7 +880,7 @@ export const ENDPOINTS: Endpoint[] = [
     optionalParams: [
       { name: "region", type: "string", description: "2 letter country code to set the proxy in" },
       { name: "trim", type: "boolean", description: "Set to true to get a trimmed response" },
-      { name: "download_media", type: "boolean", description: "Set to true to download the video/images and get back permanent Supabase URLs. Costs 10 credits if media is found, 1 credit otherwise." },
+      { name: "download_media", type: "boolean", description: "Set to true to also download the video/images and get back permanent, durable media URLs under `data.post.ext.download_media_urls` (`[{ post_id, cdn_url, type, cached }]`). Use these for archiving — the raw `media_urls` are short-lived signed CDN links that expire. Adds a few seconds of latency while the media is fetched." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -426,18 +895,43 @@ export const ENDPOINTS: Endpoint[] = [
     resource: "post/comments",
     method: "GET",
     params: [
-      { name: "url", required: true, description: "Full URL of the Instagram post to fetch comments for", example: "https://www.instagram.com/p/CwA1234abcd/" },
+      { name: "url", required: true, description: "URL of the Instagram post (a /p/, /reel/, /reels/, or /tv/ link).", example: "https://www.instagram.com/p/DXidPIVDU6M/" },
     ],
     optionalParams: [
-      { name: "cursor", type: "string", description: "The cursor to get more comments. Get 'cursor' from previous response." },
+      { name: "sort", type: "enum", enumValues: ["top", "recent"], description: "Ordering: `top` (default) ranks by Instagram's popularity order (most-liked first); `recent` returns newest-first." },
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe profile picture links suitable for embedding." },
     ],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "CommentList",
     summary: "List Instagram post comments",
     description:
-      "Returns a list of comments on a specific Instagram post. Each comment includes the author username, comment text, like count, reply count, and creation timestamp.",
+      "Returns a list of comments on an Instagram post, ranked by the platform's own popularity order by default (`sort=top`) so the most-liked comments come first, or newest-first with `sort=recent`. Each comment includes the author, comment text, real like count, reply count, and creation timestamp. Page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "comment",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "comment_url", type: "string", description: "An Instagram comment permalink: `https://www.instagram.com/p/{shortcode}/c/{commentId}/` (or a reply permalink `.../c/{parent}/r/{reply}/`, best-effort). Mutually exclusive with `post_url`+`comment_id`.", example: "https://www.instagram.com/p/CnpPou9hWqq/c/18007013966365752/" },
+      { name: "post_url", type: "string", description: "The post URL (a `/p/`, `/reel/`, `/reels/`, or `/tv/` link). Combine with `comment_id`, or with `author_username`/`text_contains` for a search." },
+      { name: "comment_id", type: "string", description: "The target comment's numeric id (`pk`). Requires `post_url`." },
+      { name: "author_username", type: "string", description: "Return up to `max` comments authored by this username (no comment id needed). Mutually exclusive with `text_contains` and any comment id." },
+      { name: "text_contains", type: "string", description: "Return up to `max` comments whose text contains this snippet (case-insensitive). Mutually exclusive with `author_username` and any comment id." },
+      { name: "deep_scan", type: "boolean", description: "Widen the scan budget for deeply-buried comments (raises the per-chain page ceiling and deadline). Bills 15 credits instead of 5." },
+      { name: "position_hint", type: "string", description: "Opaque token from a prior lookup's `lookup.position_hint`. Passing it back replays just the last-known sort chain first, making a re-check of an already-found comment cheap." },
+      { name: "max", type: "integer", description: "For `author_username`/`text_contains` search: max matches to return (1–20, default 5)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Comment",
+    summary: "Look up one Instagram comment by URL or id",
+    description:
+      "Resolves a single Instagram comment to a live comment object (current like count, reply count, author, timestamp) without you paginating the comment section. Pass `comment_url` (an `https://www.instagram.com/p/{shortcode}/c/{commentId}/` permalink — reply permalinks `.../c/{parent}/r/{reply}/` are best-effort) OR `post_url` + `comment_id`. Instead of a comment id you can search the comment section: `author_username` or `text_contains` return up to `max` matches. The response includes `lookup.post_comment_count` (the post's true total, so you can reason about scan coverage) and a `lookup.position_hint` — pass it back on a later lookup to make the re-check cheap. Instagram does not expose pinned status or full reply threads to any provider, so `flags.pinned` stays null and deep reply lookups can return `reply_not_resolvable`. Flat 5 credits (15 with `deep_scan=true`); a not-found returns 404 and is fully refunded.",
   },
   {
     platform: "instagram",
@@ -472,7 +966,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "List Instagram user reels",
     description:
-      "Returns a list of reels posted by an Instagram user. Each reel includes view count, like count, comment count, and thumbnail.",
+      "Returns a list of reels posted by an Instagram user. Each reel includes view count, like count, comment count, and thumbnail. Note: engagement.shares is null on this endpoint (the upstream carries no per-post share count); to additionally merge in per-reel share counts where a second source exposes them (coverage varies by account), use /v1/instagram/profile/reels/full.",
   },
   {
     platform: "instagram",
@@ -584,17 +1078,17 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "hashtag", required: true, description: "The hashtag to search for. The leading # is optional.", example: "makeup" },
     ],
     optionalParams: [
-      { name: "date_posted", type: "enum", enumValues: ["last-hour", "last-day", "last-week", "last-month", "last-year"], description: "Only return Google-indexed posts within this relative window." },
-      { name: "media_type", type: "enum", enumValues: ["all", "reels"], description: "`all` returns posts and reels; `reels` returns reels only. Defaults to `all`." },
-      { name: "cursor", type: "string", description: "The cursor returned by the previous response. In this version it is the next Google results page number." },
+      { name: "type", type: "enum", enumValues: ["top", "recent", "clips"], description: "Ranking of the returned posts: `top` (default), `recent`, or `clips` (reels only)." },
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
     ],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "PostList",
     summary: "Search Instagram posts by hashtag",
     description:
-      "Finds public Instagram posts for a hashtag via Google Search, then returns post details such as caption, like count, comment count, owner, and post time. Results depend on Google's index, so this is best-effort and not a complete native hashtag search. Pass `media_type=reels` to filter to reels only. Use `date_posted` for recent posts and forward the returned `cursor` to fetch the next page.",
+      "Returns recent public Instagram posts for a hashtag from Instagram's native hashtag feed. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass `type` to choose the ranking (`top`, `recent`, or `clips` for reels only) and forward the returned `cursor` to page deeper.",
   },
   {
     platform: "instagram",
@@ -630,6 +1124,250 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     platform: "instagram",
+    resource: "followers",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username without the @ symbol.", example: "mrbeast" },
+      { name: "user_id", type: "string", description: "Instagram numeric user ID. Use this for faster responses." },
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "List Instagram followers",
+    description:
+      "Returns a paginated list of the accounts that follow an Instagram user. Each follower includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`, and page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "following",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username without the @ symbol.", example: "mrbeast" },
+      { name: "user_id", type: "string", description: "Instagram numeric user ID. Use this for faster responses." },
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "List Instagram following",
+    description:
+      "Returns a paginated list of the accounts an Instagram user follows. Each account includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`, and page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "similar",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username without the @ symbol.", example: "mrbeast" },
+      { name: "user_id", type: "string", description: "Instagram numeric user ID. Use this for faster responses." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "List similar Instagram accounts",
+    description:
+      "Returns a list of Instagram accounts similar to a given user — the related accounts Instagram surfaces as suggestions. Each account includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`. Passing `user_id` is faster because no username lookup is needed.",
+  },
+  {
+    platform: "instagram",
+    resource: "post/likers",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "URL of the Instagram post (a /p/ or /reel/ link).", example: "https://www.instagram.com/p/CnpPou9hWqq/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe profile picture links suitable for embedding." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "List Instagram post likers",
+    description:
+      "Returns a paginated list of the accounts that liked an Instagram post. Each liker includes username, display name, avatar URL, verification status, and profile URL, alongside the total like count. Pass the post `url` and page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "post/stats",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "URL of the Instagram post (a /p/, /reel/, or /tv/ link).", example: "https://www.instagram.com/p/CnpPou9hWqq/" },
+    ],
+    optionalParams: [
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Post",
+    summary: "Get Instagram post stats including the share count",
+    description:
+      "Returns full engagement stats for a single Instagram post or reel — view (play) count, likes, comments, and the share count (`engagement.shares`), which is the number shown next to the paper-plane Share icon in the app. The share count is a strong authenticity signal: unlike likes and comments, shares are hard to inflate, so it helps separate genuine reach from bought engagement. The standard /v1/instagram/post endpoint cannot return the share count. Use this endpoint for a single post; to get the share count for every reel or post across a whole feed in one call, use /v1/instagram/profile/reels/full or /v1/instagram/profile/posts/full. Note: Instagram's newer two-arrows Repost (\"regram\") counter shown in the mobile app is a separate metric that Instagram does not include in its post data, so no API can return it. Pass the post `url` (a /p/, /reel/, or /tv/ link). `engagement.saves` stays null because Instagram does not expose a numeric save count.",
+  },
+  {
+    platform: "instagram",
+    resource: "tagged",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username without the @ symbol.", example: "mrbeast" },
+      { name: "user_id", type: "string", description: "Instagram numeric user ID. Use this for faster responses." },
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List posts an Instagram user is tagged in",
+    description:
+      "Returns a paginated list of the posts that tag an Instagram user. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass either `handle` or `user_id`, and page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "location/posts",
+    method: "GET",
+    params: [
+      { name: "location_id", required: true, description: "Instagram numeric location ID.", example: "331004901" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List recent posts at an Instagram location",
+    description:
+      "Returns a paginated list of recent posts tagged at an Instagram location. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass the `location_id` and page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "engagement",
+    method: "GET",
+    params: [
+      { name: "handle", required: true, description: "Instagram username without the @ symbol.", example: "mrbeast" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get Instagram engagement statistics",
+    description:
+      "Returns computed engagement statistics for an Instagram account based on its recent posts — an overall engagement rate, follower count, total likes and comments across the sampled posts, and a per-post breakdown with likes, comments, post time, and likes/comments-per-hour velocity. Pass the account `handle`.",
+  },
+  {
+    platform: "instagram",
+    resource: "search/location",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword or phrase to find Instagram locations.", example: "Paris" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "Search Instagram locations",
+    description:
+      "Searches Instagram locations by keyword. Returns matching places, each with its location object (id, name, coordinates) plus a display title and subtitle. Use a returned location id with the Instagram location posts endpoint to fetch recent posts tagged there.",
+  },
+  {
+    platform: "instagram",
+    resource: "username-suggestions",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Keyword to seed the username suggestions.", example: "mrbeast" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "Get Instagram username suggestions",
+    description:
+      "Returns suggested available Instagram usernames derived from a keyword — useful for choosing a new handle. Pass a `query` keyword to seed the suggestions.",
+  },
+  {
+    platform: "instagram",
+    resource: "search/music",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword or phrase to find Instagram audio tracks.", example: "beyonce" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor. Use the `next_cursor` from the previous response to fetch the next page." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "Search Instagram music",
+    description:
+      "Searches Instagram's audio (music) library by keyword. Returns matching tracks, each with artist and title, audio and cover-artwork URLs, duration, and usage metadata. Page through with `cursor`.",
+  },
+  {
+    platform: "instagram",
+    resource: "stories",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username without the @ symbol.", example: "instagram" },
+      { name: "user_id", type: "string", description: "Instagram numeric user ID. Use this for faster responses." },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List an Instagram user's active stories",
+    description:
+      "Returns the active stories currently in a user's story tray. Each story includes its id, media URLs (image or video), thumbnail, duration, capture time, and the author. Pass either `handle` or `user_id`. Passing `user_id` is faster because no username lookup is needed. A user with no active stories returns an empty list — not an error.",
+  },
+  {
+    platform: "instagram",
+    resource: "story/download",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "user_id", type: "string", description: "Instagram numeric user ID of the story's author.", example: "25025320" },
+      { name: "story_id", type: "string", description: "ID of the individual story to download.", example: "3926693776893966474" },
+      { name: "safe_url", type: "boolean", description: "When true, returns URL-safe media links suitable for embedding." },
+    ],
+    oneOfGroups: [["user_id"], ["story_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Download a single Instagram story",
+    description:
+      "Returns the downloadable media for one specific story — the full-resolution image or video URLs and the story's metadata. Pass the `user_id` of the story's author and the `story_id` of the individual story (get story ids from the Instagram stories endpoint).",
+  },
+  {
+    platform: "instagram",
+    resource: "music/trending",
+    method: "GET",
+    params: [],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List trending Instagram music",
+    description:
+      "Returns the audio tracks currently trending on Instagram. Each track includes its title, artist, audio and cover-artwork URLs, and usage metadata — useful for spotting sounds to ride for reach. Takes no parameters.",
+  },
+  {
+    platform: "instagram",
     resource: "profile/full",
     method: "GET",
     params: [],
@@ -647,7 +1385,45 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Fans out to the Instagram profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits.",
   },
-  // --- youtube (17 endpoints) ---
+  {
+    platform: "instagram",
+    resource: "profile/reels/full",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username (with or without a leading @). Required unless user_id is given. The share-count leg needs a handle; a user_id-only call returns views/likes/comments with shares null (partial refund).", example: "sid.and.listen" },
+      { name: "user_id", type: "string", description: "Numeric Instagram user id. Alternative to handle." },
+      { name: "cursor", type: "string", description: "Opaque cursor from a prior response's next_cursor to page deeper." },
+      { name: "limit", type: "integer", description: "Return up to this many items in one call (1–50). The endpoint pages the underlying source server-side until it has collected this many (or runs out), and bills per upstream page consumed (5 credits/page). Omit for a single page." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Instagram reels with views, likes, comments, and per-reel share counts where available, in one call.",
+    description:
+      "Returns a creator's recent reels with views, likes, comments, and the per-reel share count merged in wherever the upstream exposes it — in a single call. ScrapeCreators' standard /profile/reels endpoint returns views/likes/comments but leaves engagement.shares null (its upstream has no per-post reshare count); this composite fans out to a second mobile source that carries the share number and merges it back onto each item by post id. Share coverage is best-effort and varies by account: the mobile source only exposes reshare_count for the items it returns, so some (sometimes most) items keep engagement.shares null — that null means \"upstream doesn't expose it\", not \"zero\". Read shares_coverage (the fraction of returned items that got a real share number) before relying on shares; legs[] shows each leg's status. Billing: the ScrapeCreators leg is critical (its failure refunds the full call); the shares leg is best-effort — if it fails OUTRIGHT the items still return with shares null and 4 of the 5 credits are refunded (you pay the standard 1-credit list price). A successful shares leg with low coverage is still the flat 5 credits, since the second source was queried regardless of how many items it happened to cover. Paginate with next_cursor.",
+  },
+  {
+    platform: "instagram",
+    resource: "profile/posts/full",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "handle", type: "string", description: "Instagram username (with or without a leading @). Required unless user_id is given. The share-count leg needs a handle; a user_id-only call returns views/likes/comments with shares null (partial refund).", example: "sid.and.listen" },
+      { name: "user_id", type: "string", description: "Numeric Instagram user id. Alternative to handle." },
+      { name: "cursor", type: "string", description: "Opaque cursor from a prior response's next_cursor to page deeper." },
+      { name: "limit", type: "integer", description: "Return up to this many items in one call (1–50). The endpoint pages the underlying source server-side until it has collected this many (or runs out), and bills per upstream page consumed (5 credits/page). Omit for a single page." },
+    ],
+    oneOfGroups: [["handle", "user_id"]],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Instagram posts with views, likes, comments, and per-post share counts where available, in one call.",
+    description:
+      "Returns a creator's recent posts with views, likes, comments, and the per-post share count merged in wherever the upstream exposes it — in a single call. ScrapeCreators' standard /profile/posts endpoint returns views/likes/comments but leaves engagement.shares null (its upstream has no per-post reshare count); this composite fans out to a second mobile source that carries the share number and merges it back onto each item by post id. Share coverage is best-effort and varies by account: the mobile source only exposes reshare_count for the items it returns, so some (sometimes most) items keep engagement.shares null — that null means \"upstream doesn't expose it\", not \"zero\". Read shares_coverage (the fraction of returned items that got a real share number) before relying on shares; legs[] shows each leg's status. Billing: the ScrapeCreators leg is critical (its failure refunds the full call); the shares leg is best-effort — if it fails OUTRIGHT the items still return with shares null and 4 of the 5 credits are refunded (you pay the standard 1-credit list price). A successful shares leg with low coverage is still the flat 5 credits, since the second source was queried regardless of how many items it happened to cover. Paginate with next_cursor.",
+  },
+  // --- youtube (28 endpoints) ---
   {
     platform: "youtube",
     resource: "channel",
@@ -657,6 +1433,8 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "channelId", type: "string", description: "YouTube channel ID. Can pass a channelId, handle or url" },
       { name: "handle", type: "string", description: "YouTube channel handle without the @ symbol" },
       { name: "url", type: "string", description: "YouTube channel URL. Can pass a channelId, handle or url" },
+      { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'es', 'fr')." },
+      { name: "forUsername", type: "string", description: "Legacy YouTube username (pre-handle) to look up." },
     ],
     oneOfGroups: [["channelId", "handle", "url"]],
     creditTier: "standard",
@@ -696,6 +1474,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [
       { name: "language", type: "string", description: "Preferred response language (mapped to Accept-Language header; not guaranteed due to YouTube localization behavior). 2 letter language code, ie 'en', 'es', 'fr' etc." },
+      { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'es', 'fr')." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -704,6 +1483,63 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get YouTube video details",
     description:
       "Returns detailed information about a specific YouTube video including title, view count, like count, comment count, description, tags, duration, channel info, and publish date.",
+  },
+  {
+    platform: "youtube",
+    resource: "videos",
+    method: "POST",
+    params: [
+      { name: "ids", required: true, description: "JSON array of BARE YouTube video ids (11 characters each, e.g. 'dQw4w9WgXcQ'), 1 to 1000 per request. Unlike GET /v1/youtube/video, full watch URLs are not accepted here.", example: "dQw4w9WgXcQ,9bZkp7q19f0" },
+    ],
+    optionalParams: [
+      { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'ko').", in: "query" },
+      { name: "include_localizations", type: "boolean", description: "When true, includes per-language title/description localizations in each item's ext." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "Batch get YouTube video details (up to 1000)",
+    description:
+      "Fetches full details for up to 1000 YouTube videos by id in a single POST request. Each item is the same unified video object as GET /v1/youtube/video. Body: { ids: string[], includeLocalizations?: boolean }. Metered per 50-id chunk.",
+  },
+  {
+    platform: "youtube",
+    resource: "channels",
+    method: "POST",
+    params: [
+      { name: "ids", required: true, description: "JSON array of BARE YouTube channel ids (24 characters, starting with 'UC', e.g. 'UC_x5XG1OV2P6uZZ5FSM9Ttw'), 1 to 1000 per request. Unlike GET /v1/youtube/channel, channel URLs/handles are not accepted here.", example: "UC_x5XG1OV2P6uZZ5FSM9Ttw,UCX6OQ3DkcsbYNE6H8uQQuVA" },
+    ],
+    optionalParams: [
+      { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'ko').", in: "query" },
+      { name: "include_localizations", type: "boolean", description: "When true, includes per-language localizations in each item's ext." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "Batch get YouTube channel details (up to 1000)",
+    description:
+      "Fetches full details for up to 1000 YouTube channels by id in a single POST request. Each item is the unified channel (author) object. Body: { ids: string[], includeLocalizations?: boolean }. Metered per 50-id chunk.",
+  },
+  {
+    platform: "youtube",
+    resource: "transcripts",
+    method: "POST",
+    params: [
+      { name: "ids", required: true, description: "JSON array of 1–100 BARE YouTube video ids (11 characters each, e.g. 'dQw4w9WgXcQ'). Full watch URLs are not accepted here.", example: "dQw4w9WgXcQ,9bZkp7q19f0" },
+    ],
+    optionalParams: [
+      { name: "language", type: "string", description: "Preferred caption-track language (2-letter code, e.g. 'en', 'ko'). Falls back to the default track when absent or unavailable." },
+      { name: "format", type: "string", description: "`text` (default) returns the whole transcript as one joined string; `segments` returns timestamped `[{start_ms, duration_ms, text}]`." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 3,
+    archetype: "Transcript",
+    summary: "Up to 100 YouTube video ids → one transcript per row, failed ids refunded.",
+    description:
+      "Batch transcript lookup for LLM corpora. POST a JSON body with an `ids` array of 1–100 BARE 11-character YouTube video ids (full watch URLs are not accepted here — use GET /v1/youtube/video/transcript for a single URL); returns one row per id — the transcript (`format: \"text\"` joins it into one string; `format: \"segments\"` returns `[{start_ms, duration_ms, text}]`), the resolved `language`, and a `status` of ok / not_found / error / deferred — in input order. Optional `language` picks a preferred caption track. Per-id isolation: one caption-less or deleted video never fails the batch — a caption-less video is `not_found` with `ext.reason: \"no_captions\"`, a deleted/unavailable one is `not_found` with `ext.reason: \"video_gone\"`. Billing is per successful row at 3 credits (the single-transcript registry tier); not_found / errored / deferred rows are refunded, so you pay exactly for the transcripts you got. Never cached. Optionally streams Server-Sent Events when the client sends `Accept: text/event-stream`.",
   },
   {
     platform: "youtube",
@@ -733,6 +1569,10 @@ export const ENDPOINTS: Endpoint[] = [
     optionalParams: [
       { name: "continuationToken", type: "string", description: "Continuation token to get more comments. Get 'continuationToken' from previous response." },
       { name: "order", type: "enum", enumValues: ["top", "newest"], description: "Order of comments" },
+      { name: "searchTerm", type: "string", description: "Filter comments to those containing this search term." },
+      { name: "format", type: "enum", enumValues: ["html", "plainText"], description: "Text format for comment bodies — 'html' (default) or 'plainText'." },
+      { name: "max_results", type: "integer", description: "Maximum number of comments to return per page." },
+      { name: "channel_id", type: "string", description: "YouTube channel id to fetch channel-level community comments for (instead of a video's comments)." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -749,7 +1589,9 @@ export const ENDPOINTS: Endpoint[] = [
     params: [
       { name: "continuationToken", required: true, description: "Continuation token for the comment replies. Use 'repliesContinuationToken' from the Comments endpoint, or 'continuationToken' from a previous replies response to paginate.", example: "Eg0SC2RRdzR3OVdnWGNRGAYygwEaUBIa..." },
     ],
-    optionalParams: [],
+    optionalParams: [
+      { name: "format", type: "enum", enumValues: ["html", "plainText"], description: "Text format for reply bodies — 'html' (default) or 'plainText'." },
+    ],
     oneOfGroups: [],
     creditTier: "standard",
     creditCost: 1,
@@ -824,7 +1666,10 @@ export const ENDPOINTS: Endpoint[] = [
     params: [
       { name: "playlist_id", required: true, description: "YouTube playlist ID", example: "PLrAXtmErZgOeiKm4sgNOknGvNjby9efdf" },
     ],
-    optionalParams: [],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor from a previous response — fetches the next page." },
+      { name: "channel_id", type: "string", description: "YouTube channel id — pages that channel's uploads instead of a playlist." },
+    ],
     oneOfGroups: [],
     creditTier: "standard",
     creditCost: 1,
@@ -877,12 +1722,12 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "language", type: "string", description: "2 letter language code, ie 'en', 'es', 'fr' etc. If the transcript is not available in the language you specify, the transcript will be null." },
     ],
     oneOfGroups: [],
-    creditTier: "premium",
-    creditCost: 10,
+    creditTier: "standard",
+    creditCost: 3,
     archetype: "Transcript",
     summary: "Get YouTube video transcript",
     description:
-      "Returns the transcript of a YouTube video with timestamped text segments. Supports multiple languages.",
+      "Returns the transcript of a YouTube video as timestamped segments — each with text, start `offset` and `duration` (seconds), language, word count, and speech rate. Supports multiple languages via `language`.",
   },
   {
     platform: "youtube",
@@ -937,6 +1782,167 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a YouTube channel's community posts",
     description:
       "Fetches community posts from a YouTube channel's Posts tab — post ID, URL, content, images, attached video, like count, publish time, channel info — plus a `continuationToken` when more results are available. Pass `handle` or `channelId` for the first page; forward `continuationToken` for subsequent pages.",
+  },
+  {
+    platform: "youtube",
+    resource: "videos/trending",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "region", type: "string", description: "ISO 3166-1 alpha-2 country code (e.g. US, GB, KR).", example: "US" },
+      { name: "category", type: "string", description: "YouTube video category id (e.g. 10 = Music, 24 = Entertainment).", example: "10" },
+      { name: "language", type: "string", description: "Localization language (ISO 639-1) for titles/metadata." },
+      { name: "max_results", type: "integer", description: "Maximum number of videos to return (1–50)." },
+      { name: "cursor", type: "string", description: "Pagination cursor from a previous response — fetches the next page." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "Get trending YouTube videos",
+    description:
+      "Returns the most popular (trending) YouTube videos for a region and category — title, thumbnail, duration, view/like/comment counts, channel, and publish time — plus a `cursor` when more results are available. Filter by `region` (ISO country) and `category` (YouTube category id); forward `cursor` for subsequent pages.",
+  },
+  {
+    platform: "youtube",
+    resource: "playlist/items",
+    method: "GET",
+    params: [
+      { name: "playlist_id", required: true, description: "YouTube playlist id (the value after `list=` in a playlist URL).", example: "PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string", description: "Pagination cursor from a previous response — fetches the next page." },
+      { name: "channel_id", type: "string", description: "YouTube channel id — pages that channel's uploads instead of a playlist." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "List the videos in a YouTube playlist",
+    description:
+      "Returns the videos in a YouTube playlist in order — video id, title, thumbnail, owning channel, and publish time — plus a `cursor` when more results are available. Pass `playlist_id` for the first page; forward `cursor` for subsequent pages.",
+  },
+  {
+    platform: "youtube",
+    resource: "search/advanced",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search query.", example: "lofi hip hop" },
+    ],
+    optionalParams: [
+      { name: "order", type: "string", description: "Sort order: date, rating, relevance (default), title, videoCount, viewCount." },
+      { name: "duration", type: "string", description: "Video length: short (<4m), medium (4–20m), long (>20m), any.", example: "long" },
+      { name: "event_type", type: "string", description: "Broadcast type: live, upcoming, completed." },
+      { name: "license", type: "string", description: "License filter: creativeCommon, youtube, any." },
+      { name: "category", type: "string", description: "YouTube video category id (e.g. 10 = Music)." },
+      { name: "region", type: "string", description: "ISO 3166-1 alpha-2 country code." },
+      { name: "language", type: "string", description: "Preferred result language (ISO 639-1)." },
+      { name: "published_after", type: "string", description: "RFC-3339 datetime lower bound (e.g. 2026-01-01T00:00:00Z)." },
+      { name: "published_before", type: "string", description: "RFC-3339 datetime upper bound." },
+      { name: "channel_id", type: "string", description: "Restrict results to a single channel id." },
+      { name: "max_results", type: "integer", description: "Maximum number of videos to return (1–50)." },
+      { name: "cursor", type: "string", description: "Pagination cursor from a previous response — fetches the next page." },
+      { name: "safe_search", type: "string", description: "Safe-search filter: none, moderate, strict." },
+      { name: "video_caption", type: "string", description: "Caption filter: any, closedCaption, none." },
+      { name: "video_definition", type: "string", description: "Quality filter: any, high, standard." },
+      { name: "video_dimension", type: "string", description: "Dimension filter: 2d, 3d, any." },
+      { name: "video_embeddable", type: "string", description: "Restrict to embeddable videos: true, any." },
+      { name: "video_type", type: "string", description: "Type filter: any, episode, movie." },
+      { name: "topic_id", type: "string", description: "Restrict to a Freebase topic id (e.g. /m/04rlf for music)." },
+      { name: "location", type: "string", description: "Latitude,longitude center for a geo search (e.g. 37.42307,-122.08427). Must be used together with location_radius." },
+      { name: "location_radius", type: "string", description: "Radius around location with a unit suffix (e.g. 50km, 10mi). Must be used together with location." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "PostList",
+    summary: "Advanced YouTube video search",
+    description:
+      "Searches YouTube videos with the full filter set — sort `order`, `duration`, live/upcoming `event_type`, Creative-Commons `license`, `category`, `region`, `language`, and `published_after`/`published_before` date windows — returning video id, title, thumbnail, channel, and publish time, plus a `cursor` for the next page. Results are always videos.",
+  },
+  {
+    platform: "youtube",
+    resource: "search/suggestions",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Partial search query to autocomplete.", example: "lofi" },
+    ],
+    optionalParams: [
+      { name: "region", type: "string", description: "ISO 3166-1 alpha-2 country code to localize suggestions." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Get YouTube search suggestions",
+    description:
+      "Returns YouTube's search autocomplete suggestions for a partial query — the same suggestions the search box shows. Useful for keyword expansion and SEO research. Returns a string list under `items`.",
+  },
+  {
+    platform: "youtube",
+    resource: "video/audio",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the YouTube video.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "MediaList",
+    summary: "Get a YouTube video's audio file streams",
+    description:
+      "Returns the downloadable audio stream files for a YouTube video — each with a direct media `url`, mime type, bitrate, audio quality, sample rate, channels, and approximate duration. The stream URLs are time-limited: fetch them immediately and do not cache.",
+  },
+  {
+    platform: "youtube",
+    resource: "video/files",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the YouTube video.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "MediaList",
+    summary: "Get a YouTube video's video file streams",
+    description:
+      "Returns the downloadable video stream files for a YouTube video — each with a direct media `url`, mime type, resolution (`width`/`height`), quality label, fps, bitrate, and approximate duration. The stream URLs are time-limited: fetch them immediately and do not cache.",
+  },
+  {
+    platform: "youtube",
+    resource: "video/subtitles",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the YouTube video.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    ],
+    optionalParams: [
+      { name: "format", type: "string", description: "Subtitle file format filter (e.g. srt, vtt, ttml, json3, srv1)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "MediaList",
+    summary: "Get a YouTube video's subtitle files",
+    description:
+      "Returns the downloadable subtitle/caption track files for a YouTube video — each with a language code and name, format, and a direct download `url`. Includes both manual and auto-generated tracks across available subtitle formats (srt, vtt, ttml, …).",
+  },
+  {
+    platform: "youtube",
+    resource: "video/thumbnails",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the YouTube video.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "MediaList",
+    summary: "Get a YouTube video's thumbnail files",
+    description:
+      "Returns the thumbnail image files for a YouTube video at every available size — each with a direct image `url`, dimensions (`width`/`height`), aspect `ratio`, and image `format` (webp / jpg).",
   },
   {
     platform: "youtube",
@@ -1074,12 +2080,12 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "to_date", type: "string", description: "ISO 8601 end date (YYYY-MM-DD). Limits the search window to posts on or before this date." },
     ],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "Analytics",
     summary: "AI-powered X (Twitter) search via xAI Grok",
     description:
-      "Natural-language search over X (Twitter) powered by xAI's Grok 4.20 Reasoning model with the built-in x_search tool. Returns a synthesised answer plus X source citations. Pin results to specific authors via from_handles (or exclude with exclude_handles), and narrow to a time window with from_date / to_date. Costs 1 credit per call regardless of how many internal x_search invocations the model performs (see tool_calls_count in the response for visibility). Auto-refunds on upstream failure. Best for freeform questions like 'what is @elonmusk saying about xAI this week' that would otherwise require multiple structured calls to /v1/twitter/profile, /v1/twitter/user/tweets, etc.",
+      "Natural-language search over X (Twitter) powered by xAI's Grok 4.3 model with the built-in x_search tool. Returns a synthesised answer plus X source citations. Pin results to specific authors via from_handles (or exclude with exclude_handles), and narrow to a time window with from_date / to_date. Costs 5 credits per call regardless of how many internal x_search invocations the model performs (see tool_calls_count in the response for visibility). Auto-refunds on upstream failure. Best for freeform questions like 'what is @elonmusk saying about xAI this week' that would otherwise require multiple structured calls to /v1/twitter/profile, /v1/twitter/user/tweets, etc.",
   },
   {
     platform: "twitter",
@@ -1100,7 +2106,7 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Fans out to the X (Twitter) profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits.",
   },
-  // --- linkedin (9 endpoints) ---
+  // --- linkedin (44 endpoints) ---
   {
     platform: "linkedin",
     resource: "profile",
@@ -1110,8 +2116,8 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "Author",
     summary: "Get LinkedIn user profile",
     description:
@@ -1126,8 +2132,8 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "Author",
     summary: "Get LinkedIn company page",
     description:
@@ -1142,8 +2148,8 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "Post",
     summary: "Get LinkedIn post details",
     description:
@@ -1151,17 +2157,668 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     platform: "linkedin",
-    resource: "company/posts",
+    resource: "search/people",
     method: "GET",
     params: [
-      { name: "url", required: true, description: "Full URL of the LinkedIn company page", example: "https://www.linkedin.com/company/microsoft/" },
+      { name: "query", required: true, description: "Name or display-name keyword to search for (e.g. 'Bill Gates').", example: "Bill Gates" },
     ],
     optionalParams: [
-      { name: "page", type: "integer", description: "The page number to get" },
+      { name: "page", type: "string", description: "Page number for pagination (default 1)." },
+      { name: "first_name", type: "string", description: "Filter by first name." },
+      { name: "last_name", type: "string", description: "Filter by last name." },
+      { name: "title", type: "string", description: "Filter by job title or headline." },
+      { name: "current_company", type: "string", description: "Filter by current company ID (comma-separated for multiple)." },
+      { name: "past_company", type: "string", description: "Filter by a previously-worked company ID." },
+      { name: "school", type: "string", description: "Filter by school ID." },
+      { name: "industry", type: "string", description: "Filter by industry ID." },
+      { name: "geocode_location", type: "string", description: "Filter by location geocode ID." },
+      { name: "profile_language", type: "string", description: "Filter by profile language (ISO 2-letter code, e.g. 'en')." },
+      { name: "service_category", type: "string", description: "Filter by service-category ID." },
+      { name: "follower_of", type: "string", description: "Return people who follow a specific member URN." },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "AuthorList",
+    summary: "Search LinkedIn people",
+    description:
+      "Searches LinkedIn members by name and B2B filters (title, current/past company, school, industry, location, language). Returns a paginated list of matching profiles with handle, headline, location, follower count, and the member URN for follow-up enrichment calls.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/people",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string", description: "Page number for pagination (default 1)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "AuthorList",
+    summary: "List people at a LinkedIn company",
+    description:
+      "Returns a paginated list of members who work at a company, with handle, headline, location, and member URN. Get the company_id from /v1/linkedin/company.",
+  },
+  {
+    platform: "linkedin",
+    resource: "post/comments",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn post (or its activity id).", example: "https://www.linkedin.com/feed/update/urn:li:activity:7244804629786419202" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string", description: "Page number for pagination (default 1)." },
+      { name: "post_type", type: "string", description: "Upstream post type: 'activity' (default) or 'ugc'." },
+      { name: "sort_order", type: "string", description: "Comment ordering: 'relevance' or 'recent'." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "CommentList",
+    summary: "Get LinkedIn post comments",
+    description:
+      "Returns a paginated list of comments on a LinkedIn post, with commenter identity, text, reaction breakdown, pin/edit flags, and reply counts.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/posts",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List a LinkedIn member's posts",
+    description:
+      "List a LinkedIn member's posts — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/reactions",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List posts a LinkedIn member reacted to",
+    description:
+      "List posts a LinkedIn member reacted to — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "post/reposts",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List reposts of a LinkedIn post",
+    description:
+      "List reposts of a LinkedIn post — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "group/posts",
+    method: "GET",
+    params: [
+      { name: "group_id", required: true, description: "LinkedIn numeric group ID.", example: "62438" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "PostList",
+    summary: "List posts in a LinkedIn group",
+    description:
+      "List posts in a LinkedIn group — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/affiliated-pages",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "AuthorList",
+    summary: "List a company's affiliated/showcase pages",
+    description:
+      "List a company's affiliated/showcase pages — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "post/comments/replies",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+      { name: "comment_id", required: true, description: "LinkedIn comment ID (from /post/comments).", example: "7244804629786419202" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "CommentList",
+    summary: "List replies to a LinkedIn comment",
+    description:
+      "List replies to a LinkedIn comment — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/experiences",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's work experiences",
+    description:
+      "List a member's work experiences — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/educations",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's education history",
+    description:
+      "List a member's education history — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/skills",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's skills",
+    description:
+      "List a member's skills — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/honors",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's honors and awards",
+    description:
+      "List a member's honors and awards — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/certifications",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's licenses and certifications",
+    description:
+      "List a member's licenses and certifications — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/publications",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's publications",
+    description:
+      "List a member's publications — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/volunteers",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's volunteer experiences",
+    description:
+      "List a member's volunteer experiences — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/recommendations",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+      { name: "type", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List recommendations for a member",
+    description:
+      "List recommendations for a member — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/interests/companies",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List companies a member follows",
+    description:
+      "List companies a member follows — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/interests/groups",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List groups a member follows",
+    description:
+      "List groups a member follows — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/images",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's image posts",
+    description:
+      "List a member's image posts — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/videos",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's video posts",
+    description:
+      "List a member's video posts — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/comments",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "cursor", type: "string" },
+      { name: "page", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "SearchResult",
+    summary: "List a member's comments",
+    description:
+      "List a member's comments — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "post/reactions",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+      { name: "type", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "SearchResult",
+    summary: "List reactors on a LinkedIn post",
+    description:
+      "List reactors on a LinkedIn post — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/jobs",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+      { name: "date_posted", type: "string" },
+      { name: "experience_level", type: "string" },
+      { name: "job_type", type: "string" },
+      { name: "remote", type: "string" },
+      { name: "easy_apply", type: "string" },
+      { name: "sort_by", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "JobList",
+    summary: "List a company's job postings",
+    description:
+      "List a company's job postings — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "search/jobs",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword.", example: "marketing" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
+      { name: "date_posted", type: "string" },
+      { name: "experience_level", type: "string" },
+      { name: "job_type", type: "string" },
+      { name: "remote", type: "string" },
+      { name: "easy_apply", type: "string" },
+      { name: "sort_by", type: "string" },
+      { name: "company", type: "string" },
+      { name: "geocode", type: "string" },
+      { name: "industry_ids", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 10,
+    archetype: "JobList",
+    summary: "Search LinkedIn jobs",
+    description:
+      "Search LinkedIn jobs — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "search/location",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword.", example: "marketing" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Resolve a location to a LinkedIn geocode id",
+    description:
+      "Resolve a location to a LinkedIn geocode id — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "search/schools",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword.", example: "marketing" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string" },
     ],
     oneOfGroups: [],
     creditTier: "standard",
     creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Search LinkedIn schools",
+    description:
+      "Search LinkedIn schools — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "search/industry",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Search keyword.", example: "marketing" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Resolve an industry name to a LinkedIn industry id",
+    description:
+      "Resolve an industry name to a LinkedIn industry id — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/about",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get a member's profile metadata (joined date, freshness)",
+    description:
+      "Get a member's profile metadata (joined date, freshness) — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/contact",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get a member's public contact info",
+    description:
+      "Get a member's public contact info — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "profile/stats",
+    method: "GET",
+    params: [
+      { name: "url", required: true, description: "Full URL of the LinkedIn profile, company, or post.", example: "https://www.linkedin.com/in/williamhgates/" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get a member's follower + connection counts",
+    description:
+      "Get a member's follower + connection counts — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/job-count",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get a company's open job count",
+    description:
+      "Get a company's open job count — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/insights",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get aggregate insights about a company's members",
+    description:
+      "Get aggregate insights about a company's members — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "group",
+    method: "GET",
+    params: [
+      { name: "group_id", required: true, description: "LinkedIn numeric group ID.", example: "62438" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get LinkedIn group details",
+    description:
+      "Get LinkedIn group details — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "job",
+    method: "GET",
+    params: [
+      { name: "id", required: true, description: "LinkedIn job ID.", example: "4019392600" },
+    ],
+    optionalParams: [
+      { name: "include_skills", type: "string" },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Job",
+    summary: "Get LinkedIn job details",
+    description:
+      "Get LinkedIn job details — via the Fresh LinkedIn Scraper upstream, normalised to the SocialCrawl schema.",
+  },
+  {
+    platform: "linkedin",
+    resource: "company/posts",
+    method: "GET",
+    params: [
+      { name: "company_id", required: true, description: "LinkedIn numeric company ID (from /v1/linkedin/company).", example: "1035" },
+    ],
+    optionalParams: [
+      { name: "page", type: "string", description: "Page number for pagination (default 1)." },
+      { name: "sort_by", type: "string", description: "Post ordering: 'top' or 'recent'." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "PostList",
     summary: "List LinkedIn company posts",
     description:
@@ -1213,12 +2870,16 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "query", required: true, description: "Keyword or phrase to search for in public LinkedIn posts.", example: "ai agents" },
     ],
     optionalParams: [
-      { name: "date_posted", type: "enum", enumValues: ["last-hour", "last-day", "last-week", "last-month", "last-year"], description: "Date filter based on Google-indexed results." },
-      { name: "cursor", type: "string", description: "The cursor returned by the previous response — Google results page number." },
+      { name: "page", type: "string" },
+      { name: "sort_by", type: "string" },
+      { name: "date_posted", type: "string", description: "Date filter based on Google-indexed results." },
+      { name: "content_type", type: "string" },
+      { name: "from_company", type: "string" },
+      { name: "from_member", type: "string" },
     ],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "SearchResult",
     summary: "Search public LinkedIn posts by keyword",
     description:
@@ -1276,7 +2937,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Author",
     summary: "Get Facebook page profile",
     description:
-      "Returns public profile information for a Facebook page or user including name, follower count, like count, category, about text, profile picture URL, and cover photo URL.",
+      "Returns a unified Facebook Author profile with page ID, display name, profile URL, profile image, bio, follower count, and page-like count. `author.following` and `author.posts_count` remain null because the upstream profile response does not provide those totals.",
   },
   {
     platform: "facebook",
@@ -1384,7 +3045,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "List Facebook profile photos",
     description:
-      "Returns photos from a Facebook page or profile. Each photo includes image URL, caption, reaction count, and comment count.",
+      "Returns Facebook page or profile photos as unified Post items. Each item includes a photo ID, permalink, full-size image URL, thumbnail, and accessibility caption when available. Per-item author, engagement counts, and publish time are not exposed, so those canonical fields and engagement counts remain null.",
   },
   {
     platform: "facebook",
@@ -1403,7 +3064,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "List Facebook profile reels",
     description:
-      "Returns reels from a Facebook page or profile. Each reel includes view count, reaction count, comment count, and thumbnail.",
+      "Returns Facebook page or profile reels as unified Post items. Each item includes a reel ID, description, thumbnail, duration when available, author identity, `engagement.views` when the upstream provides it, permalink, and publish time. Likes, comments, shares, and saves remain null because this endpoint does not expose those counts.",
   },
   {
     platform: "facebook",
@@ -1679,7 +3340,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Analytics",
     summary: "Facebook profile, recent posts, and computed analytics in one call.",
     description:
-      "Fans out to the Facebook profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics — average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits.",
+      "Fans out to the Facebook profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics: average engagement rate, posting cadence (with the window it was measured over), the top post, and the format mix. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits. For Facebook, `author.following` and `author.posts_count` remain null because the profile upstream does not provide those totals.",
   },
   // --- reddit (7 endpoints) ---
   {
@@ -1690,7 +3351,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "subreddit", required: true, description: "Subreddit name without the r/ prefix", example: "technology" },
     ],
     optionalParams: [
-      { name: "timeframe", type: "enum", enumValues: ["all", "day", "week", "month", "year"], description: "Timeframe to get posts from" },
+      { name: "timeframe", type: "enum", enumValues: ["all", "day", "week", "month", "year"], description: "Timeframe to get posts from. Applied with sort=top (auto-selected when you omit sort)." },
       { name: "sort", type: "enum", enumValues: ["best", "hot", "new", "top", "rising"], description: "Sort order" },
       { name: "after", type: "string", description: "After to get more posts. Get 'after' from previous response." },
       { name: "trim", type: "boolean", description: "Set to true for a trimmed down version of the response" },
@@ -1709,7 +3370,7 @@ export const ENDPOINTS: Endpoint[] = [
     method: "GET",
     params: [],
     optionalParams: [
-      { name: "subreddit", type: "string", description: "Subreddit name without the r/ prefix" },
+      { name: "subreddit", type: "string", description: "Subreddit name without the r/ prefix. Case-sensitive — use the subreddit's canonical casing (e.g. `AskReddit`).", example: "AskReddit" },
       { name: "url", type: "string", description: "Subreddit URL" },
     ],
     oneOfGroups: [["subreddit", "url"]],
@@ -1718,7 +3379,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Author",
     summary: "Get Reddit subreddit details",
     description:
-      "Returns detailed information about a subreddit including subscriber count, active user count, description, creation date, rules, and subreddit icon URL.",
+      "Returns detailed information about a subreddit including subscriber count, active user count, description, creation date, rules, and subreddit icon URL. Note: the subreddit name is case-sensitive here — pass the subreddit's canonical casing (e.g. `AskReddit`, not `askreddit`). An incorrect casing returns a refunded 404.",
   },
   {
     platform: "reddit",
@@ -1753,12 +3414,12 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", type: "boolean", description: "Set to true for a trimmed down version of the response" },
     ],
     oneOfGroups: [],
-    creditTier: "standard",
-    creditCost: 1,
+    creditTier: "advanced",
+    creditCost: 5,
     archetype: "CommentList",
     summary: "List Reddit post comments",
     description:
-      "Returns a threaded list of comments on a specific Reddit post. Each comment includes the author, comment body, score, reply count, awards, and creation timestamp.",
+      "Returns the full threaded comment tree for a Reddit post. Nested replies are auto-expanded by following upstream pagination, so a single call returns the deep tree (not just top-level comments). Each comment includes the author, body, score, direct-reply count, awards, creation timestamp, and a recursive `replies[]` array. Very large threads are bounded: any branch left unexpanded exposes an `ext.replies_cursor`, and `data.truncated` is true when more remains.",
   },
   {
     platform: "reddit",
@@ -2042,7 +3703,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "handle", required: true, description: "Twitch username.", example: "ishowspeed" },
     ],
     optionalParams: [
-      { name: "filter_by", type: "enum", enumValues: ["HIGHLIGHT", "ARCHIVE", "UPLOAD"], description: "Filter the returned videos by type — `HIGHLIGHT`, `ARCHIVE`, or `UPLOAD`." },
+      { name: "filter_by", type: "enum", enumValues: ["HIGHLIGHT", "UPLOAD"], description: "Filter the returned videos by type — `HIGHLIGHT` or `UPLOAD`. (Archived past broadcasts are not currently available upstream.)" },
       { name: "sort_by", type: "enum", enumValues: ["TIME", "VIEWS"], description: "Sort order — `TIME` (newest first) or `VIEWS`." },
     ],
     oneOfGroups: [],
@@ -2222,7 +3883,7 @@ export const ENDPOINTS: Endpoint[] = [
     oneOfGroups: [],
     creditTier: "standard",
     creditCost: 1,
-    archetype: "Post",
+    archetype: "Product",
     summary: "Get TikTok Shop product details",
     description:
       "Returns detailed information about a TikTok Shop product including price, rating, review count, seller info, and images.",
@@ -2240,7 +3901,7 @@ export const ENDPOINTS: Endpoint[] = [
     oneOfGroups: [["url", "product_id"]],
     creditTier: "standard",
     creditCost: 1,
-    archetype: "CommentList",
+    archetype: "ReviewList",
     summary: "List TikTok Shop product reviews",
     description:
       "Returns reviews for a TikTok Shop product. Each review includes rating, text, author, and timestamp. Upstream pagination is not currently supported — the `page` parameter doesn't round-trip — so only page 1 is returned.",
@@ -2259,7 +3920,7 @@ export const ENDPOINTS: Endpoint[] = [
     oneOfGroups: [],
     creditTier: "standard",
     creditCost: 1,
-    archetype: "PostList",
+    archetype: "ProductList",
     summary: "List TikTok Shop products",
     description:
       "Returns products from a TikTok Shop page — title, cover images, URL, price info, sold count, review count, and rating. Sort by best-selling (`sort_by=top`) or newest (`sort_by=new_releases`); filter by `region`. Pagination via the upstream `cursor` is not currently exposed — only page 1 is returned.",
@@ -2545,7 +4206,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "query", required: true, description: "Search keyword or phrase.", example: "wireless earbuds" },
     ],
     optionalParams: [
-      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL.", example: "US" },
+      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL. Note: non-US marketplaces (especially EU) are best-effort — the upstream provider is slower and occasionally times out for these; such calls are refunded, and US is the most reliable marketplace.", example: "US" },
       { name: "depth", type: "integer", description: "Maximum number of products to return (max 700). Higher depth returns more rows at the same flat credit cost.", example: "20" },
     ],
     oneOfGroups: [],
@@ -2564,7 +4225,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "asin", required: true, description: "10-character Amazon ASIN (the product identifier).", example: "B0FQFB8FMG" },
     ],
     optionalParams: [
-      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL.", example: "US" },
+      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL. Note: non-US marketplaces (especially EU) are best-effort — the upstream provider is slower and occasionally times out for these; such calls are refunded, and US is the most reliable marketplace.", example: "US" },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
@@ -2582,7 +4243,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "asin", required: true, description: "10-character Amazon ASIN (the product identifier).", example: "B0DCH8VDXF" },
     ],
     optionalParams: [
-      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL.", example: "US" },
+      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL. Note: non-US marketplaces (especially EU) are best-effort — the upstream provider is slower and occasionally times out for these; such calls are refunded, and US is the most reliable marketplace.", example: "US" },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
@@ -2600,7 +4261,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "asin", required: true, description: "10-character Amazon ASIN (the product identifier).", example: "B09SM24S8C" },
     ],
     optionalParams: [
-      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL.", example: "US" },
+      { name: "country", type: "enum", enumValues: ["US", "GB", "CA", "DE", "FR", "IT", "ES", "JP", "IN", "MX", "BR", "AU", "NL"], description: "Amazon marketplace as an ISO 3166-1 alpha-2 country code (default US). Supported: US, GB, CA, DE, FR, IT, ES, JP, IN, MX, BR, AU, NL. Note: non-US marketplaces (especially EU) are best-effort — the upstream provider is slower and occasionally times out for these; such calls are refunded, and US is the most reliable marketplace.", example: "US" },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -2777,6 +4438,46 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Returns a unified QuoteList snapshot of the global markets overview: the major regional indices (US / Europe / Asia, tagged in `quote.ext.section`) plus the day's most-active, gainers, and losers movers. Each row is the same canonical Quote shape used everywhere — re-feed any `id` into /v1/google_finance/quote for the full detail. A standing overview (no input required); the regional grouping is baked into the single response. Sourced live from DataForSEO's Google Finance SERP (~4-8s).",
   },
+  // --- google_trends (2 endpoints) ---
+  {
+    platform: "google_trends",
+    resource: "explore",
+    method: "GET",
+    params: [
+      { name: "keywords", required: true, description: "1-5 comma-separated keywords (e.g. 'reverse audio,voice changer'). With multiple keywords the 0-100 values are normalised across the set for direct comparison.", example: "uv index" },
+    ],
+    optionalParams: [
+      { name: "location", type: "string", description: "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to worldwide-leaning US." },
+      { name: "timeframe", type: "enum", enumValues: ["past_hour", "past_4_hours", "past_day", "past_7_days", "past_30_days", "past_90_days", "past_12_months", "past_5_years"], description: "Preset time window: past_hour, past_4_hours, past_day, past_7_days, past_30_days, past_90_days, past_12_months, or past_5_years. Defaults to past_12_months.", example: "past_90_days" },
+      { name: "category", type: "integer", description: "Numeric Google Trends category code to scope the query (default 0 = all categories)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get Google Trends interest over time",
+    description:
+      "Returns Google Trends interest-over-time for up to 5 keywords in one call. Response is `{ series, averages }`: `series` is one entry per keyword, each with dated `points` ({ date, value }) where `value` is Google's 0-100 relative-popularity score; `averages` is the per-keyword mean over the window. Compare terms head-to-head (values are normalised across the keyword set) and scope by `location`, `timeframe`, and `category`. Sourced live from DataForSEO's Google Trends Explore (~3-8s).",
+  },
+  {
+    platform: "google_trends",
+    resource: "rising",
+    method: "GET",
+    params: [
+      { name: "keyword", required: true, description: "Single keyword to expand (e.g. 'uv index'). Google Trends returns the related-queries list for one keyword only.", example: "uv index" },
+    ],
+    optionalParams: [
+      { name: "location", type: "string", description: "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to worldwide-leaning US." },
+      { name: "timeframe", type: "enum", enumValues: ["past_hour", "past_4_hours", "past_day", "past_7_days", "past_30_days", "past_90_days", "past_12_months", "past_5_years"], description: "Preset time window: past_hour, past_4_hours, past_day, past_7_days, past_30_days, past_90_days, past_12_months, or past_5_years. Defaults to past_12_months." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Get related + rising Google Trends queries",
+    description:
+      "Returns the related search queries for ONE keyword as `{ rising, top }`. `rising` is the breakout list — queries whose search interest grew the most over the window, each with a `growth` percentage (a true breakout can read into the thousands, e.g. 3200 = +3200%); `top` is the most-searched related queries, each with a 0-100 relative `value`. The closest thing to a 'breakout terms' primitive — pair it with /v1/google_trends/explore to size a trend and find the queries driving it. Sourced live from DataForSEO's Google Trends Explore (~3-8s).",
+  },
   // --- trustpilot (2 endpoints) ---
   {
     platform: "trustpilot",
@@ -2815,7 +4516,7 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Returns a unified ReviewList of customer reviews for a business on Trustpilot, keyed by its domain (`entity_id` on every review). Each review carries the star rating, full text, title, verified-status, language (reviews arrive in many languages — filter client-side via `language`), reviewer profile, owner/brand `responses[]`, and publish date. Reviews are about the COMPANY (shipping, refunds, support), never a specific product — for product reviews use /v1/google_shopping/reviews or /v1/amazon/reviews. Get the domain from /v1/trustpilot/business-search. The platform exposes no deeper pagination — `depth` caps at 200 (the most recent / most relevant); a business with no Trustpilot reviews returns 404 (auto-refunded). Sourced from DataForSEO's task-based Business Data API (first calls ~15-45s, then cached).",
   },
-  // --- google_play (8 endpoints) ---
+  // --- google_play (9 endpoints) ---
   {
     platform: "google_play",
     resource: "app-search",
@@ -2835,6 +4536,25 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Google Play apps by keyword",
     description:
       "Returns a unified AppList of Google Play apps matching a keyword — title, icon, developer, rating, price/is_free, and store URL on every item, on the same canonical `App` shape used across every app marketplace (`app.store` = \"google_play\"). Detail-only fields (description, screenshots, installs) are null on search items; fetch /v1/google_play/app-info for the full record. Sourced from DataForSEO's task-based App Data API (first calls ~7-15s, then cached).",
+  },
+  {
+    platform: "google_play",
+    resource: "search-suggestions",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Partial search keyword to autocomplete (e.g. 'reverse').", example: "reverse" },
+    ],
+    optionalParams: [
+      { name: "country", type: "string", description: "ISO 3166-1 alpha-2 storefront country code. Defaults to 'us'.", example: "us" },
+      { name: "language", type: "string", description: "ISO 639-1 language code. Defaults to 'en'.", example: "en" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Get Google Play search suggestions",
+    description:
+      "Returns Google Play's search autocomplete suggestions for a keyword stem — the same terms the store's search box surfaces. The day Play starts autocompleting a phrase, real demand exists; poll a stem daily and diff to catch rising app keywords early. Each item is `{ term, priority }` ranked by Play's own order (Play exposes no numeric score). Returns a list under `items`.",
   },
   {
     platform: "google_play",
@@ -2964,7 +4684,7 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Returns the languages (name + code) supported by the Google Play App Data endpoints. Use a code as the `language` param. Static reference data — heavily cached.",
   },
-  // --- app_store (8 endpoints) ---
+  // --- app_store (9 endpoints) ---
   {
     platform: "app_store",
     resource: "app-search",
@@ -2984,6 +4704,24 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Apple App Store apps by keyword",
     description:
       "Returns a unified AppList of Apple App Store apps matching a keyword — title, icon, rating, price/is_free, and store URL on every item, on the same canonical `App` shape used across every app marketplace (`app.store` = \"app_store\"). Detail-only fields (description, screenshots, developer) are null on search items; fetch /v1/app_store/app-info for the full record. Sourced from DataForSEO's task-based App Data API (first calls ~7-15s, then cached).",
+  },
+  {
+    platform: "app_store",
+    resource: "search-suggestions",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Partial search keyword to autocomplete (e.g. 'reverse').", example: "reverse" },
+    ],
+    optionalParams: [
+      { name: "country", type: "string", description: "ISO 3166-1 alpha-2 storefront country code. Defaults to 'us'.", example: "us" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "SearchResult",
+    summary: "Get Apple App Store search suggestions",
+    description:
+      "Returns Apple's App Store search autocomplete ('search hints') for a keyword stem — the same suggestions the store's search box surfaces, ranked by Apple's own priority. The day Apple starts autocompleting a phrase, real demand exists; poll a stem daily and diff to catch rising app keywords early. Each item is `{ term, priority }` where `priority` is the 1-based upstream rank (Apple exposes no numeric score). Returns a list under `items`.",
   },
   {
     platform: "app_store",
@@ -3288,7 +5026,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [
       { name: "tags", type: "string", description: "Algolia tag filter — comma-separated. Common values: \"story\", \"comment\", \"poll\", \"show_hn\", \"ask_hn\", \"front_page\", \"author_<username>\". Defaults to \"story\"." },
-      { name: "numericFilters", type: "string", description: "Algolia numeric filter expression — e.g. \"created_at_i>1700000000,points>10\". Combine with commas for AND. Overrides the default \"points>2\" floor when provided." },
+      { name: "numericFilters", type: "string", description: "Algolia numeric filter expression on `created_at_i` (the only filterable numeric attribute) — e.g. \"created_at_i>1700000000\". Combine with commas for AND. No filter is applied by default." },
       { name: "hitsPerPage", type: "integer", description: "Hits per page (1–1000). Defaults to 30." },
       { name: "page", type: "integer", description: "0-indexed page number for pagination." },
     ],
@@ -3298,7 +5036,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "Search Hacker News",
     description:
-      "Searches Hacker News stories, comments, and front-page items via the Algolia HN API. Defaults to story-only results sorted by relevance with a points>2 quality filter (override via `numericFilters`). Returns the raw Algolia hits in `data.items[]` — each hit includes `objectID`, `title`, `url`, `author`, `points`, `num_comments`, `created_at_i`, and `_tags`.",
+      "Searches Hacker News stories, comments, and front-page items via the Algolia HN API. Defaults to story-only results sorted by relevance. The HN Algolia index only exposes `created_at_i` for numeric filtering, so use `numericFilters` for date windows (e.g. `created_at_i>1700000000`). Returns the raw Algolia hits in `data.items[]` — each hit includes `objectID`, `title`, `url`, `author`, `points`, `num_comments`, `created_at_i`, and `_tags`.",
   },
   {
     platform: "hackernews",
@@ -3487,8 +5225,6 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "url", required: true, description: "GitHub HTML URL of the issue or PR.", example: "https://github.com/facebook/react/issues/27522" },
     ],
     optionalParams: [
-      { name: "sort", type: "enum", enumValues: ["created", "updated"], description: "`created` or `updated`. Defaults to `created`." },
-      { name: "direction", type: "enum", enumValues: ["asc", "desc"], description: "`asc` or `desc`. Defaults to `asc`." },
       { name: "since", type: "string", description: "Only comments updated at or after this ISO 8601 timestamp." },
       { name: "per_page", type: "integer", description: "Comments per page (1–100). Defaults to 30." },
       { name: "page", type: "integer", description: "1-indexed page number." },
@@ -3499,7 +5235,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "CommentList",
     summary: "Get comments on an issue or pull request",
     description:
-      "Returns comments under `data.items[]` — each entry includes `id`, `user.login`, `body`, `reactions.total_count`, and `created_at`. Pass either an `/issues/N` or `/pull/N` URL; both resolve to the same comment thread on GitHub's API.",
+      "Returns comments under `data.items[]` — each entry includes `id`, `user.login`, `body`, `reactions.total_count`, and `created_at`. Pass either an `/issues/N` or `/pull/N` URL; both resolve to the same comment thread on GitHub's API. Comments are returned in ascending `created_at` order (GitHub does not support re-sorting a single issue's comments).",
   },
   {
     platform: "github",
@@ -4128,7 +5864,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "SearchResult",
     summary: "Search Spotify",
     description:
-      "Searches Spotify for tracks, artists, albums, episodes, podcasts, and audiobooks.",
+      "Searches Spotify playlists matching a query. Note (DR-MS-09): the upstream currently returns Playlist results only, not the full track/artist/album/episode/podcast/audiobook mix — treat non-playlist result types as unavailable until this is expanded.",
   },
   {
     platform: "spotify",
@@ -4210,13 +5946,13 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Fans your topic across Reddit, Hacker News, and Korean forums, RRF-fuses + clusters the threads, and enriches hero threads with their top comments by default (East + West). Naver threads are labeled raw (no comment endpoint). Returns a fused `items[]`, raw per-source buckets, thread clusters, and a deterministic computed block (question_share, top_communities). Flat 10cr with coverage-based partial refund.",
   },
-  // --- prism (30 endpoints) ---
+  // --- prism (33 endpoints) ---
   {
     platform: "prism",
     resource: "lookup",
     method: "GET",
     params: [
-      { name: "url", required: true, description: "Absolute http(s) URL of the post / profile / product to resolve.", example: "https://www.youtube.com/watch?v=A9TikdsD5eg" },
+      { name: "url", required: true, description: "Absolute http(s) URL of the post / profile / product to resolve.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     ],
     optionalParams: [
       { name: "include", type: "string", description: "CSV of optional flags to forward verbatim to the resolved endpoint (e.g. `trim`). Each member must be an optional param of that endpoint." },
@@ -4234,12 +5970,14 @@ export const ENDPOINTS: Endpoint[] = [
     resource: "comments",
     method: "GET",
     params: [
-      { name: "url", required: true, description: "Absolute http(s) URL of the post whose comments to harvest.", example: "https://www.youtube.com/watch?v=A9TikdsD5eg" },
+      { name: "url", required: true, description: "Absolute http(s) URL of the post whose comments to harvest.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     ],
     optionalParams: [
-      { name: "max", type: "integer", description: "Stop after roughly this many top-level comments (1–5000, default 1000). Whole pages are returned, so the actual count can slightly exceed this." },
-      { name: "replies", type: "boolean", description: "Expand replies for comments that have them, where the platform supports it (default true; TikTok/YouTube/Facebook only).", example: "true" },
+      { name: "max", type: "integer", description: "Stop after roughly this many top-level comments (1–5000, default 1000). Whole pages are returned, so the actual count can slightly exceed this. Drives billing and, for `sort=top`, the depth of the ranking scan." },
+      { name: "replies", type: "boolean", description: "Expand replies for comments that have them, where the platform supports it (default true; TikTok/YouTube/Facebook only). Pair with `replies=false` when you only want the top comments.", example: "true" },
       { name: "cursor", type: "string", description: "Opaque composite cursor from a prior response's `next_cursor` to resume harvesting." },
+      { name: "sort", type: "enum", enumValues: ["top", "recent"], description: "`recent` (default — natural order) or `top` (most-liked first, ranked by each comment's like count). With `top`, the response adds `sorted_by: \"likes_desc\"`.", example: "top" },
+      { name: "limit", type: "integer", description: "Cap on how many top-level comments to return after sorting/scanning (1–5000, defaults to `max`). Truncates only the returned set — never what was scanned or billed. The response reports `returned`." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -4247,7 +5985,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Analytics",
     summary: "Every comment on a post, replies nested, server-paginated to completion.",
     description:
-      "Give it any TikTok, YouTube, Facebook, Reddit, Hacker News, or Instagram post URL and it harvests every top-level comment — paginated to the end — with replies nested where the platform supports it (TikTok, YouTube, Facebook). Reddit and Hacker News return their whole nested thread; Instagram is top-level only. Metered at 1 credit per internal page call (minimum 2). Returns sync JSON, or a typed SSE stream when you send `Accept: text/event-stream` — a `page` chunk lands as each page settles. The `next_cursor` is one opaque token that resumes every leg; `legs[]` reports each page's status, cost, and latency.",
+      "Give it any TikTok, YouTube, Facebook, Reddit, Hacker News, or Instagram post URL and it harvests every top-level comment — paginated to the end — with replies nested where the platform supports it (TikTok, YouTube, Facebook). Reddit and Hacker News return their whole nested thread; Instagram is top-level only. Pass `sort=top` to get the most-liked comments first (ranked by `engagement.likes`) — ideal for pulling the top comments on a high-volume post; pair it with `limit` to cap how many you get back (e.g. `sort=top&max=500&limit=200` scans ~500 and returns the top 200). YouTube sorts upstream so its top set is exact; other platforms are sorted across the scanned set. Metered at 1 credit per internal page call (minimum 2) — `sort`/`limit` never change the price, which always follows pages scanned (`max`). Returns sync JSON, or a typed SSE stream when you send `Accept: text/event-stream` — a `page` chunk lands as each page settles. The `next_cursor` is one opaque token that resumes every leg; `legs[]` reports each page's status, cost, and latency.",
   },
   {
     platform: "prism",
@@ -4265,7 +6003,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 20,
+    creditCost: 50,
     archetype: "Analytics",
     summary: "Brand mention volume time-series, sentiment split, top sources, and recent mentions for one keyword.",
     description:
@@ -4304,13 +6042,13 @@ export const ENDPOINTS: Endpoint[] = [
     optionalParams: [
       { name: "hashtag", type: "string", description: "The campaign hashtag (with or without #). One of hashtag or phrase is required.", example: "summergiveaway" },
       { name: "phrase", type: "string", description: "A campaign slogan/phrase instead of a hashtag. One of hashtag or phrase is required." },
-      { name: "window_start", type: "string", description: "Campaign launch date (YYYY-MM-DD) — the pre/during boundary. Required.", example: "2026-06-01" },
+      { name: "window_start", type: "string", description: "Campaign launch date (YYYY-MM-DD) — the pre/during boundary. Optional; defaults to 30 days ago.", example: "2026-06-01" },
       { name: "window_end", type: "string", description: "Campaign end date (YYYY-MM-DD) — the during/post boundary. Defaults to today." },
       { name: "pre_days", type: "integer", description: "Baseline days before window_start for lift measurement (1-90, default 14)." },
       { name: "post_days", type: "integer", description: "Days after window_end for the post window (0-90, default 14; 0 = no post window)." },
       { name: "include", type: "string", description: "Set amplifier_dates to date YouTube amplifiers via direct youtube/video calls (undated in fusion).", example: "amplifier_dates" },
     ],
-    oneOfGroups: [],
+    oneOfGroups: [["hashtag", "phrase"]],
     creditTier: "advanced",
     creditCost: 35,
     archetype: "Analytics",
@@ -4346,10 +6084,11 @@ export const ENDPOINTS: Endpoint[] = [
     platform: "prism",
     resource: "crisis-postmortem",
     method: "GET",
-    params: [],
+    params: [
+      { name: "brand", required: true, description: "The brand or entity the crisis is about (required).", example: "acme" },
+    ],
     optionalParams: [
-      { name: "brand", type: "string", description: "The brand or entity the crisis is about (required).", example: "acme" },
-      { name: "window_start", type: "string", description: "Start of the crisis window (YYYY-MM-DD) — the earliest point on the timeline. Required.", example: "2026-06-02" },
+      { name: "window_start", type: "string", description: "Start of the crisis window (YYYY-MM-DD) — the earliest point on the timeline. Optional; defaults to 30 days ago.", example: "2026-06-02" },
       { name: "window_end", type: "string", description: "End of the crisis window (YYYY-MM-DD). Defaults to today." },
       { name: "crisis_terms", type: "string", description: "Optional CSV of up to 5 terms (e.g. recall,defect) that scope the legs to the actual incident.", example: "breach,leak" },
       { name: "include", type: "string", description: "narrative (default on) adds the grounded LLM propagation narrative; pass an empty value for the raw timeline only." },
@@ -4376,11 +6115,11 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 10,
+    creditCost: 15,
     archetype: "Analytics",
     summary: "Stateless crisis breach check: a z-score on daily mention volume and negative share, with on-breach confirmation and a severity grade.",
     description:
-      "Stage 1 computes a 7-day-rolling z-score on content_analysis daily phrase-trends (the breach gate, always 10 credits) and returns a calm|watch|alert|crisis status. On a breach with confirm=true, Stage 2 fans out to sentiment + search/everywhere (items_by_source real counts) + reddit (sort=new) + twitter/ai-search (citations, not the chatty answer) + a triage anger-ordered search, then grades severity (+30 credits, charged only when a breach actually fires). A calm result or confirm=false costs only the 10cr baseline. The recurring alarm is delivered by wrapping this recipe in a monitor.",
+      "Stage 1 computes a 7-day-rolling z-score on content_analysis daily phrase-trends (the breach gate, always 15 credits) and returns a calm|watch|alert|crisis status. On a breach with confirm=true, Stage 2 fans out to sentiment + search/everywhere (items_by_source real counts) + reddit (sort=new) + twitter/ai-search (citations, not the chatty answer) + a triage anger-ordered search, then grades severity (+30 credits, charged only when a breach actually fires). A calm result or confirm=false costs only the 15cr baseline. The recurring alarm is delivered by wrapping this recipe in a monitor.",
   },
   {
     platform: "prism",
@@ -4398,7 +6137,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 15,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Developer-brand health: a devtool's repo dossier + Hacker News reaction + Reddit chatter + dev-blog echo, in one call.",
     description:
@@ -4419,7 +6158,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 20,
+    creditCost: 50,
     archetype: "Analytics",
     summary: "Ranked feed of public conversations where people seek alternatives to or are switching from a competitor.",
     description:
@@ -4441,7 +6180,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 20,
+    creditCost: 25,
     archetype: "Analytics",
     summary: "A brand's earned-media footprint — news + tech-press + fresh-web clips, deduped and ranked, with an outlet-coverage rollup.",
     description:
@@ -4463,7 +6202,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 8,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "A Truth Social handle's pulse — profile, recent posts, per-post detail drill, and the news echo, in one call.",
     description:
@@ -4485,7 +6224,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 10,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "How a launch landed — the Hacker News reaction (top threads + comments), the dev-blog echo, and an optional repo dossier.",
     description:
@@ -4756,7 +6495,7 @@ export const ENDPOINTS: Endpoint[] = [
     resource: "video-intel",
     method: "GET",
     params: [
-      { name: "url", required: true, description: "Absolute http(s) URL of a YouTube, TikTok, Rumble, or Instagram video.", example: "https://www.youtube.com/watch?v=A9TikdsD5eg" },
+      { name: "url", required: true, description: "Absolute http(s) URL of a YouTube, TikTok, Rumble, or Instagram video.", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     ],
     optionalParams: [
       { name: "comments", type: "string", description: "How many top comments to fetch (0–50, default 20). `0` skips the comments leg." },
@@ -4834,10 +6573,29 @@ export const ENDPOINTS: Endpoint[] = [
   },
   {
     platform: "prism",
-    resource: "post-stats",
+    resource: "handle-audit",
     method: "GET",
     params: [
-      { name: "urls", required: true, description: "JSON array of 1–100 absolute http(s) post URLs (mixed platforms allowed).", example: "[\"https://www.youtube.com/watch?v=A9TikdsD5eg\"]" },
+      { name: "handle", required: true, description: "The handle to audit across every requested platform. Accepts a bare handle, a leading @, or a full profile URL (the platform is sniffed from the host).", example: "mrbeast" },
+    ],
+    optionalParams: [
+      { name: "platforms", type: "string", description: "CSV subset of tiktok,instagram,youtube,twitter,threads,bluesky,truthsocial (default the first four). Unknown platforms are ignored. Max 8.", example: "tiktok,instagram,youtube,twitter" },
+      { name: "sample", type: "string", description: "Recent posts sampled per found platform for the engagement + activity metrics (default 10, max 25)." },
+    ],
+    oneOfGroups: [],
+    creditTier: "advanced",
+    creditCost: 5,
+    archetype: "Analytics",
+    summary: "Should you pull this handle? One call scores a handle across platforms, ranks the best ones, and projects the data volume + credit cost to pull it.",
+    description:
+      "Answers three questions BEFORE you spend credits on a full pull. (1) Is this handle worth pulling? — a deterministic 0-100 composite quality score with five component sub-scores (presence, audience, engagement, activity, content_richness). (2) On which platforms? — a per-platform verdict and a `best_platforms` ranking, plus the native endpoints to hit next, so you can route the follow-up pull. (3) How much data is there? — a `surface` block projecting post + comment volume and the credit cost to pull it. Looks a single handle up across TikTok, Instagram, YouTube, and X in parallel (Threads/Bluesky/Truth Social can be added via `platforms`); for every platform the handle is found on it also samples recent posts to measure engagement and posting activity. A handle found on only some platforms is a successful, complete answer (the misses are the product); only an all-platform miss refunds. The call returns within a bounded latency budget: a slow upstream platform is skipped rather than stalling the whole audit, and the score is computed from the data available at request time (a skipped or profile-only platform is scored on the signals that did return and shown in `legs[]`, never silently dropped or penalized as a miss). Scores are advisory heuristics estimated from public data at request time, not calibrated probabilities. Flat 5 credits for up to 4 platforms, +1 credit per extra platform. `legs[]` reports each leg's status, cost, and latency. See `prism/creator-vet` for the deeper 'should I sponsor' report.",
+  },
+  {
+    platform: "prism",
+    resource: "post-stats",
+    method: "POST",
+    params: [
+      { name: "urls", required: true, description: "JSON array of 1–100 absolute http(s) post URLs (mixed platforms allowed).", example: "[\"https://www.youtube.com/watch?v=dQw4w9WgXcQ\"]" },
     ],
     optionalParams: [
       { name: "include", type: "string", description: "CSV subset of views,likes,comments,shares,saves to trim each row's engagement block." },
@@ -4850,6 +6608,38 @@ export const ENDPOINTS: Endpoint[] = [
     description:
       "Bulk stats refresh for verification loops (clipper payouts). POST a JSON body with a `urls` array (1–100 mixed-platform post links); returns one row per URL — platform, status (ok / not_found / error / unsupported), the unified engagement block (views/likes/comments/shares/saves), and a server `fetched_at` timestamp — in input order. Per-URL isolation: one dead link never fails the batch. Metered at 1 credit per successful URL; dead, errored, and unsupported URLs are refunded, so you pay exactly for the counts you got. Never cached (every call reads the live count). Optionally streams Server-Sent Events when the client sends `Accept: text/event-stream`.",
   },
+  {
+    platform: "prism",
+    resource: "comment-lookup",
+    method: "POST",
+    params: [
+      { name: "items", required: true, description: "JSON array of 1–25 lookup items. Each item is `{ \"comment_url\": \"…\" }` or `{ \"platform\": \"tiktok\"|\"instagram\", \"post_url\": \"…\", \"comment_id\": \"…\" }`, optionally with `parent_comment_id`, `position_hint`, and `deep_scan`.", example: "[{\"comment_url\":\"https://www.tiktok.com/@mrbeast/video/7654638524729216287?comment_id=7654640784985211670\"},{\"platform\":\"instagram\",\"post_url\":\"https://www.instagram.com/p/CnpPou9hWqq/\",\"comment_id\":\"18007013966365752\"}]" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 2,
+    archetype: "Analytics",
+    summary: "Re-check up to 25 known comments in one call — per-item results, failed items refunded.",
+    description:
+      "Batch version of the single-comment lookup, built for recurring brand-comment tracking. Pass up to 25 items, each either `{ comment_url }` or `{ platform, post_url, comment_id }` (plus optional `parent_comment_id`, `position_hint`, `deep_scan`). Every item resolves independently — one bad item never fails the batch — and returns a `status` of `found`, `not_found`, `error`, or `deferred`. Billing is per item (TikTok 2 credits, Instagram 5 credits; deep_scan raises it); only `found` items are charged, everything else is refunded, and the whole batch holds at most 100 credits. Store each returned `lookup.position_hint` and pass it back on the next run so a daily refresh of your tracked comments costs ~1-2 credits per item. Returns sync JSON, or a typed SSE stream (`Accept: text/event-stream`) that emits each item as it settles. Items not started within the 45-second budget come back `deferred` (refunded) — just re-request them.",
+  },
+  {
+    platform: "prism",
+    resource: "profiles",
+    method: "POST",
+    params: [
+      { name: "items", required: true, description: "JSON array of 1–50 items. Each item is `{ \"platform\": \"tiktok\", \"handle\": \"@scout2015\", \"custom_id\"?: \"…\" }`. `handle` accepts an @handle, a bare handle, or a pasted profile URL.", example: "[{\"platform\":\"tiktok\",\"handle\":\"@scout2015\"},{\"platform\":\"linkedin\",\"handle\":\"williamhgates\",\"custom_id\":\"vet-1\"}]" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    archetype: "Analytics",
+    summary: "Up to 50 (platform, handle) pairs → one canonical Author per row, failed handles refunded.",
+    description:
+      "Batch profile lookup for handle vetting. POST a JSON body with an `items` array of 1–50 `{ platform, handle, custom_id? }` objects (handle accepts an @handle, a bare handle, or a pasted profile URL); returns one row per item — the canonical Author object (same shape as the single GET profile endpoint), a `status` of ok / not_found / unsupported / error / deferred, the caller's `custom_id` echoed, and the credits that row cost — in input order. Per-item isolation: one dead or private handle never fails the batch. Billing is per item at each platform's own credit tier (most platforms 1 credit; LinkedIn 5); only successful rows are charged, everything else is refunded. Supported platforms: instagram, tiktok, youtube, twitter, threads, twitch, snapchat, truthsocial, bluesky, kwai, linkedin, facebook. Never cached. Optionally streams Server-Sent Events when the client sends `Accept: text/event-stream`.",
+  },
   // --- content_analysis (10 endpoints) ---
   {
     platform: "content_analysis",
@@ -4861,14 +6651,14 @@ export const ENDPOINTS: Endpoint[] = [
     optionalParams: [
       { name: "page_type", type: "enum", enumValues: ["ecommerce", "news", "blogs", "message-boards", "organization"], description: "Narrow to one or more page types (comma-separated): ecommerce, news, blogs, message-boards, organization. Translated to a page_types filter upstream." },
       { name: "search_mode", type: "enum", enumValues: ["as_is", "one_per_domain"], description: "as_is (default) returns every matching page; one_per_domain dedupes to the top page per domain.", example: "as_is" },
-      { name: "limit", type: "integer", description: "Number of citations to return per page (1–1000, default 10).", example: "10" },
+      { name: "limit", type: "integer", description: "Number of citations to return per page (1–100, default 10). Paginate via `cursor` for more.", example: "10" },
       { name: "cursor", type: "string", description: "Opaque pagination cursor — pass the `next_cursor` from the previous response to fetch the next page." },
       { name: "order_by", type: "string", description: "Sort rules as \"field,direction\"; separate multiple rules with \";\" (e.g. content_info.sentiment_connotations.anger,desc)." },
       { name: "filters", type: "string", description: "Advanced DataForSEO filter expression as a JSON array (≤8 conditions). Combined with page_type via AND when both are present." },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Search web citations of a keyword with per-mention sentiment",
     description:
@@ -4890,7 +6680,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Aggregate mention summary for a keyword",
     description:
@@ -4910,7 +6700,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Sentiment breakdown for a keyword",
     description:
@@ -4929,7 +6719,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Rating histogram for a keyword",
     description:
@@ -4952,7 +6742,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Keyword mention volume + sentiment over time",
     description:
@@ -4974,7 +6764,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     oneOfGroups: [],
     creditTier: "advanced",
-    creditCost: 5,
+    creditCost: 20,
     archetype: "Analytics",
     summary: "Category mention volume + sentiment over time",
     description:
@@ -5038,8 +6828,22 @@ export const ENDPOINTS: Endpoint[] = [
   },
 ];
 
-export function findEndpoint(platform: string, resource: string): Endpoint | undefined {
-  return ENDPOINTS.find((e) => e.platform === platform && e.resource === resource);
+/**
+ * Look up an endpoint. The optional `method` disambiguates the stateful `web`
+ * platform, where one resource (e.g. `monitors/{monitor_id}`) is served by
+ * several methods (GET/PATCH/DELETE). Without a method, GET is preferred, then
+ * the first registered variant — so registry-driven GET callers are unaffected.
+ */
+export function findEndpoint(
+  platform: string,
+  resource: string,
+  method?: string,
+): Endpoint | undefined {
+  const matches = ENDPOINTS.filter(
+    (e) => e.platform === platform && e.resource === resource,
+  );
+  if (method) return matches.find((e) => e.method === method);
+  return matches.find((e) => e.method === "GET") ?? matches[0];
 }
 
 export function getEndpointsByPlatform(platform: string): Endpoint[] {

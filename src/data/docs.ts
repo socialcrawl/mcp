@@ -11,7 +11,9 @@ import type { Endpoint } from "../types.js";
 const HANDWRITTEN: Record<string, string> = {
   overview: `# SocialCrawl API
 
-Unified social media data API. One API key, one response format, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Korean search (Naver), content/sentiment analysis, and universal meta-search.
+Unified social media data API. One API key, one response format, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce & product reviews, app stores, places & travel, business reputation, web research, full web scraping & browser automation, prediction markets, search trends, Korean search (Naver), content/sentiment analysis, and universal meta-search.
+
+The web-scraping/crawling/browser-automation surface (the \`web\` platform) is driven by the dedicated \`socialcrawl_web\` tool; the stateful monitors wrapper by \`socialcrawl_monitors\`. Everything else goes through \`socialcrawl_request\`.
 
 ## Base URL
 
@@ -30,9 +32,9 @@ ${PLATFORMS.map((p) => `- ${p.slug} (${p.endpointCount} endpoint${p.endpointCoun
 - Standard: 1 credit per request
 - Advanced: 5 credits per request
 - Premium: 10 credits per request
-- Flat / metered overrides: \`GET /v1/search/everywhere\` is a flat 20 credits; the cross-platform Prism composites (\`/v1/prism/*\`) are priced flat or metered per recipe (0–50 credits)
+- Flat / metered overrides: \`GET /v1/search/everywhere\` and the Content Analysis aggregate endpoints (\`/v1/content_analysis/*\`, except the 1-credit reference lists) are a flat 20 credits each; the cross-platform Prism composites (\`/v1/prism/*\`) are priced flat or metered per recipe (0–50 credits)
 
-Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, commerce/app-store data, content analysis, AI-powered utilities) cost 5 or 10, and the Prism composites cost more because they fan out across several endpoints. Use the \`pricing\` docs topic for the cost of every individual endpoint.
+Most endpoints cost 1 credit (standard tier). Heavier endpoints (trending feeds, audience analytics, ad transparency, commerce/app-store data, AI-powered utilities) cost 5 or 10; Content Analysis aggregates are a flat 20, and the Prism composites cost more because they fan out across several endpoints. Use the \`pricing\` docs topic for the cost of every individual endpoint.
 
 ## Meta Endpoints
 
@@ -68,9 +70,11 @@ Sign up at https://www.socialcrawl.dev — every account starts with 100 free cr
 - Maximum 5 active keys per account.
 - Revoked keys stop working immediately.
 
-## Environment variable
+## Configuring the key in the MCP server
 
-The MCP server reads \`SOCIALCRAWL_API_KEY\` from the environment of the MCP process. Set it in the MCP client config (Claude Desktop, Cursor, VS Code, etc.) or as a system environment variable.`,
+**Local (stdio, \`npx socialcrawl-mcp\`):** the server reads \`SOCIALCRAWL_API_KEY\` from the environment of the MCP process. Set it in the MCP client config (Claude Desktop, Cursor, VS Code, etc.) or as a system environment variable.
+
+**Remote (Streamable HTTP, https://mcp.socialcrawl.dev/mcp):** send the key on every request as an \`Authorization: Bearer <key>\` or \`x-api-key: <key>\` header — in Claude Code: \`claude mcp add --transport http socialcrawl https://mcp.socialcrawl.dev/mcp --header "Authorization: Bearer sc_your_key"\`. Keys are never accepted in the URL or query string.`,
 
   credits: `# SocialCrawl API — Credits
 
@@ -81,10 +85,10 @@ Every request costs credits. The MCP server pre-calculates cost from the endpoin
 | Tier | Cost per request | Typical use |
 |------|------------------|-------------|
 | standard | 1 credit | Profile, post, comment, and search endpoints; static reference data (app-store categories/locations/languages) |
-| advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composites, Polymarket research, Amazon/Google Shopping product detail, Trustpilot reviews, Google Business reviews/Q&A, hotel details, app-store search/info/reviews/charts, content-analysis aggregates |
+| advanced | 5 credits | Trending feeds, audience analytics, ad transparency, GitHub composites, Polymarket research, Amazon/Google Shopping product detail, Trustpilot reviews, Google Business reviews/Q&A, hotel details, app-store search/info/reviews/charts |
 | premium | 10 credits | AI-powered utilities (transcript generation, age/gender detection, GitHub user/profile-velocity) and the app-store listings-search database (Google Play / App Store \`app-listings-search\`) |
 
-Some endpoints override this ladder with a flat or metered per-endpoint price. The universal meta-search \`GET /v1/search/everywhere\` is a flat **20 credits** (it fans out across 12+ platforms in parallel), and the cross-platform **Prism** composites (\`/v1/prism/*\`, plus per-platform composites like \`{platform}/profile/full\` and \`reddit/omni-search\`) are priced flat or metered per recipe — anywhere from 0 credits (\`prism/lookup\`) to 50 (\`prism/creator-vet\`) — because each one fans out across several detail endpoints. Metered composites deduct an upfront ceiling and auto-refund down to the actual work done; the response envelope's \`credits_used\` reports the real charge.
+Some endpoints override this ladder with a flat or metered per-endpoint price. The universal meta-search \`GET /v1/search/everywhere\` is a flat **20 credits** (it fans out across 12+ platforms in parallel); the **Content Analysis** aggregate endpoints (\`/v1/content_analysis/{search,summary,sentiment,rating-distribution,phrase-trends,category-trends}\`) are a flat **20 credits** each (its \`languages\`/\`locations\`/\`categories\`/\`filters\` reference endpoints stay at 1 credit); and the cross-platform **Prism** composites (\`/v1/prism/*\`, plus per-platform composites like \`{platform}/profile/full\`, \`instagram/profile/reels/full\` + \`profile/posts/full\`, and \`reddit/omni-search\`) are priced flat or metered per recipe — anywhere from 0 credits (\`prism/lookup\`) to 50 (\`prism/creator-vet\`) — because each one fans out across several detail endpoints. Metered composites deduct an upfront ceiling and auto-refund down to the actual work done; the response envelope's \`credits_used\` reports the real charge.
 
 For the exact cost of every endpoint, use the \`pricing\` docs topic — it lists all ${ENDPOINTS.length} endpoints with their per-request cost. \`socialcrawl_list_endpoints\` also shows the cost per endpoint for a single platform, and \`socialcrawl_request\` echoes the cost in its response header.
 
@@ -222,33 +226,65 @@ Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and 
 Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget. The webhook auto-pauses after 10 consecutive delivery failures.`,
 };
 
+/** Best-effort JSON value for a required body param example (arrays for CSV/JSON). */
+function exampleBodyValue(example: string): unknown {
+  const trimmed = example.trim();
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      /* fall through */
+    }
+  }
+  if (trimmed.includes(",")) return trimmed.split(",").map((s) => s.trim());
+  return example;
+}
+
 function buildCurl(e: Endpoint): string {
-  const parts: string[] = [];
+  const isBody = e.method === "POST" || e.method === "PATCH";
 
-  // Required params with examples.
-  for (const p of e.params) {
-    parts.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(p.example)}`);
+  // Params that ride the query string: all params on GET, only `in: "query"`
+  // optional params on a body method.
+  const queryParts: string[] = [];
+  if (!isBody) {
+    for (const p of e.params) {
+      queryParts.push(`${encodeURIComponent(p.name)}=${encodeURIComponent(p.example)}`);
+    }
+    for (const group of e.oneOfGroups) {
+      const already = queryParts.find((piece) => group.some((m) => piece.startsWith(`${m}=`)));
+      if (already) continue;
+      queryParts.push(`${encodeURIComponent(group[0])}=example`);
+    }
+  } else {
+    for (const opt of e.optionalParams) {
+      if (opt.in === "query" && opt.example) {
+        queryParts.push(`${encodeURIComponent(opt.name)}=${encodeURIComponent(opt.example)}`);
+      }
+    }
   }
+  const qs = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
 
-  // If this endpoint has oneOf groups, pick the first member of each group
-  // and synthesise a placeholder value so the example is runnable.
-  for (const group of e.oneOfGroups) {
-    const already = parts.find((piece) => group.some((m) => piece.startsWith(`${m}=`)));
-    if (already) continue;
-    const member = group[0];
-    parts.push(`${encodeURIComponent(member)}=example`);
+  const methodFlag = e.method === "GET" ? "" : `-X ${e.method} `;
+  const lines = [
+    `curl ${methodFlag}"https://www.socialcrawl.dev/v1/${e.platform}/${e.resource}${qs}" \\`,
+    `  -H "x-api-key: sc_your_api_key_here"${isBody && e.params.length > 0 ? " \\" : ""}`,
+  ];
+
+  if (isBody && e.params.length > 0) {
+    const body: Record<string, unknown> = {};
+    for (const p of e.params) {
+      if (p.name.startsWith("{")) continue; // path param, not a body field
+      body[p.name] = exampleBodyValue(p.example);
+    }
+    lines.push(`  -H "Content-Type: application/json" \\`);
+    lines.push(`  -d '${JSON.stringify(body)}'`);
   }
-
-  const qs = parts.length > 0 ? `?${parts.join("&")}` : "";
-  return [
-    `curl "https://www.socialcrawl.dev/v1/${e.platform}/${e.resource}${qs}" \\`,
-    `  -H "x-api-key: sc_your_api_key_here"`,
-  ].join("\n");
+  return lines.join("\n");
 }
 
 function buildEndpointBlock(e: Endpoint): string {
   const lines: string[] = [];
-  lines.push(`## GET /v1/${e.platform}/${e.resource}`);
+  lines.push(`## ${e.method} /v1/${e.platform}/${e.resource}`);
   lines.push("");
   lines.push(e.summary);
   lines.push("");
@@ -326,22 +362,39 @@ function buildPricingDoc(): string {
     "",
   ];
 
+  // Rows list `resource` only (method prefixed when not GET); the section
+  // header carries the shared `GET /v1/{slug}/…` base path. Grouping by
+  // platform makes repeating the full path in every row redundant — and the
+  // compact form keeps the whole doc under the 25k truncation limit.
   for (const platform of PLATFORMS) {
     const endpoints = getEndpointsByPlatform(platform.slug);
-    lines.push(`### ${platform.name} (\`${platform.slug}\`)`);
+    lines.push(`### ${platform.name} — \`/v1/${platform.slug}/…\``);
     lines.push("");
     lines.push("| Endpoint | Cost | Tier |");
     lines.push("|----------|------|------|");
     for (const e of endpoints) {
-      lines.push(
-        `| \`GET /v1/${e.platform}/${e.resource}\` | ${e.creditCost}cr | ${e.creditTier} |`,
-      );
+      const label = e.method === "GET" ? e.resource : `${e.method} ${e.resource}`;
+      lines.push(`| \`${label}\` | ${e.creditCost}cr | ${e.creditTier} |`);
     }
     lines.push("");
   }
 
   return lines.join("\n");
 }
+
+/**
+ * Preamble for the stateful `web` platform, explaining that it is driven by the
+ * dedicated `socialcrawl_web` tool rather than `socialcrawl_request`.
+ */
+const WEB_DOC_PREAMBLE = `The web platform is driven by the dedicated \`socialcrawl_web\` tool (not \`socialcrawl_request\`), which maps each endpoint to an action:
+
+- Sync reads: \`scrape\`, \`search\`, \`map\`, \`extract\` — return data immediately.
+- Async jobs: \`crawl\`, \`batch_scrape\`, \`agent\` submit a job (202); poll it with \`job_get\` / \`job_list\` and stop it with \`job_cancel\`.
+- Monitors: \`monitor_create\` / \`monitor_list\` / \`monitor_get\` / \`monitor_update\` / \`monitor_delete\` / \`monitor_checks\` — re-check a URL on a cadence and deliver changes to a webhook.
+- Sessions: \`session_create\` / \`session_get\` / \`session_list\` / \`session_execute\` / \`session_close\` — an interactive browser you drive with code.
+
+Billing: managing jobs, monitors, and sessions is 0 credits; you pay for the work (scrape 1cr, search 2cr, extract & session_create 5cr, agent 25cr). \`web/parse\` (document upload) is a multipart endpoint — call \`POST /v1/web/parse\` directly with a file part.
+`;
 
 function buildPlatformDoc(slug: string): string {
   const platform = PLATFORMS.find((p) => p.slug === slug);
@@ -355,6 +408,7 @@ function buildPlatformDoc(slug: string): string {
     "",
     platform.description,
     "",
+    ...(slug === "web" ? [WEB_DOC_PREAMBLE, ""] : []),
     `${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}.`,
     "",
   ].join("\n");

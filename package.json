@@ -1,11 +1,12 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.5.0",
-  "description": "MCP server for SocialCrawl — access 42 platforms and 264 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, Google News & Finance, cross-platform Prism composites, universal meta-search) through one unified API",
+  "version": "1.8.0",
+  "description": "MCP server for SocialCrawl — access 44 platforms and 357 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, full web scraping & browser automation, prediction markets, search trends, Naver, content analysis, Google News/Finance/Trends, cross-platform Prism composites, universal meta-search) through one unified API",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "socialcrawl-mcp": "dist/index.js"
+    "socialcrawl-mcp": "dist/index.js",
+    "socialcrawl-mcp-http": "dist/http.js"
   },
   "files": [
     "dist"
@@ -14,6 +15,8 @@
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "start:http": "node dist/http.js",
+    "dev:http": "tsx watch src/http.ts",
     "clean": "rm -rf dist",
     "generate:data": "tsx scripts/generate-data.ts",
     "test": "vitest run",
@@ -41,10 +44,13 @@
   },
   "mcpName": "io.github.RidioDevelopment/socialcrawl",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",

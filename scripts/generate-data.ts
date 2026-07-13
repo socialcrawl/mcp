@@ -31,6 +31,7 @@ interface DumpOptionalParam {
   enumValues?: string[];
   description?: string;
   example?: string;
+  in?: "query" | "body";
 }
 
 interface DumpEndpoint {
@@ -58,13 +59,13 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   tiktok:
     "Profiles, videos, comments and replies, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
   instagram:
-    "Profiles, posts, reels, comments, story highlights, reels/hashtag/profile search, trending reels, audio reels, embed HTML, and AI-powered media transcripts.",
+    "Profiles, posts, reels, comments, story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
   youtube:
-    "Channels, videos, shorts, comments and replies, video sponsors, playlists, community posts, keyword/hashtag search, trending shorts, channel live streams, and video transcripts.",
+    "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, downloadable media files (audio, video, subtitles, thumbnails), and video transcripts.",
   twitter:
     "Profiles, tweets, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   linkedin:
-    "Personal profiles, company pages, posts, company posts, post search, post transcripts, and LinkedIn Ad Library (ad details, ad search).",
+    "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   facebook:
     "Pages, posts, comments and replies, group posts, photos, reels, events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   reddit:
@@ -134,6 +135,10 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Meta-search across 12+ platforms in a single call (up to 15 sources in hashtag mode). LLM-planned, RRF-fused, LLM-reranked, clustered. Flat 20 credits per call.",
   content_analysis:
     "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
+  web:
+    "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
+  google_trends:
+    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
 };
 
 const root = resolve(import.meta.dirname, "..");
@@ -200,6 +205,7 @@ function renderOptionalParam(p: DumpOptionalParam): string {
   }
   if (p.description) parts.push(`description: ${str(p.description)}`);
   if (p.example) parts.push(`example: ${str(p.example)}`);
+  if (p.in) parts.push(`in: ${str(p.in)}`);
   return `      { ${parts.join(", ")} },`;
 }
 
@@ -207,7 +213,7 @@ function renderEndpoint(e: DumpEndpoint): string {
   const lines: string[] = ["  {"];
   lines.push(`    platform: ${str(e.platform)},`);
   lines.push(`    resource: ${str(e.resource)},`);
-  lines.push(`    method: "GET",`);
+  lines.push(`    method: ${str(e.method)},`);
   if (e.params.length > 0) {
     lines.push("    params: [");
     for (const p of e.params) lines.push(renderParam(p));
@@ -258,8 +264,22 @@ export const ENDPOINTS: Endpoint[] = [
 ${endpointSections.join("\n")}
 ];
 
-export function findEndpoint(platform: string, resource: string): Endpoint | undefined {
-  return ENDPOINTS.find((e) => e.platform === platform && e.resource === resource);
+/**
+ * Look up an endpoint. The optional \`method\` disambiguates the stateful \`web\`
+ * platform, where one resource (e.g. \`monitors/{monitor_id}\`) is served by
+ * several methods (GET/PATCH/DELETE). Without a method, GET is preferred, then
+ * the first registered variant — so registry-driven GET callers are unaffected.
+ */
+export function findEndpoint(
+  platform: string,
+  resource: string,
+  method?: string,
+): Endpoint | undefined {
+  const matches = ENDPOINTS.filter(
+    (e) => e.platform === platform && e.resource === resource,
+  );
+  if (method) return matches.find((e) => e.method === method);
+  return matches.find((e) => e.method === "GET") ?? matches[0];
 }
 
 export function getEndpointsByPlatform(platform: string): Endpoint[] {

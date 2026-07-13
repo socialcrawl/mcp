@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.github
+docs
+notes
+src/__tests__
+*.exe
+.mcpregistry_*
+*.tgz
+.env
+.env.local

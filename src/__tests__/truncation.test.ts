@@ -1,16 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { makeRequest } from "../client.js";
 import { CHARACTER_LIMIT } from "../constants.js";
+import type { ApiContext } from "../context.js";
 
 describe("Response truncation", () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv, SOCIALCRAWL_API_KEY: "sc_test_key" };
-  });
+  const ctx: ApiContext = { apiKey: "sc_test_key", baseUrl: "https://www.socialcrawl.dev" };
 
   afterEach(() => {
-    process.env = originalEnv;
     vi.restoreAllMocks();
   });
 
@@ -18,7 +14,7 @@ describe("Response truncation", () => {
     const shortBody = JSON.stringify({ success: true, data: "short" });
     vi.stubGlobal("fetch", async () => new Response(shortBody, { status: 200 }));
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toBe(shortBody);
     expect(result).not.toContain("truncated");
   });
@@ -27,7 +23,7 @@ describe("Response truncation", () => {
     const longBody = "x".repeat(CHARACTER_LIMIT + 1000);
     vi.stubGlobal("fetch", async () => new Response(longBody, { status: 200 }));
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("truncated");
     expect(result).toContain(CHARACTER_LIMIT.toLocaleString());
     expect(result.length).toBeLessThan(longBody.length);
@@ -38,7 +34,7 @@ describe("Response truncation", () => {
     const longBody = "x".repeat(fullLength);
     vi.stubGlobal("fetch", async () => new Response(longBody, { status: 200 }));
 
-    const result = await makeRequest({ platform: "tiktok", resource: "profile", params: { handle: "test" } });
+    const result = await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain(fullLength.toLocaleString());
   });
 });

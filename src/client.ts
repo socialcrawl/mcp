@@ -1,12 +1,10 @@
 import { TIMEOUT_MS, CHARACTER_LIMIT } from "./constants.js";
+import type { ApiContext } from "./context.js";
 
-function getBaseUrl(): string {
-  return process.env.SOCIALCRAWL_BASE_URL ?? "https://www.socialcrawl.dev";
-}
-
-function getApiKey(): string {
-  return process.env.SOCIALCRAWL_API_KEY ?? "";
-}
+export const NO_API_KEY_ERROR =
+  "Error: No API key configured. Local (stdio): set SOCIALCRAWL_API_KEY in your MCP client's env config. " +
+  "Remote (HTTP): send an 'Authorization: Bearer <key>' or 'x-api-key: <key>' header. " +
+  "Get a free key at socialcrawl.dev (100 credits, no credit card required).";
 
 interface RequestOptions {
   platform: string;
@@ -21,17 +19,16 @@ interface RequestOptions {
   idempotencyKey?: string;
 }
 
-export async function makeRequest(options: RequestOptions): Promise<string> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    return "Error: No API key configured. Set SOCIALCRAWL_API_KEY in your MCP server environment. Get a free key at socialcrawl.dev (100 credits, no credit card required).";
+export async function makeRequest(ctx: ApiContext, options: RequestOptions): Promise<string> {
+  if (!ctx.apiKey) {
+    return NO_API_KEY_ERROR;
   }
 
-  const url = buildUrl(options);
+  const url = buildUrl(ctx, options);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const headers: Record<string, string> = { "x-api-key": apiKey };
+  const headers: Record<string, string> = { "x-api-key": ctx.apiKey };
   if (options.idempotencyKey) {
     headers["Idempotency-Key"] = options.idempotencyKey;
   }
@@ -55,7 +52,7 @@ export async function makeRequest(options: RequestOptions): Promise<string> {
       return `Error: Request timed out after ${TIMEOUT_MS / 1000} seconds. The platform may be experiencing delays.`;
     }
     if (error instanceof TypeError && (error.message.includes("fetch") || error.message.includes("network"))) {
-      return `Error: Could not reach SocialCrawl API at ${getBaseUrl()}. Check your network connection.`;
+      return `Error: Could not reach SocialCrawl API at ${ctx.baseUrl}. Check your network connection.`;
     }
     return `Error: Unexpected error — ${error instanceof Error ? error.message : String(error)}`;
   } finally {
@@ -70,21 +67,28 @@ interface ApiRequestOptions {
   query?: Record<string, string>;
   /** JSON body for POST/PATCH. Serialised with a Content-Type header. */
   body?: unknown;
+  /** Optional `Idempotency-Key` header (BIL-02) — retry-safe writes. */
+  idempotencyKey?: string;
+  /**
+   * Platform slug used only to label 404s in the error formatter. Defaults to
+   * "monitors" for backward compatibility with the monitors caller.
+   */
+  errorPlatform?: string;
 }
 
 /**
- * General-purpose authed request for non-registry `/v1/*` resources that the
- * GET-only `makeRequest` can't express — currently the stateful monitors
- * family (POST/GET/PATCH/DELETE with JSON bodies and `:id` path params).
- * Shares the same x-api-key auth, timeout, error mapping, and truncation.
+ * General-purpose authed request for `/v1/*` resources the GET-only
+ * `makeRequest` can't express — the stateful monitors and web families
+ * (POST/GET/PATCH/DELETE with JSON bodies and `:id` path params) and the
+ * registry's batch POST endpoints (youtube/videos, prism/*). Shares the same
+ * x-api-key auth, timeout, error mapping, and truncation.
  */
-export async function apiRequest(options: ApiRequestOptions): Promise<string> {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    return "Error: No API key configured. Set SOCIALCRAWL_API_KEY in your MCP server environment. Get a free key at socialcrawl.dev (100 credits, no credit card required).";
+export async function apiRequest(ctx: ApiContext, options: ApiRequestOptions): Promise<string> {
+  if (!ctx.apiKey) {
+    return NO_API_KEY_ERROR;
   }
 
-  let url = `${getBaseUrl()}${options.path}`;
+  let url = `${ctx.baseUrl}${options.path}`;
   if (options.query && Object.keys(options.query).length > 0) {
     url += `?${new URLSearchParams(options.query).toString()}`;
   }
@@ -92,7 +96,10 @@ export async function apiRequest(options: ApiRequestOptions): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const headers: Record<string, string> = { "x-api-key": apiKey };
+  const headers: Record<string, string> = { "x-api-key": ctx.apiKey };
+  if (options.idempotencyKey) {
+    headers["Idempotency-Key"] = options.idempotencyKey;
+  }
   let bodyInit: string | undefined;
   if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
@@ -100,7 +107,10 @@ export async function apiRequest(options: ApiRequestOptions): Promise<string> {
   }
 
   // Reuse the registry error formatter by mapping path → a pseudo endpoint.
-  const errCtx: RequestOptions = { platform: "monitors", resource: options.path };
+  const errCtx: RequestOptions = {
+    platform: options.errorPlatform ?? "monitors",
+    resource: options.path,
+  };
 
   try {
     const response = await fetch(url, {
@@ -125,7 +135,7 @@ export async function apiRequest(options: ApiRequestOptions): Promise<string> {
       return `Error: Request timed out after ${TIMEOUT_MS / 1000} seconds.`;
     }
     if (error instanceof TypeError && (error.message.includes("fetch") || error.message.includes("network"))) {
-      return `Error: Could not reach SocialCrawl API at ${getBaseUrl()}. Check your network connection.`;
+      return `Error: Could not reach SocialCrawl API at ${ctx.baseUrl}. Check your network connection.`;
     }
     return `Error: Unexpected error — ${error instanceof Error ? error.message : String(error)}`;
   } finally {
@@ -133,12 +143,12 @@ export async function apiRequest(options: ApiRequestOptions): Promise<string> {
   }
 }
 
-function buildUrl(options: RequestOptions): string {
+function buildUrl(ctx: ApiContext, options: RequestOptions): string {
   const path =
     options.platform === "meta"
       ? `/v1/${options.resource}`
       : `/v1/${options.platform}/${options.resource}`;
-  const base = `${getBaseUrl()}${path}`;
+  const base = `${ctx.baseUrl}${path}`;
   if (!options.params || Object.keys(options.params).length === 0) {
     return base;
   }
