@@ -9,6 +9,8 @@ import {
   MonitorsInputSchema,
   WebInputSchema,
   GetDocsInputSchema,
+  PricingInputSchema,
+  DiscoverInputSchema,
 } from "./schemas/tools.js";
 import { listPlatforms } from "./tools/list-platforms.js";
 import { listEndpoints } from "./tools/list-endpoints.js";
@@ -17,10 +19,16 @@ import { checkBalance } from "./tools/check-balance.js";
 import { monitors } from "./tools/monitors.js";
 import { web } from "./tools/web.js";
 import { getDocs } from "./tools/get-docs.js";
+import { pricing } from "./tools/pricing.js";
+import { discover } from "./tools/discover.js";
 import type { MonitorsParams } from "./tools/monitors.js";
 import type { WebParams } from "./tools/web.js";
+import type { PricingParams } from "./tools/pricing.js";
+import type { DiscoverParams } from "./tools/discover.js";
 import { PLATFORMS } from "./data/platforms.js";
 import { ENDPOINTS } from "./data/endpoints.js";
+import { REGISTRY_STATS } from "./data/registry-meta.js";
+import { meteredEndpoints } from "./pricing.js";
 
 /**
  * Build a fully-wired McpServer bound to one caller's credentials.
@@ -37,7 +45,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_list_platforms",
     {
       title: "List SocialCrawl Platforms",
-      description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce & reviews, app stores, places & travel, business reputation, web research, prediction markets, Naver, content analysis, universal meta-search). Returns platform names, endpoint counts, and descriptions. No API key required.`,
+      description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores, places & travel, business reputation, news & finance, web research and full scraping/browser automation, prediction markets, search trends, Korean search (Naver), content analysis, and cross-platform Prism composites). Grouped by category, with each platform's endpoint count, credit range, and available data. No API key required.`,
       inputSchema: ListPlatformsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -56,8 +64,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_list_endpoints",
     {
       title: "List Endpoints for a Platform",
-      description:
-        "List all available endpoints for a specific platform with required + optional parameters, per-endpoint credit costs (pricing), and response types. No API key required.",
+      description: `List endpoints with their full parameter contract — required + optional params, types, integer ranges, enum values, parameter couplings, CSV limits, pagination style, cache TTL, and per-endpoint pricing (including metered bands). Pass a \`platform\` for that platform's reference, or a \`search\` term to find an endpoint across all ${PLATFORMS.length} platforms / ${ENDPOINTS.length} endpoints. Filter with \`method\` and \`maxCost\`. No API key required.`,
       inputSchema: ListEndpointsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -67,7 +74,14 @@ export function createServer(ctx: ApiContext): McpServer {
       },
     },
     async (params) => {
-      const output = listEndpoints(params.platform);
+      const output = listEndpoints({
+        platform: params.platform,
+        search: params.search,
+        method: params.method,
+        maxCost: params.maxCost,
+        detail: params.detail,
+        page: params.page,
+      });
       return { content: [{ type: "text", text: output }] };
     },
   );
@@ -76,7 +90,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_request",
     {
       title: "Make a SocialCrawl API Request",
-      description: `Make an API request to any SocialCrawl endpoint. Fetches real-time data (profiles, posts, comments, search results, products, reviews, apps, places, trends, analytics) from ${PLATFORMS.length} platforms. Most endpoints are GET (pass query params in \`params\`); batch endpoints (e.g. youtube/videos, prism/profiles) are POST — pass the array/object body in \`body\`. For web scraping/crawling/browser automation use the \`socialcrawl_web\` tool instead. Requires a valid SOCIALCRAWL_API_KEY. Validates platform, resource, and parameters before making the call to avoid wasting credits. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
+      description: `Make an API request to any of the ${ENDPOINTS.length} SocialCrawl endpoints. Fetches real-time data (profiles, posts, comments, transcripts, search results, products, reviews, apps, places, news, finance, trends, analytics, and cross-platform Prism composites) from ${PLATFORMS.length} platforms. Most endpoints are GET (pass query params in \`params\`); batch endpoints (e.g. youtube/videos, prism/profiles) are POST — pass the array/object body in \`body\`. For web scraping/crawling/browser automation use the \`socialcrawl_web\` tool instead. Requires a valid SOCIALCRAWL_API_KEY. Validates the platform, resource, required params, oneOf groups, enum values, integer ranges, parameter couplings, and CSV limits locally first, so a malformed call fails free instead of burning credits. Reports the endpoint's price (and metered rule) with every response. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
       inputSchema: RequestInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -102,7 +116,7 @@ export function createServer(ctx: ApiContext): McpServer {
     {
       title: "Check SocialCrawl Credit Balance",
       description:
-        "Check the remaining credit balance and recent deductions for the authenticated SocialCrawl account. Calls the meta endpoint GET /v1/credits/balance — costs 0 credits. Requires a valid SOCIALCRAWL_API_KEY.",
+        "Check the credit balance and the credit ledger for the authenticated SocialCrawl account. Default view calls GET /v1/credits/balance (balance + recent-deduction summary); `view: \"transactions\"` calls GET /v1/credits/transactions for dispute-grade itemised receipts — every deduction and refund with its amount, balance_after, endpoint, and request_id, which is how you confirm what a metered endpoint actually charged after its upfront hold was refunded down. Both cost 0 credits. Requires a valid SOCIALCRAWL_API_KEY.",
       inputSchema: CheckBalanceInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -111,8 +125,13 @@ export function createServer(ctx: ApiContext): McpServer {
         openWorldHint: true,
       },
     },
-    async () => {
-      const output = await checkBalance(ctx);
+    async (params) => {
+      const output = await checkBalance(ctx, {
+        view: params.view,
+        limit: params.limit,
+        cursor: params.cursor,
+        requestId: params.requestId,
+      });
       return { content: [{ type: "text", text: output }] };
     },
   );
@@ -158,11 +177,49 @@ export function createServer(ctx: ApiContext): McpServer {
   );
 
   server.registerTool(
+    "socialcrawl_pricing",
+    {
+      title: "SocialCrawl Pricing & Credit Costs",
+      description: `Exact credit pricing for every one of the ${ENDPOINTS.length} SocialCrawl endpoints. 'overview' returns the tier ladder (${REGISTRY_STATS.standardEndpoints} standard / ${REGISTRY_STATS.advancedEndpoints} advanced / ${REGISTRY_STATS.premiumEndpoints} premium), every free endpoint, every flat override, all ${meteredEndpoints().length} metered endpoints with their min-max band and exact charging rule, cache TTLs, and the full refund matrix. 'endpoint' gives one endpoint's price, metered rule, price-driving parameters, paging cost, and worst case. 'platform' gives a platform's whole cost table. 'list' ranks and filters endpoints by cost (maxCost/minCost/model/search/sort) — e.g. "everything I can call for 1 credit" or "the most expensive endpoints". Use this before spending credits. No API key required.`,
+      inputSchema: PricingInputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+    },
+    async (params) => {
+      const output = pricing(params as PricingParams);
+      return { content: [{ type: "text", text: output }] };
+    },
+  );
+
+  server.registerTool(
+    "socialcrawl_discover",
+    {
+      title: "SocialCrawl API Self-Discovery (utility endpoints)",
+      description:
+        "The API describing itself, live, at 0 credits — the `/v1/utility/*` family. 'quickstart': everything needed for a first successful call (auth, base URL, response envelope, billing model, the full error taxonomy, rate limits, paging). 'catalog': every endpoint with its live metered-aware price, params, and paging flag — filter by platform/search/method. 'endpoint': one endpoint's complete usage guide — every parameter with type and example, the exact pricing rule, cache TTL, paging recipe, an example response, a copy-paste curl, and related endpoints. 'llms': the agent context corpus for the whole API or one platform. 'freshness': compare the live registry against this server's bundled catalogue to check whether this MCP version has fallen behind the API. These answer from the live registry at request time, so unlike bundled data they can never drift from what is actually callable — use them when correctness matters more than latency, or when an endpoint looks unknown. Without an API key everything except 'llms' still answers from bundled data.",
+      inputSchema: DiscoverInputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      const output = await discover(ctx, params as DiscoverParams);
+      return { content: [{ type: "text", text: output }] };
+    },
+  );
+
+  server.registerTool(
     "socialcrawl_get_docs",
     {
       title: "Get SocialCrawl Documentation",
-      description:
-        "Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference), 'authentication', 'credits', 'errors', 'idempotency', 'monitors' (scheduled-recipe wrapper), 'pricing' (per-endpoint cost for every endpoint), or any platform slug (e.g., 'tiktok', or 'web' for the web-scraping/browser-automation surface) for platform-specific docs. No API key required.",
+      description: `Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference for all ${ENDPOINTS.length} endpoints), 'authentication', 'credits', 'pricing' (per-endpoint cost for every endpoint), 'errors', 'idempotency', 'pagination' (universal cursor contract), 'caching' (TTLs and free hits), 'response-schema' (the canonical envelope and unified objects), 'limits' (rate, concurrency, timeouts), 'monitors' (scheduled-recipe wrapper), 'discovery' (the free self-describing utility endpoints), or any platform slug (e.g., 'tiktok', or 'web' for the web-scraping/browser-automation surface). No API key required.`,
       inputSchema: GetDocsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -172,7 +229,7 @@ export function createServer(ctx: ApiContext): McpServer {
       },
     },
     async (params) => {
-      const output = getDocs(params.topic ?? "overview");
+      const output = getDocs(params.topic ?? "overview", params.page ?? 1);
       return { content: [{ type: "text", text: output }] };
     },
   );

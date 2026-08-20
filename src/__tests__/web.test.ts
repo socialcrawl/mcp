@@ -60,7 +60,9 @@ describe("socialcrawl_web tool", () => {
     expect(cap.url).toContain("/v1/web/scrape");
     expect(cap.url).toContain("url=https");
     expect(cap.url).toContain("formats=markdown");
-    expect(result).toContain("1 (standard)");
+    // scrape is metered (1-5cr depending on the requested formats), so the
+    // header must quote the band, never the 1cr base.
+    expect(result).toContain("1-5cr (metered)");
   });
 
   it("crawl POSTs a JSON body and reports the async job", async () => {
@@ -74,11 +76,11 @@ describe("socialcrawl_web tool", () => {
     expect(result).toContain("job_1");
   });
 
-  it("agent surfaces its 25cr premium price", async () => {
+  it("agent surfaces its flat 25cr price", async () => {
     const get = stubFetch(202, { success: true, data: { job_id: "job_2" } });
     const result = await web(ctx, { action: "agent", input: { url: "https://x.com", prompt: "do a thing" } });
     expect(get().method).toBe("POST");
-    expect(result).toContain("25 (premium)");
+    expect(result).toContain("25cr (flat)");
   });
 
   it("job_get interpolates the id into the path", async () => {
@@ -169,5 +171,59 @@ describe("method-aware socialcrawl_request", () => {
     const cap = get();
     expect(cap.method).toBe("GET");
     expect(cap.url).toContain("/v1/tiktok/profile?handle=charlidamelio");
+  });
+});
+
+/**
+ * Two stateful-router routes are not registry endpoints, so they carry no
+ * pricing row: both are free helpers that make an expensive async job safer to
+ * run (inspect what failed; dry-run what a crawl would submit).
+ */
+describe("socialcrawl_web free helper actions", () => {
+  it("job_errors reads a job's per-page failure feed", async () => {
+    const get = stubFetch(200, {
+      success: true,
+      data: { errors: [{ url: "https://x.com/a", status: 403 }], robots_blocked: [] },
+    });
+    const result = await web(ctx, { action: "job_errors", id: "job_1" });
+    const cap = get();
+    expect(cap.method).toBe("GET");
+    expect(cap.url).toContain("/v1/web/jobs/job_1/errors");
+    expect(result).toContain("0cr (free)");
+    expect(result).toContain("robots_blocked");
+  });
+
+  it("job_errors requires an id", async () => {
+    const result = await web(ctx, { action: "job_errors" });
+    expect(result).toContain("requires an `id`");
+  });
+
+  it("crawl_preview POSTs the crawl body without submitting a job", async () => {
+    const get = stubFetch(200, {
+      success: true,
+      data: { url: "https://example.com", limit: 10 },
+    });
+    const result = await web(ctx, {
+      action: "crawl_preview",
+      input: { url: "https://example.com", limit: 10 },
+    });
+    const cap = get();
+    expect(cap.method).toBe("POST");
+    expect(cap.url).toContain("/v1/web/crawl/params-preview");
+    expect(JSON.parse(cap.body!)).toEqual({ url: "https://example.com", limit: 10 });
+    expect(result).toContain("0cr (free)");
+  });
+
+  it("crawl_preview requires a url", async () => {
+    const result = await web(ctx, { action: "crawl_preview", input: {} });
+    expect(result).toContain("requires `input.url`");
+  });
+
+  it("crawl quotes its metered per-page rule", async () => {
+    stubFetch(202, { success: true, data: { job_id: "job_3" } });
+    const result = await web(ctx, { action: "crawl", input: { url: "https://example.com" } });
+    expect(result).toContain("**Rule:**");
+    expect(result).toContain("1 credit per page crawled");
+    expect(result).toContain("**Async:**");
   });
 });

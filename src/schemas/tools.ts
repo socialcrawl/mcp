@@ -8,7 +8,41 @@ export const ListPlatformsInputSchema = z.object({}).strict();
 export const ListEndpointsInputSchema = z.object({
   platform: z
     .enum(platformSlugs as [string, ...string[]])
-    .describe("Platform slug (e.g., 'tiktok', 'instagram', 'youtube')"),
+    .optional()
+    .describe(
+      "Platform slug (e.g., 'tiktok', 'instagram', 'youtube'). Omit it and pass `search` to look for an endpoint across all platforms.",
+    ),
+  search: z
+    .string()
+    .optional()
+    .describe(
+      "Free-text search over endpoint names, summaries, descriptions, archetypes, and tags (e.g. 'transcript', 'reviews', 'followers'). Works with or without `platform` — without one it searches all platforms.",
+    ),
+  method: z
+    .enum(["GET", "POST", "PATCH", "DELETE"])
+    .optional()
+    .describe("Only show endpoints served with this HTTP method."),
+  maxCost: z
+    .number()
+    .min(0)
+    .optional()
+    .describe(
+      "Only show endpoints that cost at most this many credits per call (metered endpoints are judged by their ceiling).",
+    ),
+  detail: z
+    .enum(["compact", "full"])
+    .optional()
+    .describe(
+      "'full' (default for a single platform) prints every parameter with its type, range, enum values, and couplings. 'compact' prints the summary table only — use it when searching broadly.",
+    ),
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "Page number (default 1). Output longer than one response is paged, not truncated — the footer says how many pages there are and repeats your filters.",
+    ),
 }).strict();
 
 export const RequestInputSchema = z.object({
@@ -40,7 +74,29 @@ export const RequestInputSchema = z.object({
     ),
 }).strict();
 
-export const CheckBalanceInputSchema = z.object({}).strict();
+export const CheckBalanceInputSchema = z.object({
+  view: z
+    .enum(["balance", "transactions"])
+    .optional()
+    .describe(
+      "'balance' (default) returns the current credit balance and recent-deduction summary. 'transactions' returns the itemised credit ledger — every deduction and refund keyed by request_id, which is how you confirm what a metered endpoint actually charged after its upfront hold was refunded.",
+    ),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("transactions: page size (1-100, default 50)."),
+  cursor: z
+    .string()
+    .optional()
+    .describe("transactions: opaque keyset cursor from a previous response's next_cursor."),
+  requestId: z
+    .string()
+    .optional()
+    .describe("transactions: fetch the receipt(s) for one request id (e.g. 'req-a1b2c3d4e5f6')."),
+}).strict();
 
 export const MonitorsInputSchema = z.object({
   action: z
@@ -141,6 +197,8 @@ export const WebInputSchema = z.object({
       "job_list",
       "job_get",
       "job_cancel",
+      "job_errors",
+      "crawl_preview",
       "monitor_create",
       "monitor_list",
       "monitor_get",
@@ -154,7 +212,7 @@ export const WebInputSchema = z.object({
       "session_close",
     ])
     .describe(
-      "Web operation. Sync (returns data now): scrape, search, map, extract. Async jobs: crawl, batch_scrape, agent → then job_get/job_list/job_cancel to poll. Change detection: monitor_create/list/get/update/delete/checks. Interactive browser: session_create/list/get/execute/close.",
+      "Web operation. Sync (returns data now): scrape, search, map, extract. Async jobs: crawl, batch_scrape, agent → then job_get/job_list/job_cancel to poll, and job_errors for a job's per-page failure feed. crawl_preview dry-runs a crawl's parameters for free before you pay for it. Change detection: monitor_create/list/get/update/delete/checks. Interactive browser: session_create/list/get/execute/close.",
     ),
   id: z
     .string()
@@ -164,7 +222,7 @@ export const WebInputSchema = z.object({
     )
     .optional()
     .describe(
-      "Job / monitor / session id. Required for *_get, *_cancel, *_delete, *_update, *_checks, *_execute actions. Returned by the matching *_create / *_list action.",
+      "Job / monitor / session id. Required for *_get, *_cancel, *_delete, *_update, *_checks, *_execute, and job_errors actions. Returned by the matching *_create / *_list action.",
     ),
   input: z
     .record(z.unknown())
@@ -182,11 +240,120 @@ export const WebInputSchema = z.object({
 }).strict();
 
 export const GetDocsInputSchema = z.object({
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "Page number for long topics (default 1). Topics longer than one response are paged rather than truncated — the footer tells you how many pages there are. 'full' and the largest platform topics span several pages.",
+    ),
   topic: z
     .string()
     .optional()
     .default("overview")
     .describe(
-      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'errors', 'idempotency', 'pricing', or a platform slug (e.g., 'tiktok')",
+      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
     ),
+}).strict();
+
+export const PricingInputSchema = z.object({
+  action: z
+    .enum(["overview", "endpoint", "platform", "list"])
+    .optional()
+    .describe(
+      "'overview' (default): the tier ladder, every free endpoint, every flat override, every metered band with its rule, cache TTLs, and the refund matrix. 'endpoint': one endpoint's exact price, metered rule, price-driving params, and worst case (needs platform + resource). 'platform': the cost table for one platform (needs platform). 'list': rank/filter endpoints by price across platforms.",
+    ),
+  platform: z
+    .enum(platformSlugs as [string, ...string[]])
+    .optional()
+    .describe("Platform slug. Required for 'endpoint' and 'platform' actions; filters the 'list' action."),
+  resource: z
+    .string()
+    .optional()
+    .describe("Resource path for the 'endpoint' action (e.g., 'profile', 'comments', 'jobs/{job_id}')."),
+  method: z
+    .enum(["GET", "POST", "PATCH", "DELETE"])
+    .optional()
+    .describe(
+      "HTTP method. Disambiguates the `web` platform, where one resource is served by several methods; also filters the 'list' action.",
+    ),
+  search: z
+    .string()
+    .optional()
+    .describe("list: free-text filter over platform, resource, summary, and archetype."),
+  model: z
+    .enum(["ladder", "flat", "metered", "free"])
+    .optional()
+    .describe(
+      "list: filter by billing model — 'ladder' (tier rate per request), 'flat' (per-endpoint override), 'metered' (query-dependent, ceiling deducted then refunded down), or 'free' (0 credits).",
+    ),
+  maxCost: z
+    .number()
+    .min(0)
+    .optional()
+    .describe("list: only endpoints that can cost at most this many credits (metered judged by their ceiling)."),
+  minCost: z
+    .number()
+    .min(0)
+    .optional()
+    .describe("list: only endpoints that cost at least this many credits (metered judged by their floor)."),
+  sort: z
+    .enum(["cost_asc", "cost_desc", "platform", "name"])
+    .optional()
+    .describe("list: sort order (default 'cost_desc' — most expensive first)."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe("list: maximum rows to return (1-200, default 40)."),
+}).strict();
+
+export const DiscoverInputSchema = z.object({
+  action: z
+    .enum(["quickstart", "catalog", "endpoint", "llms", "freshness"])
+    .optional()
+    .describe(
+      "'quickstart' (default): auth, base URL, envelope, billing, the error taxonomy, limits, and a first call — GET /v1/utility/quickstart. 'catalog': the machine-readable list of every endpoint with live metered-aware prices — GET /v1/utility/endpoints. 'endpoint': one endpoint's complete usage guide, params, pricing rule, cache, paging, example response, curl, and related endpoints — GET /v1/utility/endpoint. 'llms': the agent context corpus for the whole API or one platform — GET /v1/utility/llms. 'freshness': compare the live registry against this server's bundled catalogue to see whether this MCP version is current.",
+    ),
+  platform: z
+    .string()
+    .optional()
+    .describe(
+      "Scope to one platform slug (e.g. 'tiktok'). Applies to quickstart, catalog, and llms.",
+    ),
+  search: z
+    .string()
+    .optional()
+    .describe("catalog: case-insensitive substring filter over endpoint paths and summaries."),
+  method: z
+    .enum(["GET", "POST", "PATCH", "DELETE"])
+    .optional()
+    .describe(
+      "catalog: filter by HTTP method. endpoint: disambiguate a resource registered under more than one method (the stateful `web` family).",
+    ),
+  id: z
+    .string()
+    .optional()
+    .describe(
+      "endpoint (required): the endpoint id as 'platform/resource' (e.g. 'tiktok/profile'), a path ('/v1/tiktok/profile'), or a full URL.",
+    ),
+  format: z
+    .enum(["markdown", "json"])
+    .optional()
+    .describe("llms: 'markdown' (default) returns the corpus text; 'json' returns a structured context object."),
+  live: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set false to answer from this server's bundled catalogue instead of calling the live API. Default is live whenever an API key is configured; without a key everything except 'llms' falls back to bundled data automatically.",
+    ),
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("Page number (default 1). Long output is paged, not truncated."),
 }).strict();

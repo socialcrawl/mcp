@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.8.0",
-  "description": "MCP server for SocialCrawl — access 44 platforms and 357 endpoints (social media, commerce & product reviews, app stores, places & travel, business reputation, web research, full web scraping & browser automation, prediction markets, search trends, Naver, content analysis, Google News/Finance/Trends, cross-platform Prism composites, universal meta-search) through one unified API",
+  "version": "1.9.0",
+  "description": "Access 48 platforms and 381 endpoints through one unified API \u2014 social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Finance/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search \u2014 with exact per-endpoint credit pricing (ladder, flat, and metered bands) for every one.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -35,7 +35,12 @@
     "twitter",
     "linkedin",
     "reddit",
-    "model-context-protocol"
+    "model-context-protocol",
+    "pricing",
+    "credits",
+    "amazon",
+    "walmart",
+    "web-scraping"
   ],
   "license": "MIT",
   "repository": {

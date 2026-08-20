@@ -21,10 +21,10 @@ SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
-Data Platforms (44 platforms)
+Data Platforms (48 platforms)
 ```
 
-The MCP server exposes 7 tools. Three of them (list_platforms, list_endpoints, get_docs) query local bundled data and work without an API key or network connection. The other four (request, check_balance, monitors, web) make actual API calls and need a key.
+The MCP server exposes 9 tools. Four of them (list_platforms, list_endpoints, pricing, get_docs) query local bundled data and work without an API key or network connection. Four (request, check_balance, monitors, web) make actual API calls and need a key. The ninth, discover, calls the free `/v1/utility/*` self-description endpoints when a key is present and falls back to bundled data when it is not.
 
 ---
 
@@ -47,29 +47,37 @@ Installation is zero-friction: `npx -y socialcrawl-mcp` downloads and runs the s
 
 ```
 src/
-├── index.ts              # Server creation, tool registration, stdio transport
+├── index.ts              # stdio entrypoint
+├── server.ts             # Server creation + tool registration
+├── app.ts / http.ts      # Streamable HTTP transport (stateless, per-request context)
 ├── client.ts             # HTTP client for SocialCrawl API calls
+├── pricing.ts            # Single source of price formatting — every surface routes through it
 ├── types.ts              # TypeScript interfaces
 ├── constants.ts          # Timeouts, character limits, server metadata
 ├── tools/
-│   ├── list-platforms.ts # Formats platform discovery output
-│   ├── list-endpoints.ts # Formats endpoint discovery output
-│   ├── get-docs.ts       # Retrieves bundled documentation
-│   ├── check-balance.ts  # Calls the /v1/credits/balance meta endpoint
+│   ├── list-platforms.ts # Platform catalogue, grouped by category, with credit ranges
+│   ├── list-endpoints.ts # Endpoint catalogue + cross-platform search + full param contract
+│   ├── pricing.ts        # Credit pricing: overview / endpoint / platform / ranked list
+│   ├── discover.ts       # The free /v1/utility/* self-description family + freshness check
+│   ├── get-docs.ts       # Bundled documentation, paged rather than truncated
+│   ├── check-balance.ts  # /v1/credits/balance and /v1/credits/transactions
 │   ├── monitors.ts       # Stateful /v1/monitors/* CRUD (POST/GET/PATCH/DELETE)
 │   ├── web.ts            # Stateful /v1/web/* surface — scrape/crawl/agent/jobs/monitors/sessions
 │   └── request.ts        # Pre-flight validation + API call execution (GET + POST batch)
-├── data/
-│   ├── platforms.ts      # 44 platforms with metadata
-│   ├── endpoints.ts      # 357 endpoints with full parameter definitions (method-aware)
-│   └── docs.ts           # Bundled llms.txt documentation (one topic per platform + fixed topics)
+├── data/                 # ALL GENERATED — see scripts/generate-data.ts
+│   ├── platforms.ts      # 48 platforms with metadata, social flag, and category
+│   ├── endpoints.ts      # 381 endpoints — params with bounds/couplings/CSV limits, the full
+│   │                     #   pricing model, pagination, cache, delivery mode, upstream sources
+│   ├── registry-meta.ts  # REGISTRY_STATS, CREDIT_LADDER, CACHE_TTLS
+│   ├── docs-handwritten.ts # Cross-cutting contract topics (auth, credits, errors, paging, …)
+│   └── docs.ts           # Generated per-platform, pricing, and full references
 └── schemas/
-    └── tools.ts          # Zod input validation schemas for all 7 tools
+    └── tools.ts          # Zod input validation schemas for all 9 tools
 ```
 
 ---
 
-## The 7 Tools
+## The 9 Tools
 
 ### Tool Registration
 
@@ -85,14 +93,15 @@ Each tool is registered using the MCP SDK's `server.registerTool()` API with:
 
 ### Tool Design Philosophy
 
-The MCP exposes 7 workflow-oriented tools rather than 357 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (Two surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper and the stateful `web` platform — get their own action-based tools.)
+The MCP exposes 9 workflow-oriented tools rather than 381 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (Two surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper and the stateful `web` platform — get their own action-based tools.)
 
 The typical agent workflow is:
 
 1. `socialcrawl_list_platforms` — "What platforms exist?"
-2. `socialcrawl_list_endpoints` — "What can I do on TikTok?"
-3. `socialcrawl_request` — "Get me this specific data"
-4. `socialcrawl_get_docs` — "I need help understanding something"
+2. `socialcrawl_list_endpoints` — "What can I do on TikTok?" or "which endpoints return transcripts?"
+3. `socialcrawl_pricing` — "What will that cost me?"
+4. `socialcrawl_request` — "Get me this specific data"
+5. `socialcrawl_get_docs` — "I need help understanding something"
 
 Smart agents learn the API structure after 1-2 discovery calls and skip straight to `socialcrawl_request` for subsequent queries.
 
@@ -102,7 +111,7 @@ Smart agents learn the API structure after 1-2 discovery calls and skip straight
 
 The MCP bundles all SocialCrawl knowledge as static TypeScript data. This means the discovery and documentation tools work without any network calls.
 
-### `data/platforms.ts` — 44 Platforms
+### `data/platforms.ts` — 48 Platforms
 
 A static array of platform metadata:
 
@@ -110,52 +119,88 @@ A static array of platform metadata:
 interface Platform {
   slug: string;           // "tiktok"
   name: string;           // "TikTok"
-  endpointCount: number;  // 26
+  endpointCount: number;  // 21
   description: string;    // "Profiles, videos, comments, ..."
+  social: boolean;        // false for research / commerce / dev-ecosystem sources
+  category?: string;      // "major" | "additional" | "commerce" | "adLibraries" | "linkPages" | "utility"
 }
 ```
 
 Queried by `socialcrawl_list_platforms` and used for pre-flight validation in `socialcrawl_request`.
 
-### `data/endpoints.ts` — 357 Endpoints
+### `data/endpoints.ts` — 381 Endpoints
 
 A static array of every endpoint definition:
 
 ```typescript
 interface Endpoint {
-  platform: string;         // "tiktok"
-  resource: string;         // "profile" (embeds {path} params, e.g. "jobs/{job_id}")
-  method: HttpMethod;       // "GET" | "POST" | "PATCH" | "DELETE"
-  params: ParamDef[];       // [{ name: "handle", required: true, optional: false, description: "...", example: "charlidamelio" }]
-  oneOf?: string[][];       // e.g. [["url", "id"]] — at least one of each group must be provided
-  creditTier: string;       // "standard" | "advanced" | "premium"
-  creditCost: number;       // 1, 5, or 10
-  archetype: string;        // "Author", "Post", "PostList", etc.
-  summary: string;          // "Get TikTok user profile"
-  description: string;      // Longer description
+  platform: string;                // "tiktok"
+  resource: string;                // "profile" (embeds {path} params, e.g. "jobs/{job_id}")
+  method: HttpMethod;              // "GET" | "POST" | "PATCH" | "DELETE"
+  params: ParamDef[];              // required params, each with a description and example
+  optionalParams: OptionalParam[]; // type, enumValues, minimum/maximum, requires, couplesWith, in
+  oneOfGroups: string[][];         // e.g. [["url", "id"]] — at least one member required
+  csvConstraints?: Record<string, CsvConstraint>; // per-entry enum + max entry count
+  creditTier: CreditTier;          // "standard" | "advanced" | "premium"
+  creditCost: number;              // static cost — only the BASE for a metered endpoint
+  pricing: Pricing;                // model (ladder|flat|metered), minCost/maxCost band, rule text
+  archetype: string;               // "Author", "Post", "PostList", etc.
+  summary: string;
+  description: string;
+  execution?: "sync" | "sse" | "async";
+  streaming?: string;              // "accept-header" | "always" | "<param>=<value>"
+  pagination?: PaginationInfo;     // style, native cursor param, limit param + max
+  paginatable?: boolean;           // walks every page server-side in one call
+  singlePage?: string;             // a list endpoint that genuinely does not paginate — why
+  collectUntilN?: string;          // `limit` is collect-until-N, not a page size — why
+  emptyOn404?: boolean;            // upstream 404 means zero items → 200 {items:[]} + refund
+  cache: CacheInfo;                // category + resolved TTL seconds
+  upstream: UpstreamInfo;          // dispatch kind + ordered fallback kinds
+  family?: string;                 // "prism" for server-side composites
+  contractDetails?: string[];      // extra contract facts a caller must know
 }
 ```
 
-Each `ParamDef` carries both `required` and `optional` flags. Optional parameters are forwarded to the API whenever the agent supplies them, but pre-flight validation never blocks a call for missing them. `oneOf` groups express "at least one of these mutually-substitutable identifiers" (e.g. a post endpoint that accepts either `url` or `id`) — pre-flight enforces these locally before any network call is made.
+**Why so much metadata.** Everything here exists so the server can answer a question locally that would otherwise cost a round trip or a credit: what a call really charges (`pricing`), whether it will 400 before billing (`optionalParams` bounds and couplings, `csvConstraints`), how to get page two (`pagination`), whether a repeat is free (`cache`), and whether an empty answer is a failure or a legitimate zero (`emptyOn404`).
 
-This data is derived from the main SocialCrawl codebase's endpoint registry (`packages/social-api/src/registry/config.ts`), which is the single source of truth for all endpoint definitions.
+`oneOfGroups` express "at least one of these mutually-substitutable identifiers" (e.g. a post endpoint that accepts either `url` or `id`). Optional parameters are forwarded whenever the agent supplies them and never block a call for being absent — but their *values* are checked against the same rules the API enforces.
 
-### `data/docs.ts` — 52 Documentation Topics
+**None of this is hand-written.** It is generated from the main SocialCrawl codebase's endpoint registry (`packages/social-api/src/registry/config/`), the single source of truth, via a two-step pipeline:
+
+```bash
+# 1. In the backend repo — writes registry-dump.json (schema v2) here
+cd codebase/packages/social-api && pnpm dlx tsx scripts/extract-mcp-data.ts
+
+# 2. Here — regenerates platforms.ts, endpoints.ts, registry-meta.ts
+npm run generate:data
+```
+
+The generator refuses a v1 dump rather than silently producing a thinner data layer, and fails loudly on a new platform that has no description. The hardcoded platform/endpoint totals in `data-integrity.test.ts` are deliberate drift guards: when the backend moves they go red, and that is the signal to re-run the pipeline.
+
+### `data/docs.ts` — 61 Documentation Topics
 
 Bundled llms.txt content from the SocialCrawl website, keyed by topic:
 
 | Key | Source | Content |
 |-----|--------|---------|
-| `overview` | `llms.txt` | Compact API introduction |
-| `full` | `llms-full.txt` | Comprehensive reference (~35K chars) |
-| `authentication` | Hardcoded | How to use API keys |
-| `credits` | Hardcoded | Credit tiers and pricing |
-| `errors` | Hardcoded | Error codes and handling |
-| `tiktok` | `llms-tiktok.txt` | TikTok-specific endpoint reference |
-| `instagram` | `llms-instagram.txt` | Instagram-specific endpoint reference |
-| ... | ... | 42 more platform-specific docs (incl. `web` — the scraping/browser surface) |
+| `overview` | Hand-written | Compact API introduction |
+| `full` | Generated | Comprehensive reference, every endpoint (~300K chars, paged) |
+| `authentication` | Hand-written | How API keys work, local vs remote transport |
+| `credits` | Hand-written | The three billing models, tiers, and what is never charged |
+| `pricing` | Generated | Exact per-endpoint cost, flat overrides, metered bands + rules |
+| `errors` | Hand-written | Error codes, statuses, retryable verdicts, refund matrix |
+| `idempotency` | Hand-written | Retry-safe requests via `Idempotency-Key` |
+| `pagination` | Hand-written | Universal `cursor`, `has_more`, `sc.` tokens, collect-until-N |
+| `caching` | Hand-written | TTLs, free hits, cache-key rules, force-refresh |
+| `response-schema` | Hand-written | Envelope, archetypes, `ext`, computed fields, headers |
+| `limits` | Hand-written | Rate, concurrency, timeouts, circuit breaker, retry guidance |
+| `monitors` | Hand-written | The scheduled-recipe wrapper (`/v1/monitors/*`) |
+| `discovery` | Hand-written | The free self-describing `utility/*` endpoints |
+| `tiktok`, `instagram`, … | Generated | One per platform (48), built from ENDPOINTS at module load |
 
-The llms.txt files are generated by the main SocialCrawl codebase from its endpoint registry. They are AI-optimized documentation designed to be consumed by language models.
+The split matters: the hand-written topics cover cross-cutting contracts that are *not* derivable from per-endpoint registry data, and live in `data/docs-handwritten.ts`. Everything endpoint-specific is generated at module load from ENDPOINTS, so a platform doc can never drift from the registry.
+
+Topics longer than one response are **paged**, not truncated — `getDocs(topic, page)` splits at line boundaries and appends a "page N of M" footer, so every endpoint in the `full` reference stays reachable.
 
 ---
 
@@ -246,7 +291,7 @@ Every successful `socialcrawl_request` call returns the same top-level shape, re
 }
 ```
 
-The envelope is stable across all 357 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
+The envelope is stable across all 381 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
 
 ### Response Truncation
 
@@ -322,17 +367,26 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 
 ## Testing
 
-127 unit tests across 11 test suites:
+252 unit tests across 16 test suites:
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| Data integrity | 37 | All 44 platforms present, 357 endpoints valid, method-aware pricing recognised, flat/metered composite pricing, all doc topics (incl. monitors) exist, no duplicates, counts match |
+| Data integrity | 61 | All 48 platforms present, 381 endpoints valid, totals match `REGISTRY_STATS`, pricing models coherent (ladder endpoints charge their tier rate; every metered endpoint quotes a band or a rule), integer bounds sane, param couplings and CSV constraints only name declared params, every doc topic exists, no duplicates, counts match |
+| Pricing | 24 | Band-not-base quoting, authored rule vs band fallback, price-driving params, the four `socialcrawl_pricing` actions, budget filters judged by the metered ceiling |
+| Local validation + search | 23 | Enum, range, coupling, and CSV rejections without touching the network; cross-platform endpoint search; method/budget filters; full parameter-contract output |
+| Web + method-aware request | 21 | `socialcrawl_web` action routing, path-id validation, GET-query vs POST-body split, `in:query` routing, JSON-array coercion, web→tool redirect, the free `job_errors` / `crawl_preview` actions, metered rule in the header |
 | API client | 17 | URL building, API key handling, HTTP error mapping for all status codes |
-| Monitors | 12 | Action routing, create-body assembly, cadence mapping, id/required-field validation, 204 handling |
-| Web + method-aware request | 16 | `socialcrawl_web` action routing, path-id validation, GET-query vs POST-body split, `in:query` routing, JSON-array coercion, web→tool redirect |
+| HTTP transport | 14 | Stateless per-request context, header auth, rate limiting, tool listing |
+| Monitors | 13 | Action routing, create-body assembly, cadence mapping, id/required-field validation, 204 handling |
+| Auth | 9 | Header extraction precedence, no env fallback on the HTTP transport |
+| Check balance | 8 | Meta-endpoint call shape for both balance and the transactions ledger, query forwarding, 0-credit header, missing-key + error handling |
 | Pre-flight validation | 8 | Bad platform/resource/params caught locally, no-param endpoints pass through |
-| Check balance | 4 | Meta-endpoint call shape, 0-credit header, missing-key + error handling |
+| Discovery (`/v1/utility/*`) | 25 | Anonymous bundled fallback, live call shapes and id normalisation, metered-label preference, the freshness drift check, and the `setup` topic |
+| Server | 4 | All 9 tools registered, anonymous discovery, per-context key |
+| Surface coverage | 9 | Every endpoint callable through a tool, priced, documented, and listed with every one of its params and enum values — across pages |
+| Pagination | 11 | Line-boundary splitting, nothing lost across pages, clamped page numbers, short output left unpaged |
 | Response truncation | 3 | Under-limit untouched, over-limit truncated, full length reported |
+| Context | 2 | Env parsing, base-URL normalisation |
 
 Tests use vitest with `vi.stubGlobal("fetch", ...)` for HTTP mocking and `process.env` manipulation for API key testing.
 
@@ -340,9 +394,9 @@ Tests use vitest with `vi.stubGlobal("fetch", ...)` for HTTP mocking and `proces
 
 ## Design Decisions
 
-### Why 7 tools instead of 357?
+### Why 9 tools instead of 381?
 
-357 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — matching SocialCrawl's "one API, every platform" philosophy.
+381 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — by platform, by free-text search, or by budget — matching SocialCrawl's "one API, every platform" philosophy.
 
 ### Why bundle data instead of fetching it?
 

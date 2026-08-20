@@ -39,7 +39,7 @@ The whole design collapses to one sentence:
 ```
                         ┌───────────────────────────────┐
    stdio user           │  createServer(ctx): McpServer  │
-   (npx socialcrawl-mcp)│   ── the 6 tools live here ──  │
+   (npx socialcrawl-mcp)│   ── the 8 tools live here ──  │
         │               │  list_platforms  list_endpoints│
         ▼               │  request  check_balance        │
   src/index.ts          │  monitors  get_docs            │
@@ -309,7 +309,7 @@ change auth/transport code, keep them true.
 |---|---|
 | `context.test.ts` | `contextFromEnv` env → ctx behavior |
 | `auth.test.ts` | header extraction incl. the no-env security invariant |
-| `server.test.ts` | `createServer` over `InMemoryTransport`: 6 tools, anonymous behavior, per-ctx key |
+| `server.test.ts` | `createServer` over `InMemoryTransport`: 8 tools, anonymous behavior, per-ctx key |
 | `http.test.ts` | end-to-end over real HTTP: SDK client ↔ Express app ↔ mock upstream, incl. the 3 security invariants, 405s, CORS, `/healthz`, rate limit, logging |
 | `client.test.ts`, `truncation.test.ts`, `preflight.test.ts`, `check-balance.test.ts`, `monitors.test.ts` | migrated from env-mutation fixtures to explicit `ctx` fixtures |
 

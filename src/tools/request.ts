@@ -1,6 +1,7 @@
 import { findPlatform } from "../data/platforms.js";
-import { findEndpoint } from "../data/endpoints.js";
+import { findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { makeRequest, apiRequest } from "../client.js";
+import { formatCost, worstCaseCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
 import type { Endpoint } from "../types.js";
 
@@ -33,6 +34,106 @@ function isQueryParam(endpoint: Endpoint, name: string): boolean {
   return endpoint.optionalParams.find((p) => p.name === name)?.in === "query";
 }
 
+/**
+ * Mirror of the backend's pre-billing validator (`validation/request-params.ts`
+ * rules 1-5) against the registry data this server ships. Catching these here
+ * turns a round-trip 400 into an instant local error — no latency, and no risk
+ * of an agent looping on a malformed call. Format/encoding rules (6-7) stay
+ * server-side; they need regexes this data layer does not carry.
+ */
+function validateValues(
+  endpoint: Endpoint,
+  provided: Record<string, unknown>,
+): string[] {
+  const errors: string[] = [];
+  const present = (name: string): boolean =>
+    provided[name] !== undefined && provided[name] !== "";
+
+  for (const [name, rawValue] of Object.entries(provided)) {
+    if (rawValue === undefined || rawValue === "") continue;
+    const spec = endpoint.optionalParams.find((p) => p.name === name);
+    const value = String(rawValue);
+
+    if (spec) {
+      // Rule 3 — enum values are rejected at the edge.
+      if (spec.type === "enum" && spec.enumValues && !spec.enumValues.includes(value)) {
+        errors.push(
+          `\`${name}\`: "${value}" is not allowed. Allowed values: ${spec.enumValues.join(", ")}.`,
+        );
+      }
+
+      if (spec.type === "integer") {
+        const n = Number(value);
+        if (!Number.isFinite(n)) {
+          errors.push(`\`${name}\`: "${value}" is not an integer.`);
+        } else {
+          if (spec.minimum !== undefined && n < spec.minimum) {
+            errors.push(`\`${name}\`: ${n} is below the minimum of ${spec.minimum}.`);
+          }
+          if (spec.maximum !== undefined && n > spec.maximum) {
+            errors.push(`\`${name}\`: ${n} is above the maximum of ${spec.maximum}.`);
+          }
+        }
+      }
+
+      // Rule 4 — presence and value coupling.
+      if (spec.requires && !present(spec.requires)) {
+        errors.push(
+          `\`${name}\` is a no-op without \`${spec.requires}\` — the API rejects it with a 400. Supply \`${spec.requires}\` too.`,
+        );
+      }
+      if (spec.couplesWith) {
+        const companion = provided[spec.couplesWith.param];
+        if (companion !== undefined && String(companion) !== spec.couplesWith.value) {
+          errors.push(
+            `\`${name}\` requires \`${spec.couplesWith.param}=${spec.couplesWith.value}\`, but \`${spec.couplesWith.param}=${String(companion)}\` was supplied.`,
+          );
+        }
+      }
+    }
+
+    // Rule 5 — CSV list constraints apply to required and optional params alike.
+    const csv = endpoint.csvConstraints?.[name];
+    if (csv) {
+      const entries = value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (csv.max !== undefined && entries.length > csv.max) {
+        errors.push(
+          `\`${name}\` accepts at most ${csv.max} comma-separated value(s); received ${entries.length}.`,
+        );
+      }
+      if (csv.enumValues) {
+        for (const entry of entries) {
+          if (!csv.enumValues.includes(entry)) {
+            errors.push(
+              `\`${name}\`: "${entry}" is not allowed. Allowed values: ${csv.enumValues.join(", ")}.`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return errors;
+}
+
+/** Params the endpoint does not declare. Not fatal — the API ignores them. */
+function unknownParams(
+  endpoint: Endpoint,
+  provided: Record<string, unknown>,
+): string[] {
+  const known = new Set([
+    ...endpoint.params.map((p) => p.name),
+    ...endpoint.optionalParams.map((p) => p.name),
+    // Universal aliases the router accepts on every endpoint.
+    "cursor",
+    "limit",
+  ]);
+  return Object.keys(provided).filter((name) => !known.has(name));
+}
+
 export async function request(ctx: ApiContext, input: RequestParams): Promise<string> {
   const platform = findPlatform(input.platform);
   if (!platform) {
@@ -48,7 +149,19 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
 
   const endpoint = findEndpoint(input.platform, input.resource);
   if (!endpoint) {
-    return `Error: Unknown resource "${input.resource}" for platform "${input.platform}". Use socialcrawl_list_endpoints with platform "${input.platform}" to see available endpoints.`;
+    const near = getEndpointsByPlatform(input.platform)
+      .filter(
+        (e) =>
+          e.resource.includes(input.resource) || input.resource.includes(e.resource),
+      )
+      .slice(0, 5);
+    return [
+      `Error: Unknown resource "${input.resource}" for platform "${input.platform}".`,
+      ...(near.length > 0
+        ? [`Closest matches: ${near.map((e) => `\`${e.resource}\``).join(", ")}.`]
+        : []),
+      `Use socialcrawl_list_endpoints with platform "${input.platform}" to see available endpoints.`,
+    ].join(" ");
   }
 
   const isPost = endpoint.method === "POST";
@@ -56,10 +169,8 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
   const providedBody = input.body ?? {};
   // A required param may arrive via `params` or `body`; POST batch params
   // (ids/urls/items) conventionally live in `body`.
-  const providedNames = new Set([
-    ...Object.keys(providedParams),
-    ...Object.keys(providedBody),
-  ]);
+  const merged: Record<string, unknown> = { ...providedParams, ...providedBody };
+  const providedNames = new Set(Object.keys(merged));
 
   const missingParts: string[] = [];
   for (const p of endpoint.params) {
@@ -79,7 +190,17 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
     }
   }
   if (missingParts.length > 0) {
-    return `Error: Missing required parameter(s): ${missingParts.join(", ")}. Use socialcrawl_list_endpoints with platform "${input.platform}" for full parameter details.`;
+    return `Error: Missing required parameter(s): ${missingParts.join(", ")}. Use socialcrawl_list_endpoints with platform "${input.platform}" for full parameter details. No credits were charged.`;
+  }
+
+  const valueErrors = validateValues(endpoint, merged);
+  if (valueErrors.length > 0) {
+    return [
+      "Error: Invalid parameter value(s) — the API would reject this with a 400 before billing:",
+      ...valueErrors.map((e) => `- ${e}`),
+      "",
+      `Use socialcrawl_list_endpoints with platform "${input.platform}" for the full parameter contract. No credits were charged.`,
+    ].join("\n");
   }
 
   let response: string;
@@ -116,12 +237,30 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
     });
   }
 
-  const header = [
+  const headerLines = [
     `## SocialCrawl API Response`,
     `**Endpoint:** \`${endpoint.method} /v1/${input.platform}/${input.resource}\``,
-    `**Credit cost:** ${endpoint.creditCost} (${endpoint.creditTier})`,
-    "",
-  ].join("\n");
+    `**Price:** ${formatCost(endpoint.pricing)}${
+      endpoint.pricing.model === "metered"
+        ? ` — up to ${worstCaseCost(endpoint.pricing)}cr held, refunded to the actual charge. Read \`credits_used\` below for what you really paid.`
+        : ""
+    }`,
+  ];
+  if (endpoint.pricing.model === "metered" && endpoint.pricing.description) {
+    headerLines.push(`**Metered rule:** ${endpoint.pricing.description}`);
+  }
+  const unknown = unknownParams(endpoint, merged);
+  if (unknown.length > 0) {
+    headerLines.push(
+      `**Note:** ${unknown.map((u) => `\`${u}\``).join(", ")} ${unknown.length === 1 ? "is" : "are"} not declared on this endpoint and ${unknown.length === 1 ? "was" : "were"} ignored (unknown params never bypass the cache).`,
+    );
+  }
+  if (endpoint.pagination && !endpoint.paginatable) {
+    headerLines.push(
+      `**Paging:** pass \`cursor\` from \`pagination.next_cursor\` for the next page; stop when \`pagination.has_more\` is false. Each page is billed separately.`,
+    );
+  }
+  const header = `${headerLines.join("\n")}\n\n`;
 
   if (response.startsWith("Error:")) {
     return `${header}${response}`;

@@ -1,5 +1,6 @@
 import { apiRequest } from "../client.js";
 import { findEndpoint } from "../data/endpoints.js";
+import { formatCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
 import type { HttpMethod } from "../types.js";
 
@@ -14,6 +15,10 @@ import type { HttpMethod } from "../types.js";
  *
  * `web/parse` (document upload) is a multipart/form-data endpoint and is not
  * exposed here — call `POST /v1/web/parse` directly with a file part.
+ *
+ * Two actions (`job_errors`, `crawl_preview`) map to stateful-router routes
+ * that are not registry endpoints: both are free, and `crawl_preview` is the
+ * dry run that shows what an expensive `crawl` would actually submit.
  */
 
 export type WebAction =
@@ -27,6 +32,8 @@ export type WebAction =
   | "job_list"
   | "job_get"
   | "job_cancel"
+  | "job_errors"
+  | "crawl_preview"
   | "monitor_create"
   | "monitor_list"
   | "monitor_get"
@@ -69,6 +76,13 @@ const ACTIONS: Record<WebAction, ActionSpec> = {
   job_list: { method: "GET", path: () => "/v1/web/jobs", needsId: false, requires: [], resource: "jobs" },
   job_get: { method: "GET", path: (id) => `/v1/web/jobs/${id}`, needsId: true, requires: [], resource: "jobs/{job_id}" },
   job_cancel: { method: "DELETE", path: (id) => `/v1/web/jobs/${id}`, needsId: true, requires: [], resource: "jobs/{job_id}" },
+  // Per-page failure feed for a crawl/batch job (0cr). Not a registry endpoint
+  // — a stateful-router-only helper, so `resource` has no pricing row and the
+  // header falls through to 0 credits, which is correct.
+  job_errors: { method: "GET", path: (id) => `/v1/web/jobs/${id}/errors`, needsId: true, requires: [], resource: "jobs/{job_id}/errors" },
+  // Dry-run the crawl body builder (0cr): shows exactly what a `crawl` call
+  // would submit upstream, so an expensive crawl can be checked before paying.
+  crawl_preview: { method: "POST", path: () => "/v1/web/crawl/params-preview", needsId: false, requires: ["url"], resource: "crawl/params-preview" },
   monitor_create: { method: "POST", path: () => "/v1/web/monitors", needsId: false, requires: ["url"], resource: "monitors" },
   monitor_list: { method: "GET", path: () => "/v1/web/monitors", needsId: false, requires: [], resource: "monitors" },
   monitor_get: { method: "GET", path: (id) => `/v1/web/monitors/${id}`, needsId: true, requires: [], resource: "monitors/{monitor_id}" },
@@ -137,15 +151,23 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
   });
 
   const priced = findEndpoint("web", spec.resource, spec.method);
-  const costLine = priced
-    ? `**Credit cost:** ${priced.creditCost} (${priced.creditTier})`
-    : "**Credit cost:** 0";
-  const header = [
+  const headerLines = [
     "## SocialCrawl Web",
     `**Operation:** \`${spec.method} ${path}\``,
-    costLine,
-    "",
-  ].join("\n");
+    priced ? `**Price:** ${formatCost(priced.pricing)}` : "**Price:** 0cr (free)",
+  ];
+  // Every metered web action (scrape, search, crawl, sessions, monitors) states
+  // its own rule in the registry — quote it verbatim so an agent knows a crawl
+  // holds `limit` credits and refunds the unused pages.
+  if (priced?.pricing.description) {
+    headerLines.push(`**Rule:** ${priced.pricing.description}`);
+  }
+  if (priced?.execution === "async") {
+    headerLines.push(
+      "**Async:** this submits a job. Poll with `job_get` (and `job_errors` for per-page failures); the hold settles when the job finishes.",
+    );
+  }
+  const header = `${headerLines.join("\n")}\n\n`;
 
   if (response.startsWith("Error:")) {
     return `${header}${response}`;
@@ -157,3 +179,15 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
     return `${header}${response}`;
   }
 }
+
+/**
+ * The (method, resource) pair each action targets. Exported so the coverage
+ * test can assert that every web endpoint has an action and every action
+ * points at a real route.
+ */
+export const WEB_ACTION_RESOURCES: { action: WebAction; method: HttpMethod; resource: string }[] =
+  (Object.entries(ACTIONS) as [WebAction, ActionSpec][]).map(([action, spec]) => ({
+    action,
+    method: spec.method,
+    resource: spec.resource,
+  }));

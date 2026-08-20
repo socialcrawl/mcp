@@ -1,22 +1,34 @@
-import { getDoc, getAvailableTopics } from "../data/docs.js";
-import { CHARACTER_LIMIT } from "../constants.js";
+import { getDoc, getAvailableTopics, FIXED_TOPICS } from "../data/docs.js";
+import { PLATFORMS } from "../data/platforms.js";
+import { page } from "../paginate.js";
 
-export function getDocs(topic: string): string {
+/**
+ * Documentation reader. Long topics (`full` is ~300k characters, and the
+ * biggest platforms exceed the response limit on their own) are PAGED rather
+ * than truncated — see `src/paginate.ts` for why.
+ */
+export function getDocs(topic: string, pageNumber = 1): string {
   const content = getDoc(topic);
 
   if (!content) {
-    const topics = getAvailableTopics();
+    const platformSlugs = PLATFORMS.map((p) => p.slug);
     return [
       `Error: Unknown topic "${topic}".`,
       "",
-      "Available topics:",
-      ...topics.map((t) => `- \`${t}\``),
+      "Guides:",
+      ...FIXED_TOPICS.map((t) => `- \`${t}\``),
+      "",
+      `Platform topics (${platformSlugs.length}):`,
+      platformSlugs.map((t) => `\`${t}\``).join(", "),
     ].join("\n");
   }
 
-  if (content.length <= CHARACTER_LIMIT) {
-    return content;
-  }
-
-  return `${content.slice(0, CHARACTER_LIMIT)}\n\n[Documentation truncated at ${CHARACTER_LIMIT.toLocaleString()} characters. Full content is ${content.length.toLocaleString()} characters. Try a platform-specific topic for shorter docs.]`;
+  return page(
+    content,
+    pageNumber,
+    (next) =>
+      `Call socialcrawl_get_docs again with topic "${topic}" and page ${next} for the next part.`,
+  );
 }
+
+export { getAvailableTopics };

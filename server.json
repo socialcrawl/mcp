@@ -2,12 +2,12 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RidioDevelopment/socialcrawl",
   "title": "SocialCrawl",
-  "description": "Access 44 platforms and 357 endpoints through one unified API — social media, commerce & product reviews (Amazon, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), Naver, content/sentiment analysis, Google News/Finance/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites (lookup, comments, reputation, share-of-voice, AI consensus, and more), plus a universal /search/everywhere meta-search.",
+  "description": "Access 48 platforms and 381 endpoints through one unified API \u2014 social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Finance/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search \u2014 with exact per-endpoint credit pricing (ladder, flat, and metered bands) for every one.",
   "repository": {
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.8.0",
+  "version": "1.9.0",
   "remotes": [
     {
       "type": "streamable-http",
@@ -15,7 +15,7 @@
       "headers": [
         {
           "name": "Authorization",
-          "description": "Bearer <SOCIALCRAWL_API_KEY>. Optional — discovery tools work without it. Get a free key at socialcrawl.dev (100 credits, no credit card required).",
+          "description": "Bearer <SOCIALCRAWL_API_KEY>. Optional \u2014 discovery tools work without it. Get a free key at socialcrawl.dev (100 credits, no credit card required).",
           "isRequired": false,
           "isSecret": true
         }
@@ -26,7 +26,7 @@
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.8.0",
+      "version": "1.9.0",
       "transport": {
         "type": "stdio"
       },

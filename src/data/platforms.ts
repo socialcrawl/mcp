@@ -11,34 +11,43 @@ export const PLATFORMS: Platform[] = [
     slug: "web",
     name: "Web Scraping",
     endpointCount: 22,
+    social: false,
     description:
       "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
   },
   {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 20,
+    endpointCount: 21,
+    social: true,
+    category: "major",
     description:
-      "Profiles, videos, comments and replies, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
+      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
   },
   {
     slug: "instagram",
     name: "Instagram",
     endpointCount: 33,
+    social: true,
+    category: "major",
     description:
-      "Profiles, posts, reels, comments, story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
+      "Profiles, posts, reels, comments (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
   },
   {
     slug: "youtube",
     name: "YouTube",
     endpointCount: 28,
+    social: true,
+    category: "major",
     description:
-      "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, downloadable media files (audio, video, subtitles, thumbnails), and video transcripts.",
+      "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
   },
   {
     slug: "twitter",
     name: "Twitter/X",
     endpointCount: 8,
+    social: true,
+    category: "major",
     description:
       "Profiles, tweets, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   },
@@ -46,34 +55,44 @@ export const PLATFORMS: Platform[] = [
     slug: "linkedin",
     name: "LinkedIn",
     endpointCount: 44,
+    social: true,
+    category: "major",
     description:
       "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   },
   {
     slug: "facebook",
     name: "Facebook",
-    endpointCount: 22,
+    endpointCount: 23,
+    social: true,
+    category: "major",
     description:
-      "Pages, posts, comments and replies, group posts, photos, reels, events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+      "Pages, posts, comments and replies, group posts, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   },
   {
     slug: "reddit",
     name: "Reddit",
-    endpointCount: 7,
+    endpointCount: 8,
+    social: true,
+    category: "major",
     description:
-      "Subreddit posts and details, post comments, keyword search, subreddit search, and post video transcripts.",
+      "Subreddit posts and details, single post detail, post comments, keyword search, subreddit search, the cross-source omni-search composite, and post video transcripts.",
   },
   {
     slug: "threads",
     name: "Threads",
-    endpointCount: 5,
+    endpointCount: 6,
+    social: true,
+    category: "major",
     description:
-      "Profiles, posts, post details, keyword search, and user search.",
+      "Profiles, posts, post details, post comments, keyword search, and user search.",
   },
   {
     slug: "pinterest",
     name: "Pinterest",
     endpointCount: 5,
+    social: true,
+    category: "additional",
     description:
       "Pins, boards, user boards, keyword search, and Pinterest Save-Button counts for any URL (url-stats).",
   },
@@ -81,6 +100,8 @@ export const PLATFORMS: Platform[] = [
     slug: "twitch",
     name: "Twitch",
     endpointCount: 4,
+    social: true,
+    category: "additional",
     description:
       "Streamer profiles, clip details, user videos, and broadcast schedules.",
   },
@@ -88,6 +109,8 @@ export const PLATFORMS: Platform[] = [
     slug: "snapchat",
     name: "Snapchat",
     endpointCount: 1,
+    social: true,
+    category: "additional",
     description:
       "Public user profiles including subscriber count and bio.",
   },
@@ -95,6 +118,8 @@ export const PLATFORMS: Platform[] = [
     slug: "truthsocial",
     name: "Truth Social",
     endpointCount: 3,
+    social: true,
+    category: "additional",
     description:
       "Profiles, user posts, and post details.",
   },
@@ -102,6 +127,8 @@ export const PLATFORMS: Platform[] = [
     slug: "kick",
     name: "Kick",
     endpointCount: 1,
+    social: true,
+    category: "additional",
     description:
       "Clip details including view count, duration, and category.",
   },
@@ -109,6 +136,8 @@ export const PLATFORMS: Platform[] = [
     slug: "kwai",
     name: "Kwai",
     endpointCount: 3,
+    social: true,
+    category: "additional",
     description:
       "Profiles, user posts, and post details from Kwai (Kuaishou's international short-video app).",
   },
@@ -116,6 +145,8 @@ export const PLATFORMS: Platform[] = [
     slug: "tiktokshop",
     name: "TikTok Shop",
     endpointCount: 5,
+    social: true,
+    category: "commerce",
     description:
       "TikTok Shop product details, product reviews, shop product listings, shop search, and creator showcases.",
   },
@@ -123,6 +154,8 @@ export const PLATFORMS: Platform[] = [
     slug: "perplexity",
     name: "Perplexity",
     endpointCount: 1,
+    social: false,
+    category: "utility",
     description:
       "Web research via Perplexity Sonar — returns a grounded answer with cited source URLs.",
   },
@@ -130,6 +163,8 @@ export const PLATFORMS: Platform[] = [
     slug: "google",
     name: "Google",
     endpointCount: 10,
+    social: true,
+    category: "utility",
     description:
       "Google web search, Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
   },
@@ -137,6 +172,7 @@ export const PLATFORMS: Platform[] = [
     slug: "amazon",
     name: "Amazon",
     endpointCount: 5,
+    social: true,
     description:
       "Product search, full ASIN product details, on-page reviews, buy-box sellers and offers, and Amazon shop/storefront pages — across ~13 Amazon marketplaces via the country parameter.",
   },
@@ -144,6 +180,8 @@ export const PLATFORMS: Platform[] = [
     slug: "google_shopping",
     name: "Google Shopping",
     endpointCount: 4,
+    social: false,
+    category: "commerce",
     description:
       "Google Shopping product search, full product details, reviews aggregated across retailers, and per-seller offers with itemised pricing.",
   },
@@ -151,13 +189,17 @@ export const PLATFORMS: Platform[] = [
     slug: "google_news",
     name: "Google News",
     endpointCount: 1,
+    social: false,
+    category: "utility",
     description:
-      "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by DataForSEO Google News.",
+      "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by a primary news upstream with a DataForSEO Google News fallback and bidirectional query-derived source pinning.",
   },
   {
     slug: "google_finance",
     name: "Google Finance",
     endpointCount: 3,
+    social: false,
+    category: "utility",
     description:
       "Financial-instrument data — full quotes, a markets overview (indices + top movers), and ticker search by name. Backed by DataForSEO Google Finance.",
   },
@@ -165,6 +207,7 @@ export const PLATFORMS: Platform[] = [
     slug: "google_trends",
     name: "Google Trends",
     endpointCount: 2,
+    social: false,
     description:
       "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
   },
@@ -172,6 +215,8 @@ export const PLATFORMS: Platform[] = [
     slug: "trustpilot",
     name: "Trustpilot",
     endpointCount: 2,
+    social: false,
+    category: "commerce",
     description:
       "Trustpilot business search and company reviews — brand-reputation data keyed by company domain (shipping, refunds, support sentiment). For product reviews use amazon/reviews or google_shopping/reviews.",
   },
@@ -179,34 +224,78 @@ export const PLATFORMS: Platform[] = [
     slug: "google_play",
     name: "Google Play",
     endpointCount: 9,
+    social: false,
     description:
-      "Google Play app search, full app details, app reviews with developer replies, store charts (top free/paid/grossing), a filterable app listings database, and categories/locations/languages reference data.",
+      "Google Play app search, full app details, app reviews with developer replies, store charts (top free/paid/grossing), a filterable app listings database, search suggestions, and categories/locations/languages reference data.",
   },
   {
     slug: "app_store",
     name: "Apple App Store",
     endpointCount: 9,
+    social: false,
     description:
-      "Apple App Store app search, full app details, app reviews, store charts (top free/paid/grossing for iPhone and iPad), a filterable app listings database, and categories/locations/languages reference data.",
+      "Apple App Store app search, full app details, app reviews, store charts (top free/paid/grossing for iPhone and iPad), a filterable app listings database, search suggestions, and categories/locations/languages reference data.",
   },
   {
     slug: "tripadvisor",
     name: "Tripadvisor",
     endpointCount: 2,
+    social: false,
+    category: "commerce",
     description:
       "Place and business search (restaurants, hotels, attractions) and traveler reviews with owner replies, review images, and cross-language auto-translation metadata.",
   },
   {
+    slug: "walmart",
+    name: "Walmart",
+    endpointCount: 5,
+    social: false,
+    category: "commerce",
+    description:
+      "Walmart product details, product reviews, keyword search, category browsing, and every seller offering a product — across Walmart marketplaces via the country parameter.",
+  },
+  {
+    slug: "target",
+    name: "Target",
+    endpointCount: 5,
+    social: false,
+    category: "commerce",
+    description:
+      "Target product details by TCIN, product reviews, category browsing, the full category taxonomy, and store lookup near a location.",
+  },
+  {
+    slug: "home_depot",
+    name: "Home Depot",
+    endpointCount: 2,
+    social: false,
+    category: "commerce",
+    description:
+      "Home Depot product details by item id or URL (store- and zip-aware pricing) and product reviews with rating, verified-purchase, and free-text filters.",
+  },
+  {
+    slug: "ebay",
+    name: "eBay",
+    endpointCount: 2,
+    social: false,
+    category: "commerce",
+    description:
+      "eBay listing search — including sold and completed listings with realised sale prices and dates — and full listing details by item id, across eBay country sites.",
+  },
+  {
     slug: "utility",
     name: "Utility",
-    endpointCount: 1,
+    endpointCount: 4,
+    social: true,
+    category: "utility",
     description:
-      "AI-powered utility tools including age and gender detection from image URLs.",
+      "Free, zero-credit API self-discovery — list every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, no auth cost, 0 credits.",
   },
   {
     slug: "linktree",
     name: "Linktree",
     endpointCount: 1,
+    social: true,
+    category: "linkPages",
     description:
       "Linktree link-in-bio pages including display name, bio, avatar, and link list.",
   },
@@ -214,6 +303,8 @@ export const PLATFORMS: Platform[] = [
     slug: "linkbio",
     name: "LinkBio",
     endpointCount: 1,
+    social: true,
+    category: "linkPages",
     description:
       "Linkbio link-in-bio pages including display name, bio, avatar, and link list.",
   },
@@ -221,6 +312,7 @@ export const PLATFORMS: Platform[] = [
     slug: "linkme",
     name: "LinkMe",
     endpointCount: 1,
+    social: true,
     description:
       "Linkme link-in-bio pages including display name, bio, avatar, and link list.",
   },
@@ -228,6 +320,8 @@ export const PLATFORMS: Platform[] = [
     slug: "komi",
     name: "Komi",
     endpointCount: 1,
+    social: true,
+    category: "linkPages",
     description:
       "Komi link-in-bio pages including display name, bio, avatar, and link list.",
   },
@@ -235,6 +329,8 @@ export const PLATFORMS: Platform[] = [
     slug: "pillar",
     name: "Pillar",
     endpointCount: 1,
+    social: true,
+    category: "linkPages",
     description:
       "Pillar link-in-bio pages including display name, bio, avatar, and link list.",
   },
@@ -242,6 +338,8 @@ export const PLATFORMS: Platform[] = [
     slug: "polymarket",
     name: "Polymarket",
     endpointCount: 1,
+    social: false,
+    category: "utility",
     description:
       "Prediction-market research — a server-side fan-out that expands a topic across multiple queries and ranks the merged Polymarket events.",
   },
@@ -249,6 +347,8 @@ export const PLATFORMS: Platform[] = [
     slug: "hackernews",
     name: "Hacker News",
     endpointCount: 4,
+    social: false,
+    category: "utility",
     description:
       "Story search, story details, story comment trees, and user profiles. Backed by the public Algolia HN API.",
   },
@@ -256,6 +356,8 @@ export const PLATFORMS: Platform[] = [
     slug: "github",
     name: "GitHub",
     endpointCount: 12,
+    social: false,
+    category: "utility",
     description:
       "Users, repositories, user repos, READMEs, releases, issues, pull requests, issue/PR comments, issue/PR search, and composite repo top-issues/dossier + user profile-velocity reports. Backed by the official GitHub REST API.",
   },
@@ -263,20 +365,26 @@ export const PLATFORMS: Platform[] = [
     slug: "tavily",
     name: "Tavily",
     endpointCount: 4,
+    social: false,
+    category: "utility",
     description:
       "Web search with optional LLM-synthesised answer, content extraction from URLs, lightweight sitemap discovery, and full multi-page crawl.",
   },
   {
     slug: "naver",
     name: "Naver",
-    endpointCount: 12,
+    endpointCount: 14,
+    social: true,
+    category: "utility",
     description:
-      "Korea's #1 search portal — 11 search corpora: blog, news, book, encyclopedia, cafe article, Q&A (KiN), local places, shopping, document, image, and web search.",
+      "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, and Naver Data Lab search-trend + shopping-insight time series.",
   },
   {
     slug: "rumble",
     name: "Rumble",
     endpointCount: 5,
+    social: true,
+    category: "additional",
     description:
       "Video search, channel videos, video details, video comments, and video transcripts.",
   },
@@ -284,6 +392,8 @@ export const PLATFORMS: Platform[] = [
     slug: "bluesky",
     name: "Bluesky",
     endpointCount: 3,
+    social: true,
+    category: "additional",
     description:
       "Profiles, user posts, and post details from the AT Protocol social network.",
   },
@@ -291,27 +401,33 @@ export const PLATFORMS: Platform[] = [
     slug: "spotify",
     name: "Spotify",
     endpointCount: 6,
+    social: true,
+    category: "additional",
     description:
       "Artists, tracks, albums, podcasts, podcast episodes, and search across the Spotify catalog.",
   },
   {
     slug: "search",
     name: "Universal Search",
-    endpointCount: 2,
+    endpointCount: 3,
+    social: false,
+    category: "utility",
     description:
-      "Meta-search across 12+ platforms in a single call (up to 15 sources in hashtag mode). LLM-planned, RRF-fused, LLM-reranked, clustered. Flat 20 credits per call.",
+      "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `forums` fuses Reddit + Hacker News + Naver 지식iN/카페 with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   },
   {
     slug: "prism",
     name: "Prism",
     endpointCount: 33,
+    social: false,
     description:
-      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting, multi-engine AI consensus answers, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic).",
+      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
   },
   {
     slug: "content_analysis",
     name: "Content Analysis",
     endpointCount: 10,
+    social: false,
     description:
       "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
   },

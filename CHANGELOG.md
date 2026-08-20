@@ -4,6 +4,169 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-08-18
+
+Re-sync with the backend registry (**44 platforms / 357 endpoints → 48 platforms /
+381 active endpoints**, +28/-4) *and* a rebuild of what the MCP knows about each
+one. The old extract threw away most of the registry: pricing was a single
+integer, optional params carried no bounds or couplings, and pagination, cache,
+delivery mode, and upstream sourcing were absent entirely. The dump is now
+**schema v2** and carries all of it, so the server can price, validate, and
+explain a call the way the backend actually behaves.
+
+Two headline tools: **`socialcrawl_discover`**, which drives the API's own free
+`/v1/utility/*` self-description family (and checks whether this server's bundled
+catalogue has fallen behind the live API), and **`socialcrawl_pricing`**. Quoting a metered
+endpoint's base cost understates every call — `/v1/search/news` has a 1cr base
+and really charges 2-14cr — so pricing is now modelled as ladder / flat /
+metered, and a metered endpoint is always quoted as a band with its rule.
+
+### Added
+
+- **New `socialcrawl_pricing` tool (tool count 7 → 8).** Four actions:
+  `overview` (the tier ladder, every free endpoint, every flat override, all 26
+  metered endpoints with their min-max band and exact charging rule, cache TTLs,
+  and the full refund matrix), `endpoint` (one endpoint's price, rule,
+  price-driving parameters, paging cost, and worst case), `platform` (a whole
+  platform's cost table), and `list` (rank/filter across platforms by
+  `maxCost`/`minCost`/`model`/`search`/`sort` — "everything I can call for 1
+  credit", "the 10 most expensive endpoints"). No API key required.
+- **New `socialcrawl_discover` tool (tool count 8 → 9) — the `/v1/utility/*`
+  family.** Four endpoints, all **0 credits**, served in-process from the live
+  endpoint registry (no upstream, no network hop), so they can never drift from
+  what is actually callable. Five actions:
+  - `quickstart` (`GET /v1/utility/quickstart`) — auth, base URL, a runnable
+    first call, the success and error envelopes, the billing model, the **full
+    error taxonomy** with statuses and meanings, rate limits, and the paging
+    contract, in one response.
+  - `catalog` (`GET /v1/utility/endpoints`) — every endpoint with its live
+    metered-aware price label, params, `oneOf` groups, and paging flag. The tool
+    prefers `credits_label` over the bare `credits` base, so `web/search` reads
+    `2-120 (metered)` rather than `2`. Filter by platform / search / method.
+  - `endpoint` (`GET /v1/utility/endpoint`) — the deepest per-endpoint object the
+    API exposes: every parameter with type and example, the exact pricing rule,
+    cache TTL, paging recipe, an example response with its schema URL, a
+    copy-paste curl, and related endpoints. Accepts an id, a path, or a full URL.
+  - `llms` (`GET /v1/utility/llms`) — the agent context corpus for the whole API
+    or one platform, as markdown or JSON.
+  - `freshness` — compares the live registry totals against this server's bundled
+    catalogue and says whether to upgrade. Probes with a filter that matches
+    nothing, because the `stats` block is whole-registry regardless of filter —
+    a few hundred bytes instead of all 381 rows.
+
+  Without an API key every action except `llms` still answers from bundled data,
+  clearly labelled: discovery has to work before a key exists.
+- **New `setup` docs topic** — how to configure SocialCrawl correctly and drive it
+  well: per-client key configuration (Claude Code/Desktop, Cursor, VS Code,
+  Windsurf, remote HTTP, plain curl), per-key spend caps, how to verify the setup,
+  when bundled data is not enough, and the operating rules that decide what you
+  actually pay (read `credits_used` not the sticker price; let the cache work;
+  page on `has_more`; make retries idempotent; prefer one composite call to a
+  hand-rolled fan-out).
+- **Four new platforms:** `walmart` (5), `target` (5), `home_depot` (2),
+  `ebay` (2) — product details, reviews, keyword/category search, seller offers,
+  store lookup, and eBay sold/completed listings with realised prices.
+- **Free API self-discovery endpoints** now in the catalogue: `utility/endpoints`,
+  `utility/endpoint`, `utility/quickstart`, `utility/llms`. The `discovery` docs
+  topic is a full reference for the family — every parameter, every response
+  field worth reading, and when to prefer the live answer over bundled data.
+- **New endpoints on existing platforms:** `reddit/post` (post detail),
+  `threads/post/comments`, `tiktok/video/screen-text` (on-screen text),
+  `facebook/profile/reels/full`, `search/news` (metered multi-country news lane),
+  and the Naver Data Lab family (`naver/search-trend`,
+  `naver/shopping-insight/category`, `naver/shopping-insight/keyword`) plus
+  `naver/errata` and `naver/adult`.
+- **Credit ledger in `socialcrawl_check_balance`.** `view: "transactions"` calls
+  the `GET /v1/credits/transactions` meta endpoint (0 credits) for itemised,
+  dispute-grade receipts — every deduction and refund with `amount`,
+  `balance_after`, `endpoint`, and `request_id`, filterable by `requestId` and
+  pageable with `limit`/`cursor`. This is how you confirm what a metered
+  endpoint actually settled at after its upfront hold was refunded down.
+- **Cross-platform endpoint search.** `socialcrawl_list_endpoints` now takes an
+  optional `search` term (with `platform` omitted, it searches all 381
+  endpoints), plus `method`, `maxCost`, and `detail` filters. Finding "the
+  transcript endpoints" no longer means guessing a platform first.
+- **Two free `socialcrawl_web` actions:** `job_errors` (a crawl/batch job's
+  per-page failure feed) and `crawl_preview` (dry-run a crawl's parameters
+  before paying for it). Both are stateful-router routes with no registry row,
+  so neither was reachable before.
+- **Seven new docs topics:** `setup`, `discovery`, `pagination` (the universal `cursor` contract,
+  `has_more`, `sc.` tokens, the free anti-burn 400, page-size vs
+  collect-until-N), `caching` (TTL table, free hits, cache-key rules,
+  `Cache-Control: no-cache`), `response-schema` (the envelope, archetypes,
+  `ext`, computed fields, response headers), and `limits` (600/min rate, 50
+  concurrent, timeouts, circuit breaker, retry guidance).
+
+### Changed
+
+- **Dump schema v1 → v2** (`extract-mcp-data.ts` in the backend). Now emits the
+  full pricing model (ladder/flat/metered + the `PRICING` min-max band + the
+  registry's authored `creditCostDescription`), optional-param `minimum` /
+  `maximum` / `requires` / `couplesWith`, `csvConstraints`, the pagination
+  descriptor plus `paginatable` / `singlePage` / `collectUntilN`, cache category
+  and resolved TTL, `execution` / `streaming`, upstream kind and fallback kinds,
+  `emptyOn404`, `family`, `actionLabel`, `group`, `tags`, `contractDetails`, and
+  per-platform `social` / `category`. The generator refuses a v1 dump rather
+  than silently producing a thinner data layer. New `src/data/registry-meta.ts`
+  carries `REGISTRY_STATS`, `CREDIT_LADDER`, and `CACHE_TTLS`.
+- **`socialcrawl_request` validates values, not just presence.** It now mirrors
+  the backend's pre-billing validator: enum membership, integer ranges,
+  `requires` and `couplesWith` couplings, and CSV entry limits — each a free 400
+  at the API, now an instant local error instead of a wasted round trip.
+  Undeclared params are reported rather than silently forwarded, and an unknown
+  resource suggests near matches.
+- **Every price quote goes through one formatter** (`src/pricing.ts`), so
+  `list_endpoints`, `request`, `web`, `pricing`, and the docs can never
+  disagree — and a metered endpoint is never quoted as its base cost.
+  `socialcrawl_web`'s response header now shows the band and the registry's own
+  rule (e.g. crawl: "1 credit per page crawled… unused portion refunded").
+- **`socialcrawl_get_docs` pages instead of truncating.** The `full` reference is
+  ~300k characters; it used to be cut at 25k with advice to pick a narrower
+  topic, which for a platform topic did not exist. Long topics are now split at
+  line boundaries with a `page` parameter and a "page N of M" footer, so every
+  endpoint is reachable. The `pricing` topic was compacted (price-grouped rows
+  per platform) to fit on one page while gaining the metered bands and rules.
+- **`socialcrawl_list_endpoints` prints the full parameter contract** — integer
+  ranges, enum sets, CSV limits, param couplings, paging style and native
+  cursor, cache TTL, async/streaming mode, upstream fallbacks, and
+  `emptyOn404` semantics.
+- **`socialcrawl_list_platforms` groups by category** (major social, additional
+  social, commerce, ad libraries, link pages, research/web/composites) and shows
+  each platform's credit range.
+- **Docs refreshed against the current backend**: the `credits` topic covers all
+  three billing models and the metered settle-down mechanic; `errors` adds
+  `RATE_LIMITED`, `KEY_BUDGET_EXCEEDED`, and `PAYLOAD_TOO_LARGE` with a
+  retryable column; the 405 row no longer claims `/v1/*` is GET-only.
+- **Price-driving parameters are matched on word boundaries.** A substring test
+  reported `to` as a price driver on `search/news`, because its pricing rule says
+  "settles down to the actual charge". Names shorter than three characters are
+  excluded outright.
+- The hand-maintained `isFlatPriced` exemption list in the data-integrity tests
+  is gone — `pricing.model` comes from the registry, so the ladder rule is now
+  asserted for exactly the endpoints that claim it.
+
+### Removed
+
+- `utility/age-gender` and the Naver `book/search`, `shop/search`, `doc/search`
+  endpoints (withdrawn upstream).
+- The hand-copied `CREDIT_COSTS` literal in `constants.ts`, superseded by the
+  generated `CREDIT_LADDER`.
+
+### Tests
+
+127 → **252 tests**, all green. New coverage for the pricing tool and helpers,
+the local value validator (enums, ranges, couplings, CSV limits), cross-platform
+endpoint search, the credit ledger view, the two new web actions, paging, and the
+`/v1/utility/*` discovery family (anonymous fallback, live call shapes, id
+normalisation, metered-label preference, and the freshness drift check).
+New drift guards assert every metered endpoint quotes a band or a rule, that
+ladder-priced endpoints charge their tier rate, and that param couplings and CSV
+constraints only name params the endpoint actually declares. A new
+**surface-coverage** suite asserts that every one of the 381 endpoints is
+callable through some tool, priced by `socialcrawl_pricing`, present in its
+platform docs, and listed with every one of its params and enum values across
+the paged listing — so an endpoint added upstream cannot go silently unreachable.
+
 ## [1.8.0] - 2026-07-10
 
 Re-sync with the backend registry, bringing coverage from 42 platforms /

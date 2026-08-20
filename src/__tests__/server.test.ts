@@ -23,16 +23,18 @@ describe("createServer factory", () => {
     vi.restoreAllMocks();
   });
 
-  it("registers all seven tools", async () => {
+  it("registers all nine tools", async () => {
     const client = await connect({ apiKey: "", baseUrl: "https://www.socialcrawl.dev" });
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
       "socialcrawl_check_balance",
+      "socialcrawl_discover",
       "socialcrawl_get_docs",
       "socialcrawl_list_endpoints",
       "socialcrawl_list_platforms",
       "socialcrawl_monitors",
+      "socialcrawl_pricing",
       "socialcrawl_request",
       "socialcrawl_web",
     ]);
