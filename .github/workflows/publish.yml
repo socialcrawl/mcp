@@ -1,8 +1,33 @@
 name: Publish to npm + MCP Registry
 
+# Fires on a version change on `main`, and still on an explicit `v*` tag.
+#
+# It used to fire ONLY on `v*` tags — and no tag was ever pushed, so this
+# workflow had never run once. Every npm release was published by hand from a
+# laptop instead, which silently skipped the half of the job nobody does by
+# hand: `mcp-publisher publish`. The result (found 2026-08-20) was an MCP
+# Registry entry stuck at 1.0.1 from 2026-04-10 while npm served 1.9.0. Anyone
+# discovering the server through the registry was pointed four months back.
+#
+# Publishing on a version change instead means the automated downstream sync
+# (codebase/.github/workflows/sync-downstream.yml), which bumps the patch
+# version when the registry changes, carries all the way to BOTH destinations
+# with no human step.
+
 on:
   push:
+    # Branch and tag in ONE push filter (Actions allows only one `push` key).
+    # No `paths` filter: it would also apply to tag pushes and silently swallow
+    # them. The version check below is the real gate and costs one `npm view`,
+    # so running on every main push is cheaper than getting the filter subtly
+    # wrong.
+    branches: ["main"]
     tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-mcp
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -19,26 +44,59 @@ jobs:
           node-version: "lts/*"
           registry-url: "https://registry.npmjs.org"
 
+      # Idempotency guard. This workflow now runs on every `main` push that
+      # touches package.json, which includes commits that change a dependency
+      # rather than the version. npm rejects a duplicate version with a hard
+      # error, so ask first and exit cleanly instead of failing red on a no-op.
+      - name: Check whether this version is already published
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$VERSION is already on npm — nothing to do."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$VERSION is new — publishing."
+          fi
+
       - name: Install dependencies
+        if: steps.check.outputs.publish == 'true'
         run: npm ci
 
       - name: Run tests
+        if: steps.check.outputs.publish == 'true'
         run: npm test
 
       - name: Build
+        if: steps.check.outputs.publish == 'true'
         run: npm run build
 
       - name: Publish to npm
+        if: steps.check.outputs.publish == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install mcp-publisher
+        if: steps.check.outputs.publish == 'true'
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
 
       - name: Authenticate to MCP Registry
+        if: steps.check.outputs.publish == 'true'
         run: ./mcp-publisher login github-oidc
 
       - name: Publish to MCP Registry
+        if: steps.check.outputs.publish == 'true'
         run: ./mcp-publisher publish
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.check.outputs.publish }}" = "true" ]; then
+            echo "Published ${{ steps.check.outputs.version }} to npm and the MCP Registry." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Version ${{ steps.check.outputs.version }} already published — no action." >> "$GITHUB_STEP_SUMMARY"
+          fi
