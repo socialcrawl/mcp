@@ -93,8 +93,8 @@ describe("anonymous fallback", () => {
   it("serves an endpoint guide locally with its metered rule", async () => {
     forbidFetch();
     const out = await discover(anon, { action: "endpoint", id: "search/news" });
-    expect(out).toContain("2-14cr (metered)");
-    expect(out).toContain("1 credit per country/angle leg");
+    expect(out).toContain("2-62cr (metered)");
+    expect(out).toContain("1 credit per google leg");
     expect(out).toContain("Price-driving parameters");
   });
 
@@ -129,7 +129,7 @@ describe("live calls", () => {
       billing: { tiers: { standard: 1, advanced: 5, premium: 10 }, rules: ["Cache hits cost 0 credits"] },
       errors: [{ code: "RATE_LIMITED", http: 429, meaning: "Too many requests" }],
       rate_limits: { requests_per_minute: 600, concurrent_requests: 50 },
-      stats: { platforms: 48, endpoints: 381 },
+      stats: { platforms: 65, endpoints: 571 },
     });
     const out = await discover(ctx, { action: "quickstart" });
     expect(url()).toContain("/v1/utility/quickstart");
@@ -141,7 +141,7 @@ describe("live calls", () => {
   it("calls /v1/utility/endpoints with the platform filter", async () => {
     const url = stubEnvelope({
       kind: "endpoint_catalog",
-      stats: { platforms: 48, endpoints: 381 },
+      stats: { platforms: 65, endpoints: 571 },
       filters: { platform: "tiktok", search: null, method: null },
       total: 1,
       endpoints: [
@@ -171,7 +171,7 @@ describe("live calls", () => {
   it("prefers the live metered label over the base credits number", async () => {
     stubEnvelope({
       kind: "endpoint_catalog",
-      stats: { platforms: 48, endpoints: 381 },
+      stats: { platforms: 65, endpoints: 571 },
       filters: {},
       total: 1,
       endpoints: [
@@ -304,5 +304,55 @@ describe("the setup docs topic", () => {
 
   it("explains when bundled data is not enough", () => {
     expect(doc).toContain("Bundled vs live");
+  });
+});
+
+/**
+ * `GET /v1/status` is a public meta route, not a `/v1/utility/*` endpoint. It
+ * is the only honest answer to "should I retry this 502?", so discovery
+ * surfaces it — and it must work with no key at all.
+ */
+describe("status", () => {
+  it("reads the public status route without an API key", async () => {
+    let seen = "";
+    let sentKey: unknown;
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
+      seen = url;
+      sentKey = (init.headers as Record<string, string>)["x-api-key"];
+      return new Response(
+        JSON.stringify({
+          status: "operational",
+          platforms: { tiktok: { status: "operational" }, kwai: { status: "operational" } },
+        }),
+        { status: 200 },
+      );
+    });
+    const out = await discover(anon, { action: "status" });
+    expect(seen).toBe("https://www.socialcrawl.dev/v1/status");
+    expect(sentKey).toBeUndefined();
+    expect(out).toContain("**Overall:** operational");
+    expect(out).toContain("2 of 2 platforms operational");
+    expect(out).toContain("No platform is degraded or down");
+  });
+
+  it("surfaces the impaired platforms first and says what a breaker means", async () => {
+    vi.stubGlobal("fetch", async () =>
+      new Response(
+        JSON.stringify({
+          status: "degraded",
+          platforms: {
+            tiktok: { status: "operational" },
+            instagram: { status: "degraded" },
+            kwai: { status: "down" },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const out = await discover(ctx, { action: "status" });
+    expect(out).toContain("| `instagram` | degraded |");
+    expect(out).toContain("| `kwai` | down |");
+    expect(out).not.toContain("| `tiktok` |");
+    expect(out).toContain("full refund");
   });
 });

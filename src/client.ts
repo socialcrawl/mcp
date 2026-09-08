@@ -61,11 +61,11 @@ export async function makeRequest(ctx: ApiContext, options: RequestOptions): Pro
 }
 
 interface ApiRequestOptions {
-  method: "GET" | "POST" | "PATCH" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Path under the base URL, starting with a slash (e.g. "/v1/monitors"). */
   path: string;
   query?: Record<string, string>;
-  /** JSON body for POST/PATCH. Serialised with a Content-Type header. */
+  /** JSON body for POST/PUT/PATCH. Serialised with a Content-Type header. */
   body?: unknown;
   /** Optional `Idempotency-Key` header (BIL-02) — retry-safe writes. */
   idempotencyKey?: string;
@@ -74,17 +74,23 @@ interface ApiRequestOptions {
    * "monitors" for backward compatibility with the monitors caller.
    */
   errorPlatform?: string;
+  /**
+   * Set for the handful of `/v1` routes that carry `security: []` — currently
+   * only `GET /v1/status`. Those answer without a key, and discovery must not
+   * hard-require auth. The key is still sent when one is configured.
+   */
+  anonymous?: boolean;
 }
 
 /**
  * General-purpose authed request for `/v1/*` resources the GET-only
- * `makeRequest` can't express — the stateful monitors and web families
- * (POST/GET/PATCH/DELETE with JSON bodies and `:id` path params) and the
- * registry's batch POST endpoints (youtube/videos, prism/*). Shares the same
- * x-api-key auth, timeout, error mapping, and truncation.
+ * `makeRequest` can't express — the stateful monitors, web, and cohorts
+ * families (POST/PUT/GET/PATCH/DELETE with JSON bodies and `:id` path params)
+ * and the registry's batch POST endpoints (youtube/videos, prism/*). Shares the
+ * same x-api-key auth, timeout, error mapping, and truncation.
  */
 export async function apiRequest(ctx: ApiContext, options: ApiRequestOptions): Promise<string> {
-  if (!ctx.apiKey) {
+  if (!ctx.apiKey && !options.anonymous) {
     return NO_API_KEY_ERROR;
   }
 
@@ -96,7 +102,8 @@ export async function apiRequest(ctx: ApiContext, options: ApiRequestOptions): P
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-  const headers: Record<string, string> = { "x-api-key": ctx.apiKey };
+  const headers: Record<string, string> = {};
+  if (ctx.apiKey) headers["x-api-key"] = ctx.apiKey;
   if (options.idempotencyKey) {
     headers["Idempotency-Key"] = options.idempotencyKey;
   }
@@ -187,10 +194,26 @@ function formatHttpError(status: number, body: string, options: RequestOptions):
       return `Error: Endpoint /v1/${options.platform}/${options.resource} not found. Use socialcrawl_list_endpoints to see available endpoints for ${options.platform}.`;
     case 405:
       return "Error: Method not allowed. SocialCrawl /v1/* endpoints accept GET requests only.";
+    // 409 and 422 are the idempotency codes on the registry surface, but the
+    // stateful families reuse them for their own conflicts (a cohort identity
+    // already claimed by another external_id, a query that has not succeeded
+    // yet). Only claim it is an idempotency problem when the envelope says so;
+    // otherwise pass the server's own message through.
     case 409:
-      return "Error: Idempotency-Key conflict. The key you supplied was already used by another account. Generate a fresh key (UUIDv4 recommended).";
+      if (errorType === "IDEMPOTENCY_KEY_CONFLICT" || errorType === "UNKNOWN_ERROR") {
+        return "Error: Idempotency-Key conflict. The key you supplied was already used by another account. Generate a fresh key (UUIDv4 recommended).";
+      }
+      return `Error: ${errorType} — ${errorMessage}`;
+    case 413:
+      return `Error: ${errorType} — ${errorMessage}`;
     case 422:
-      return "Error: Idempotency-Key payload mismatch. You reused the same key with different parameters. Either use a different key, or repeat the original request exactly.";
+      if (
+        errorType === "IDEMPOTENCY_KEY_PAYLOAD_MISMATCH" ||
+        errorType === "UNKNOWN_ERROR"
+      ) {
+        return "Error: Idempotency-Key payload mismatch. You reused the same key with different parameters. Either use a different key, or repeat the original request exactly.";
+      }
+      return `Error: ${errorType} — ${errorMessage}`;
     case 429:
       return "Error: Too many concurrent requests on this API key (50 max). Wait a moment and try again.";
     case 502:

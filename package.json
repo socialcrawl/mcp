@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "1.9.0",
-  "description": "Access 48 platforms and 381 endpoints through one unified API \u2014 social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores (Google Play, App Store), places & travel (Tripadvisor, Google Business/Hotels), business reputation (Trustpilot), web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Finance/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search \u2014 with exact per-endpoint credit pricing (ladder, flat, and metered bands) for every one.",
+  "version": "1.10.0",
+  "description": "Access 65 platforms and 572 endpoints through one unified API — social media (incl. Douyin, Telegram, Quora, Apple Music), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & local (Tripadvisor, Yelp, Google Business/Hotels), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search — with exact per-endpoint credit pricing (ladder, flat, and metered bands) for every one.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -40,7 +40,12 @@
     "credits",
     "amazon",
     "walmart",
-    "web-scraping"
+    "web-scraping",
+    "cohorts",
+    "jobs-api",
+    "finance",
+    "ecommerce",
+    "marketplace"
   ],
   "license": "MIT",
   "repository": {

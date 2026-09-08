@@ -4,14 +4,15 @@ import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoin
 import { getDoc, getAvailableTopics, FIXED_TOPICS } from "../data/docs.js";
 import { CACHE_TTLS, CREDIT_LADDER, REGISTRY_STATS } from "../data/registry-meta.js";
 import { formatCost, worstCaseCost, bestCaseCost } from "../pricing.js";
+import { paginate } from "../paginate.js";
 
 /**
  * Drift guards. The hardcoded platform/endpoint totals are intentional: they
  * fail loudly when the backend registry moves, which is the signal to re-run
  * the two-step regeneration pipeline (see scripts/generate-data.ts).
  */
-const EXPECTED_PLATFORMS = 48;
-const EXPECTED_ENDPOINTS = 381;
+const EXPECTED_PLATFORMS = 65;
+const EXPECTED_ENDPOINTS = 572;
 
 describe("Platform data integrity", () => {
   it(`has exactly ${EXPECTED_PLATFORMS} platforms`, () => {
@@ -460,8 +461,33 @@ describe("Pricing documentation", () => {
     expect(getDoc("pricing")!).toContain("| `/v1/search/everywhere` | 20cr |");
   });
 
-  it("stays under the 25k limit so it is never paged", () => {
-    expect(getDoc("pricing")!.length).toBeLessThanOrEqual(25_000);
+  /**
+   * The pricing doc used to be asserted under the 25k single-page limit. At 571
+   * endpoints across 65 platforms the complete cost table no longer fits, and
+   * completeness beats a one-shot read: the doc pages (get_docs takes a `page`),
+   * and what is guarded instead is that EVERY endpoint's price is reachable.
+   */
+  it("prices every endpoint across its pages", () => {
+    const pages = paginate(getDoc("pricing")!);
+    const all = pages.join("\n");
+    for (const e of ENDPOINTS) {
+      expect(all, `pricing doc missing ${e.method} ${e.platform}/${e.resource}`).toContain(
+        `\`${e.method === "GET" ? e.resource : `${e.method} ${e.resource}`}\``,
+      );
+    }
+  });
+
+  it("keeps the summary (models, free, flat, metered bands) on page 1", () => {
+    const [first] = paginate(getDoc("pricing")!);
+    expect(first).toContain("| metered |");
+    expect(first).toContain("## Free endpoints");
+    expect(first).toContain("## Flat overrides");
+    expect(first).toContain("## Metered endpoints");
+    expect(first).toContain("## Cost per endpoint");
+  });
+
+  it("stays within two pages so pricing is never a long walk", () => {
+    expect(paginate(getDoc("pricing")!).length).toBeLessThanOrEqual(2);
   });
 });
 

@@ -137,6 +137,13 @@ function detailBlock(e: Endpoint): string[] {
       `**Sources:** \`${e.upstream.kind}\` primary, falling back to ${e.upstream.fallbackKinds.map((k) => `\`${k}\``).join(", ")}.`,
     );
   }
+  if (e.responseShape) {
+    notes.push(
+      `**Rows at:** \`${e.responseShape.root}\`${
+        e.responseShape.itemKey ? `, each row wrapped as \`${e.responseShape.itemKey}\`` : ""
+      } — read them there rather than guessing at the envelope.`,
+    );
+  }
   notes.push(
     `**Cache:** ${formatTtl(e.cache.ttlSeconds)} (\`${e.cache.category}\`) — a hit costs 0 credits.`,
   );

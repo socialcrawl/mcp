@@ -180,6 +180,14 @@ export interface Endpoint {
   contractDetails?: string[];
   /** Descriptions for notable response fields. */
   responseFields?: Record<string, string>;
+  /**
+   * Where the rows actually live inside the envelope, so an agent can reach
+   * them without guessing: `root` is the path under the response (`data.items[]`
+   * for a list, `data.author` for a singular object) and `itemKey` names the
+   * per-row wrapper inside a list item. Absent for passthrough archetypes
+   * (Analytics, Transcript, Audience, WebPage), whose payload has no fixed shape.
+   */
+  responseShape?: { root: string; itemKey?: string };
 }
 
 export interface SocialCrawlSuccessResponse {

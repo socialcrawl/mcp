@@ -13,12 +13,24 @@ import { CACHE_TTLS, CREDIT_LADDER, REGISTRY_STATS } from "./registry-meta.js";
 const free = ENDPOINTS.filter((e) => e.pricing.cost === 0);
 const metered = ENDPOINTS.filter((e) => e.pricing.model === "metered");
 
+/**
+ * `search/news` is the worked example for metered billing throughout these
+ * docs. Its band moves whenever a leg or an engine is added (2-14 → 2-62 when
+ * the bing engine landed), so read it from the data rather than retyping it.
+ */
+const newsBand = (() => {
+  const e = ENDPOINTS.find((x) => x.platform === "search" && x.resource === "news");
+  return e?.pricing.minCost !== undefined && e.pricing.maxCost !== undefined
+    ? `${e.pricing.minCost}–${e.pricing.maxCost}`
+    : "a metered band";
+})();
+
 export const HANDWRITTEN: Record<string, string> = {
   overview: `# SocialCrawl API
 
-Unified social, commerce, and research data API. One API key, one response envelope, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores, places & travel, business reputation, news & finance, web research plus full web scraping & browser automation, prediction markets, search trends, Korean search (Naver), content/sentiment analysis, and cross-platform Prism composites.
+Unified social, commerce, and research data API. One API key, one response envelope, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, news, web research plus full web scraping & browser automation, on-page SEO audits, prediction markets, search trends, Korean search (Naver), content/sentiment analysis, and cross-platform Prism composites.
 
-The web-scraping/crawling/browser-automation surface (the \`web\` platform) is driven by the dedicated \`socialcrawl_web\` tool; the stateful monitors wrapper by \`socialcrawl_monitors\`. Everything else goes through \`socialcrawl_request\`.
+The web-scraping/crawling/browser-automation surface (the \`web\` platform) is driven by the dedicated \`socialcrawl_web\` tool; the stateful monitors wrapper by \`socialcrawl_monitors\`; the audience-filtered mention search (\`/v1/cohorts/*\`) by \`socialcrawl_cohorts\`. Everything else goes through \`socialcrawl_request\`.
 
 ## Base URL
 
@@ -511,7 +523,7 @@ Prefer bundled (the default) for browsing and planning. Reach for \`socialcrawl_
 
 **Discover before you spend.** \`list_endpoints\` and \`pricing\` cost nothing. A call that fails validation costs nothing either — this server checks required params, \`oneOf\` groups, enum values, integer ranges, parameter couplings, and CSV limits locally first.
 
-**Read \`credits_used\`, not the sticker price.** 26 endpoints are metered: an upfront ceiling is deducted and refunded down to the work actually done. \`/v1/search/news\` advertises a 1-credit base and really charges 2–14. The envelope's \`credits_used\` is the settled number.
+**Read \`credits_used\`, not the sticker price.** ${metered.length} endpoints are metered: an upfront ceiling is deducted and refunded down to the work actually done. \`/v1/search/news\` advertises a 1-credit base and really charges ${newsBand}. The envelope's \`credits_used\` is the settled number.
 
 **Let the cache work.** Identical calls inside the TTL are free (2 minutes for search, up to 30 days for transcripts). Do not add junk query params to force freshness — unknown params are stripped from the cache key and never reach upstream. Send \`Cache-Control: no-cache\` if you genuinely need a live fetch.
 
@@ -671,4 +683,118 @@ Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and 
 ## Billing
 
 Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget, and \`socialcrawl_pricing\` with \`action: "endpoint"\` to price the recipe first. The webhook auto-pauses after 10 consecutive delivery failures.`,
+
+  cohorts: `# SocialCrawl API — Cohorts
+
+Cohorts answer a **narrower question than open social listening**: not "who is talking about X?" but "**which of _these specific_ public identities is talking about X?**" You supply the panel — a purchaser list, a customer roster, a creator shortlist — and get bounded, deterministic, metered retrieval over exactly those accounts.
+
+Cohorts are **not** registry endpoints. They live at \`/v1/cohorts/*\` and \`/v1/cohort-queries/*\`, mix POST/PUT/GET/DELETE with an async lifecycle, and are driven by the \`socialcrawl_cohorts\` tool rather than \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
+
+It is **not** audience discovery. It does not find people, infer demographics, or score interests. It takes a list you already have and reports what those public accounts posted.
+
+## What SocialCrawl receives
+
+Two things per member, and nothing else:
+
+- \`platform\` + \`handle\` — the public identity (the profile URL for LinkedIn).
+- \`external_id\` — your own opaque key, echoed back on every match and every coverage row so you can join results to your own records.
+
+Whatever produced the list (receipts, CRM segments, panel attributes) stays on your side; there is no field for it here. Both the identity and your \`external_id\` are encrypted at rest with a per-account key and never appear in logs, job payloads, traces, or error messages. \`get\` returns counts and metadata — it will not read the identities back to you.
+
+## Supported identity platforms
+
+\`instagram\` · \`tiktok\` · \`youtube\` · \`twitter\` · \`threads\` · \`bluesky\` · \`truth-social\` · \`kwai\` · \`twitch\` · \`linkedin\`
+
+Anything else is rejected at upload (400 \`COHORT_IDENTITY_PLATFORM_UNSUPPORTED\`), so an unsupported identity can never silently cost you a query that returns nothing. \`socialcrawl_cohorts\` also checks the list locally before it sends.
+
+## The lifecycle
+
+| Action | HTTP | Cost |
+|--------|------|------|
+| \`create\` | \`POST /v1/cohorts\` | 0 |
+| \`add_members\` | \`PUT /v1/cohorts/:id/members\` (repeat per 1,000) | 0 |
+| \`estimate_cost\` | *local calculation, no API call* | 0 |
+| \`query\` | \`POST /v1/cohorts/:id/queries\` -> \`202\` | metered |
+| \`query_status\` | \`GET /v1/cohort-queries/:id\` | 0 |
+| \`query_results\` | \`GET /v1/cohort-queries/:id/results\` | 0 |
+| \`query_cancel\` | \`DELETE /v1/cohort-queries/:id\` | 0 |
+| \`get\` / \`delete\` | \`GET\`/\`DELETE /v1/cohorts/:id\` | 0 |
+
+Writes (\`create\`, \`add_members\`, \`query\`) require an \`Idempotency-Key\` UUID. The tool generates one when you omit it and echoes it back in the response header — **reuse that key to retry**, or a repeated call creates a second cohort or reserves a second query. Replaying a key with a *different* body returns 422 \`IDEMPOTENCY_KEY_PAYLOAD_MISMATCH\`.
+
+## Limits
+
+| Limit | Value |
+|-------|-------|
+| Cohorts per API key | 100 |
+| Members per cohort | 10,000 |
+| Members per upload call | 1,000 |
+| Keywords per query | 20 |
+| \`max_pages_per_identity\` | 1-20 |
+| \`max_items_per_identity\` | 1-1,000 |
+| \`retention_days\` | 7-90 (default 30) |
+| \`query_results\` \`limit\` | 1-500 (default 100) |
+
+Re-sending an \`external_id\` you have already uploaded **updates** its identity rather than adding a row, so a nightly full re-push is safe and does not inflate the count. Two different \`external_id\`s claiming the same normalized identity inside one cohort is 409 \`COHORT_IDENTITY_CONFLICT\` rather than a quiet double count.
+
+## Matching is code, not a model
+
+- **Normalization** — keyword and candidate text are both Unicode NFKC, case-folded, whitespace-collapsed.
+- **Whole-word only** — \`acme\` matches "my acme review", never "acmecorp".
+- **CJK caveat** — CJK scripts count as letters, so a Korean/Japanese/Chinese keyword embedded inside surrounding CJK text will not match; pass the surrounding form as its own keyword.
+- **Echoed normalized** — submit "Acme Pro", a match reports \`"acme pro"\`.
+- **Title and description** — on YouTube and Twitch both surfaces are matched, and \`text_excerpt\` carries whichever one hit.
+
+No stemming, fuzzy matching, semantic expansion, sentiment scoring, or brand-alias inference. Want "Acme" to also catch "AcmeCo"? Pass both. Only content the source attributes to the identity you supplied is eligible — profile lookups resolve the account and its cursor and never become results.
+
+## Coverage is the important field
+
+\`query_results\` returns \`items\` **and** \`coverage\`, one coverage record per member whether or not it matched. This is what stops a partial crawl from reading as "nobody talked about you".
+
+- \`window_complete: true\` — the route reached your \`date_from\` boundary or the end of the feed. What you got is everything in the window.
+- \`window_complete: false\` — the page budget ran out, the account was unreachable, or the route errored. There may be posts you did not see.
+- \`oldest_seen\` — the oldest post observed for that member, even when nothing matched: how far back the crawl actually got.
+- \`status\` — \`not_found\` for a handle that does not resolve, \`failed\` for an exhausted or erroring account. **A query can be \`succeeded\` while individual members report either.**
+
+Coverage is paginated exactly like \`items\`, so a 10,000-member panel takes at least 20 pages at \`limit=500\` even when nothing matched, and later pages can carry coverage with an empty \`items\` array. Accumulate both streams until \`next_cursor\` is null. Pages are also bounded to a 1 MB body, so a short page is not necessarily the last one.
+
+On the single-page platforms (Twitter/X, Bluesky, Threads, Twitch) the source serves one fixed page per identity, so raising \`max_pages_per_identity\` cannot deepen the crawl there — \`window_complete: false\` simply means the window is beyond what the source exposes.
+
+## Credits
+
+Every lifecycle call is **0 credits**. A query reserves its worst-case ceiling at submission:
+
+\`\`\`text
+ceiling = SUM(members x route page cap x credits per page)
+\`\`\`
+
+| Platform | Credits per successful page |
+|----------|------------------------------|
+| LinkedIn | 5 |
+| Instagram, YouTube | 2 per page-round (two routes per member) |
+| Twitter/X, Bluesky, Threads, Twitch | 1, and the page cap is always 1 |
+| Everything else | 1 |
+
+Run \`socialcrawl_cohorts\` with \`action: "estimate_cost"\` (plus \`members\` or \`platform_counts\` and your \`max_pages_per_identity\`) to compute that number locally, for free, before you commit.
+
+You are charged **only for pages that actually succeeded**. Failed, timed-out, cancelled, and skipped pages cost nothing, and when the query reaches a terminal state the unspent reservation is refunded exactly once — \`actual_credits + refunded_credits\` always equals \`reserved_credits\`. \`max_credits\` is your own safety limit, never permission to spend beyond the ceiling: if the computed ceiling exceeds it, submission fails with a 400 before any work is created or any credit is held.
+
+## Errors
+
+| Code | Status | Meaning |
+|------|--------|---------|
+| \`COHORT_LIMIT_EXCEEDED\` | 400 | The account already holds the maximum of 100 cohorts |
+| \`COHORT_MEMBER_LIMIT_EXCEEDED\` | 400 | The upload would push the cohort past 10,000 members |
+| \`COHORT_IDENTITY_PLATFORM_UNSUPPORTED\` | 400 | That platform is not supported for cohort queries |
+| \`COHORT_IDENTITY_CONFLICT\` | 409 | Another \`external_id\` already claims that identity in this cohort |
+| \`COHORT_QUERY_NOT_READY\` | 409 | The query has not succeeded — running, cancelled, and expired queries do not serve results |
+| \`COHORT_QUERY_NOT_CANCELLABLE\` | 409 | The query is already terminal |
+| \`COHORT_RESULT_TOO_LARGE\` | 413 | A single stored result cannot fit under the 1 MB page ceiling |
+| \`INSUFFICIENT_CREDITS\` | 402 | The reservation ceiling exceeds your available balance |
+
+A cohort or query that is not yours returns **404, never 403** — a cross-tenant probe is indistinguishable from a resource that does not exist.
+
+## Retention and privacy
+
+Membership is purged after \`retention_days\` (7-90, default 30), and results are purged with their parent cohort. Only matched content and coverage are stored — never the unmatched feeds the workers paged through. \`DELETE\` on a cohort cascades its members, queries, and results and cancels anything still in flight; your credit-ledger receipts survive, because billing history outlives the data.`,
 };

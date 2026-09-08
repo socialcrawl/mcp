@@ -4,6 +4,122 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-09-08
+
+Re-sync with the backend registry (**48 platforms / 381 endpoints → 65 platforms /
+572 active endpoints**, +194/-3) and closure of the last stateful-family gap.
+Eighteen platforms land at once, thirteen existing ones grow, and `google_finance`
+is superseded by a broader `finance` platform.
+
+The MCP had drifted three weeks behind the backend. Everything an agent could
+see — the catalogue, the parameter contracts, the prices — was a snapshot of a
+surface that had since grown by half. This release regenerates all of it from
+the live registry and adds the one customer-facing family the server had never
+covered: **Cohorts**.
+
+### Added
+
+- **New `socialcrawl_cohorts` tool (tool count 9 → 10)** for the stateful
+  audience-filtered mention search at `/v1/cohorts/*` and
+  `/v1/cohort-queries/*`. It answers the inverse of social listening: not "who
+  is talking about X?" but "which of *these specific* public identities is?"
+  Nine actions cover all eight routes — `create`, `add_members`, `query`,
+  `query_status`, `query_results`, `query_cancel`, `get`, `delete` — plus
+  `estimate_cost`, which computes the credit ceiling locally with no API call.
+  Like monitors and the stateful web surface, cohorts are not registry
+  endpoints, so `socialcrawl_request` could never express them.
+  - **The reservation is a computed ceiling, not a flat number.** A query
+    reserves `Σ(member × route page cap × credits per page)` — 5 per page for
+    LinkedIn, 2 per page-round for Instagram and YouTube (two routes per
+    member), 1 elsewhere, and a fixed cap of 1 page on the four single-page
+    sources (X, Bluesky, Threads, Twitch) that cannot be paged at all. Quoting
+    a single `maxCost` would be wrong here, so `estimate_cost` returns the
+    per-platform breakdown and the exact number `max_credits` has to clear.
+  - **`PUT` is the only PUT in the API**, and `POST`/`PUT` require an
+    `Idempotency-Key` UUID. The tool generates one when the caller omits it and
+    **echoes it back in the response**, because reusing that key is what makes
+    a retry replay the original call instead of creating a second cohort or
+    reserving a second query.
+  - Every contract bound is checked locally before the call: the ten supported
+    identity platforms, 1,000 members per upload, 20 keywords, page/item/credit
+    caps, `retention_days` 7-90, results `limit` 1-500, and the 21-character
+    nanoid / UUID id shape (which is interpolated into the path, so a crafted
+    id cannot redirect a DELETE at another resource).
+  - New `cohorts` docs topic covering the lifecycle, the limits, the
+    deterministic matching rules, the coverage contract, and the credit model.
+- **Every endpoint now says where its rows live.** The dump carries the
+  registry's `responseShape` (417 of the 572 endpoints have one), and
+  `list_endpoints` and the platform docs print it: `data.items[]` with a
+  per-row `itemKey` for a list, `data.author` / `data.post` / `data.product`
+  for a singular object. An agent no longer has to guess between `data`,
+  `data.items`, and a wrapper key. Absent on the passthrough archetypes
+  (Analytics, Transcript, Audience, WebPage), whose payload has no fixed shape.
+- **`socialcrawl_discover` gains `action: "status"`** over the public
+  `GET /v1/status` meta route — every platform's live circuit-breaker state.
+  It is the honest answer to "should I retry this 502?", and it is the one call
+  in the server that needs no API key at all. The render leads with the
+  platforms that are *not* operational, because a 65-row all-green table buries
+  the line that matters.
+- **Eighteen new platforms.** Marketplaces and retail: **Klarna** (18 — offers,
+  price history, professional reviews, buying guides), **Sephora** (11),
+  **Gumtree** (11 — UK classifieds), **AliExpress** (9), **G2** (7 — software
+  reviews), **H&M** (6), **Kohl's** (5), **Yelp** (5), **Etsy** (4),
+  **Wayfair** (3). Data: **US Congress Trades** (19 — STOCK Act disclosures with
+  the full statistics suite), **Jobs** (11 — LinkedIn/Indeed/Bing/Xing search
+  and detail plus salary bands), **Finance** (7 — quotes, news, price history,
+  financial statements, options chains), **On-Page** (1 — single-URL SEO audit).
+  Social: **Douyin** (8), **Quora** (7), **Apple Music** (4), **Telegram** (3).
+- **Thirteen platforms grew.** Tripadvisor 2 → 16 (hotels, restaurants,
+  attractions, cruises — search, detail, and reviews for each); TikTok 21 → 34
+  (Ad Library incl. the metered top-ads board, playlists, collections, liked
+  videos, place feeds, effects, music search, hashtag detail, search
+  suggestions); Twitter 8 → 15 (tweet and user
+  search, replies, media, followers, following, retweeters); Reddit 8 → 14 (user
+  profiles with post and comment history, comment/media/subreddit search);
+  Instagram 33 → 37; Amazon 5 → 8 (Best Sellers, deals, seller profiles);
+  Home Depot 2 → 4 (keyword search, store lookup); LinkedIn 44 → 45 (the metered
+  `profile/posts/archive` full-history walk); Facebook 23 → 24 (groups);
+  YouTube 28 → 29 (`channel/about` contact-email lookup, billed only when an
+  address is returned); Google Shopping 4 → 5 (price history); Snapchat 1 → 2
+  (Spotlight comments); Search 3 → 4 (`creators`, a fused TikTok + Threads +
+  Instagram creator-discovery lane).
+
+### Changed
+
+- **`search/news` is now a 2-62cr band, up from 2-14cr.** Adding the bing engine
+  put per-article billing behind a lane that used to be per-leg. The worked
+  example in the `setup` docs topic now reads its band from the registry data
+  rather than a retyped literal, so it cannot go stale again.
+- **409 and 422 are no longer assumed to be idempotency errors.** Those are the
+  registry surface's codes, but the stateful families reuse them for their own
+  conflicts (`COHORT_IDENTITY_CONFLICT`, `COHORT_QUERY_NOT_READY`). The error
+  formatter now claims an idempotency problem only when the envelope says so and
+  otherwise passes the server's own message through, and 413 is surfaced rather
+  than falling into the generic branch.
+- **`apiRequest` supports `PUT`** (cohorts' member upload) and an `anonymous`
+  mode for the routes that carry `security: []`.
+- The pricing docs topic no longer fits one 25k page at 572 endpoints. It pages
+  instead of dropping rows: the drift guard now asserts that **every endpoint's
+  price is reachable across the pages**, that page 1 still carries the whole
+  summary (models, free, flat overrides, metered bands), and that the doc stays
+  within two pages — a completeness guarantee in place of a size assertion.
+- Platform descriptions, tool descriptions, the README platform table, and the
+  category labels all rewritten for the new surface. The README table is now
+  generated against the dump, so an endpoint count in it cannot drift.
+
+### Removed
+
+- **`google_finance`** (3 endpoints) — superseded by **`finance`** (7), which
+  keeps quotes, ticker search, and the markets overview and adds instrument
+  news, daily price-history bars, company financial statements, and options
+  chains.
+
+### Fixed
+
+- Data-integrity drift guards updated to 65 platforms / 572 endpoints — the
+  hardcoded totals are intentional and are the signal to re-run the two-step
+  regeneration pipeline.
+
 ## [1.9.0] - 2026-08-18
 
 Re-sync with the backend registry (**44 platforms / 357 endpoints → 48 platforms /

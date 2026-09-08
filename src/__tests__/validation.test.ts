@@ -107,7 +107,7 @@ describe("socialcrawl_request local validation", () => {
       resource: "news",
       params: { query: "samsung galaxy" },
     });
-    expect(out).toContain("2-14cr (metered)");
+    expect(out).toContain("2-62cr (metered)");
     expect(out).toContain("Metered rule:");
     expect(out).toContain("refunded to the actual charge");
   });

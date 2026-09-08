@@ -1,4 +1,4 @@
-import { makeRequest } from "../client.js";
+import { apiRequest, makeRequest } from "../client.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { PLATFORMS, findPlatform } from "../data/platforms.js";
 import { REGISTRY_STATS } from "../data/registry-meta.js";
@@ -46,7 +46,8 @@ export type DiscoverAction =
   | "catalog"
   | "endpoint"
   | "llms"
-  | "freshness";
+  | "freshness"
+  | "status";
 
 export interface DiscoverParams {
   action?: DiscoverAction;
@@ -798,9 +799,76 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
       return renderFreshness(stats ?? null);
     }
 
+    case "status": {
+      // `GET /v1/status` is a public meta route (`security: []`), not a
+      // `/v1/utility/*` endpoint: it reports every platform's circuit-breaker
+      // state. It is the right thing to read before retrying a persistent 502,
+      // and it answers without a key — hence `anonymous`.
+      const response = await apiRequest(ctx, {
+        method: "GET",
+        path: "/v1/status",
+        anonymous: true,
+        errorPlatform: "status",
+      });
+      return paged(renderStatus(response));
+    }
+
     default:
-      return `Error: Unknown action "${String(action)}". Valid actions: quickstart, catalog, endpoint, llms, freshness.`;
+      return `Error: Unknown action "${String(action)}". Valid actions: quickstart, catalog, endpoint, llms, freshness, status.`;
   }
+}
+
+/**
+ * Render `GET /v1/status`: overall health first, then only the platforms that
+ * are not operational, because a 65-row all-green table buries the one line
+ * that matters.
+ */
+function renderStatus(response: string): string {
+  const header = [
+    "# SocialCrawl platform status",
+    "",
+    "> Live from `GET /v1/status` — every platform's circuit-breaker state and the upstream-version mix. Public meta route: no API key, no credit cost, no upstream call.",
+    "",
+  ].join("\n");
+
+  if (response.startsWith("Error:")) return `${header}${response}`;
+
+  let parsed: {
+    status?: string;
+    platforms?: Record<string, { status?: string }>;
+    [k: string]: unknown;
+  };
+  try {
+    parsed = JSON.parse(response) as typeof parsed;
+  } catch {
+    return `${header}${response}`;
+  }
+
+  const platforms = parsed.platforms ?? {};
+  const entries = Object.entries(platforms);
+  const impaired = entries.filter(([, v]) => v.status !== "operational");
+
+  const lines = [header, `**Overall:** ${parsed.status ?? "unknown"}`, ""];
+  if (entries.length > 0) {
+    lines.push(
+      `${entries.length - impaired.length} of ${entries.length} platforms operational.`,
+      "",
+    );
+  }
+  if (impaired.length > 0) {
+    lines.push("| Platform | Status |", "|----------|--------|");
+    for (const [slug, v] of impaired) lines.push(`| \`${slug}\` | ${v.status} | `);
+    lines.push(
+      "",
+      "A `degraded` or `down` platform is the circuit breaker holding traffic off a failing upstream. Single-source endpoints there return 503 with a full refund; multi-source endpoints route around it. Retry after 30 seconds rather than hammering.",
+      "",
+    );
+  } else if (entries.length > 0) {
+    lines.push("No platform is degraded or down.", "");
+  }
+
+  lines.push("Full payload:", "", "```json", JSON.stringify(parsed, null, 2), "```");
+  return lines.join("\n");
 }
 
 /** Exported for the coverage test: which utility resource each action calls. */
@@ -810,6 +878,8 @@ export const DISCOVER_ACTION_RESOURCES: Record<DiscoverAction, string | null> = 
   endpoint: "endpoint",
   llms: "llms",
   freshness: "endpoints",
+  // Not a utility endpoint — the public `/v1/status` meta route.
+  status: null,
 };
 
 /** Exported so the pricing surface can note that discovery is free. */

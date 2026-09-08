@@ -8,6 +8,7 @@ import {
   CheckBalanceInputSchema,
   MonitorsInputSchema,
   WebInputSchema,
+  CohortsInputSchema,
   GetDocsInputSchema,
   PricingInputSchema,
   DiscoverInputSchema,
@@ -18,11 +19,13 @@ import { request } from "./tools/request.js";
 import { checkBalance } from "./tools/check-balance.js";
 import { monitors } from "./tools/monitors.js";
 import { web } from "./tools/web.js";
+import { cohorts } from "./tools/cohorts.js";
 import { getDocs } from "./tools/get-docs.js";
 import { pricing } from "./tools/pricing.js";
 import { discover } from "./tools/discover.js";
 import type { MonitorsParams } from "./tools/monitors.js";
 import type { WebParams } from "./tools/web.js";
+import type { CohortsParams } from "./tools/cohorts.js";
 import type { PricingParams } from "./tools/pricing.js";
 import type { DiscoverParams } from "./tools/discover.js";
 import { PLATFORMS } from "./data/platforms.js";
@@ -45,7 +48,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_list_platforms",
     {
       title: "List SocialCrawl Platforms",
-      description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores, places & travel, business reputation, news & finance, web research and full scraping/browser automation, prediction markets, search trends, Korean search (Naver), content analysis, and cross-platform Prism composites). Grouped by category, with each platform's endpoint count, credit range, and available data. No API key required.`,
+      description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading, news, web research and full scraping/browser automation, on-page SEO audits, prediction markets, search trends, Korean search (Naver), content analysis, and cross-platform Prism composites). Grouped by category, with each platform's endpoint count, credit range, and available data. No API key required.`,
       inputSchema: ListPlatformsInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -90,7 +93,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_request",
     {
       title: "Make a SocialCrawl API Request",
-      description: `Make an API request to any of the ${ENDPOINTS.length} SocialCrawl endpoints. Fetches real-time data (profiles, posts, comments, transcripts, search results, products, reviews, apps, places, news, finance, trends, analytics, and cross-platform Prism composites) from ${PLATFORMS.length} platforms. Most endpoints are GET (pass query params in \`params\`); batch endpoints (e.g. youtube/videos, prism/profiles) are POST — pass the array/object body in \`body\`. For web scraping/crawling/browser automation use the \`socialcrawl_web\` tool instead. Requires a valid SOCIALCRAWL_API_KEY. Validates the platform, resource, required params, oneOf groups, enum values, integer ranges, parameter couplings, and CSV limits locally first, so a malformed call fails free instead of burning credits. Reports the endpoint's price (and metered rule) with every response. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
+      description: `Make an API request to any of the ${ENDPOINTS.length} SocialCrawl endpoints. Fetches real-time data (profiles, posts, comments, transcripts, search results, products, offers and price history, reviews, apps, places and stores, jobs and salary ranges, news, market quotes and financial statements, congressional trade disclosures, SEO audits, trends, analytics, and cross-platform Prism composites) from ${PLATFORMS.length} platforms. Most endpoints are GET (pass query params in \`params\`); batch endpoints (e.g. youtube/videos, prism/profiles) are POST — pass the array/object body in \`body\`. For web scraping/crawling/browser automation use the \`socialcrawl_web\` tool instead. Requires a valid SOCIALCRAWL_API_KEY. Validates the platform, resource, required params, oneOf groups, enum values, integer ranges, parameter couplings, and CSV limits locally first, so a malformed call fails free instead of burning credits. Reports the endpoint's price (and metered rule) with every response. Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
       inputSchema: RequestInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -177,6 +180,26 @@ export function createServer(ctx: ApiContext): McpServer {
   );
 
   server.registerTool(
+    "socialcrawl_cohorts",
+    {
+      title: "SocialCrawl Cohorts — Audience-Filtered Mention Search",
+      description:
+        "Answer 'which of THESE specific public identities is talking about my keywords?' — the opposite of open social listening. You upload a panel of up to 10,000 platform-qualified public handles (instagram, tiktok, youtube, twitter, threads, bluesky, truth-social, kwai, twitch, linkedin), submit a keyword query bounded to a recent window, and read back the matching posts per member PLUS a coverage record for every member, including the ones that matched nothing — so a partial crawl can never read as 'nobody talked about you'. Actions: create, add_members (1,000 per call, upsert on external_id so a nightly re-push is safe), estimate_cost (local, no API call — sizes the reservation before you commit), query (async, returns 202), query_status, query_results (paged, carries `items` + `coverage`), query_cancel, get, delete. Matching is deterministic: literal, whole-word, Unicode-normalized — no stemming, fuzzy matching, or alias inference. Every lifecycle call costs 0 credits; only the query is metered — it reserves a worst-case ceiling at submission and refunds down to the pages that actually succeeded. SocialCrawl only ever receives platform + handle + your opaque external_id, encrypted at rest. Requires a valid SOCIALCRAWL_API_KEY.",
+      inputSchema: CohortsInputSchema,
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: true,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async (params) => {
+      const output = await cohorts(ctx, params as CohortsParams);
+      return { content: [{ type: "text", text: output }] };
+    },
+  );
+
+  server.registerTool(
     "socialcrawl_pricing",
     {
       title: "SocialCrawl Pricing & Credit Costs",
@@ -200,7 +223,7 @@ export function createServer(ctx: ApiContext): McpServer {
     {
       title: "SocialCrawl API Self-Discovery (utility endpoints)",
       description:
-        "The API describing itself, live, at 0 credits — the `/v1/utility/*` family. 'quickstart': everything needed for a first successful call (auth, base URL, response envelope, billing model, the full error taxonomy, rate limits, paging). 'catalog': every endpoint with its live metered-aware price, params, and paging flag — filter by platform/search/method. 'endpoint': one endpoint's complete usage guide — every parameter with type and example, the exact pricing rule, cache TTL, paging recipe, an example response, a copy-paste curl, and related endpoints. 'llms': the agent context corpus for the whole API or one platform. 'freshness': compare the live registry against this server's bundled catalogue to check whether this MCP version has fallen behind the API. These answer from the live registry at request time, so unlike bundled data they can never drift from what is actually callable — use them when correctness matters more than latency, or when an endpoint looks unknown. Without an API key everything except 'llms' still answers from bundled data.",
+        "The API describing itself, live, at 0 credits — the `/v1/utility/*` family. 'quickstart': everything needed for a first successful call (auth, base URL, response envelope, billing model, the full error taxonomy, rate limits, paging). 'catalog': every endpoint with its live metered-aware price, params, and paging flag — filter by platform/search/method. 'endpoint': one endpoint's complete usage guide — every parameter with type and example, the exact pricing rule, cache TTL, paging recipe, an example response, a copy-paste curl, and related endpoints. 'llms': the agent context corpus for the whole API or one platform. 'freshness': compare the live registry against this server's bundled catalogue to check whether this MCP version has fallen behind the API. 'status': every platform's live circuit-breaker state from the public `GET /v1/status` meta route — read it before retrying a persistent 502/503, since a degraded platform is the breaker holding traffic off a failing upstream. These answer from the live registry at request time, so unlike bundled data they can never drift from what is actually callable — use them when correctness matters more than latency, or when an endpoint looks unknown. Without an API key everything except 'llms' still answers from bundled data ('status' needs no key at all).",
       inputSchema: DiscoverInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -219,7 +242,7 @@ export function createServer(ctx: ApiContext): McpServer {
     "socialcrawl_get_docs",
     {
       title: "Get SocialCrawl Documentation",
-      description: `Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference for all ${ENDPOINTS.length} endpoints), 'authentication', 'credits', 'pricing' (per-endpoint cost for every endpoint), 'errors', 'idempotency', 'pagination' (universal cursor contract), 'caching' (TTLs and free hits), 'response-schema' (the canonical envelope and unified objects), 'limits' (rate, concurrency, timeouts), 'monitors' (scheduled-recipe wrapper), 'discovery' (the free self-describing utility endpoints), or any platform slug (e.g., 'tiktok', or 'web' for the web-scraping/browser-automation surface). No API key required.`,
+      description: `Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference for all ${ENDPOINTS.length} endpoints), 'authentication', 'credits', 'pricing' (per-endpoint cost for every endpoint), 'errors', 'idempotency', 'pagination' (universal cursor contract), 'caching' (TTLs and free hits), 'response-schema' (the canonical envelope and unified objects), 'limits' (rate, concurrency, timeouts), 'monitors' (scheduled-recipe wrapper), 'cohorts' (audience-filtered mention search over a panel you supply), 'discovery' (the free self-describing utility endpoints), or any platform slug (e.g., 'tiktok', or 'web' for the web-scraping/browser-automation surface). No API key required.`,
       inputSchema: GetDocsInputSchema,
       annotations: {
         readOnlyHint: true,

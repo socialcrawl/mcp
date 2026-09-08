@@ -119,6 +119,13 @@ function buildEndpointBlock(e: Endpoint): string {
     lines.push(`Pricing rule: ${e.pricing.description}`);
   }
   lines.push(`Response: ${e.archetype} · Cache: ${formatTtl(e.cache.ttlSeconds)} (${e.cache.category})`);
+  if (e.responseShape) {
+    // Where the rows actually live. Without this an agent has to guess between
+    // `data`, `data.items`, and a per-row wrapper key.
+    lines.push(
+      `Rows at: \`${e.responseShape.root}\`${e.responseShape.itemKey ? `, each wrapped as \`${e.responseShape.itemKey}\`` : ""}`,
+    );
+  }
   lines.push("");
 
   if (e.params.length > 0) {
@@ -310,7 +317,9 @@ function buildPlatformDoc(slug: string): string {
     platform.description,
     "",
     ...(slug === "web" ? [WEB_DOC_PREAMBLE, ""] : []),
-    `${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}, ${cheapest}-${dearest} credits per call.`,
+    `${endpoints.length} endpoint${endpoints.length === 1 ? "" : "s"}, ${
+      cheapest === dearest ? `${cheapest} credit${cheapest === 1 ? "" : "s"}` : `${cheapest}-${dearest} credits`
+    } per call.`,
     "",
   ].join("\n");
   return header + endpoints.map(buildEndpointBlock).join("\n\n");
@@ -386,6 +395,7 @@ export const FIXED_TOPICS = [
   "response-schema",
   "limits",
   "monitors",
+  "cohorts",
   "discovery",
 ] as const;
 
@@ -406,6 +416,7 @@ export const DOCS: Record<string, string> = (() => {
     limits: HANDWRITTEN.limits,
     discovery: HANDWRITTEN.discovery,
     monitors: HANDWRITTEN.monitors,
+    cohorts: HANDWRITTEN.cohorts,
     pricing: buildPricingDoc(),
     full: buildFullDoc(),
   };

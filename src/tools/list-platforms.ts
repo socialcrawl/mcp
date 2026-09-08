@@ -6,7 +6,7 @@ import type { Platform } from "../types.js";
 
 /**
  * Platform catalogue. Grouped by the registry's own manifest category so a
- * 48-platform table reads as a map of the surface rather than one flat wall,
+ * 65-platform table reads as a map of the surface rather than one flat wall,
  * and every row carries its own cost range so a caller can pick a platform
  * against a budget without a second lookup.
  */
@@ -14,10 +14,10 @@ import type { Platform } from "../types.js";
 const CATEGORY_LABELS: Record<string, string> = {
   major: "Major social",
   additional: "Additional social & media",
-  commerce: "Commerce, apps, places & reputation",
+  commerce: "Commerce, marketplaces, apps, places & reputation",
   adLibraries: "Ad libraries & transparency",
   linkPages: "Link-in-bio pages",
-  utility: "Research, web, composites & utility",
+  utility: "Research, web, data & composites",
 };
 
 const CATEGORY_ORDER = [
@@ -55,7 +55,7 @@ export function listPlatforms(): string {
     "# SocialCrawl — Supported Platforms",
     "",
     `${PLATFORMS.length} platforms, ${totalEndpoints} endpoints, one API key and one response envelope. ` +
-      `${REGISTRY_STATS.socialPlatforms} are social platforms; the rest are commerce, app stores, places, business reputation, news/finance, web research and scraping, prediction markets, Korean search, content analysis, and cross-platform composites.`,
+      `${REGISTRY_STATS.socialPlatforms} are social platforms; the rest are commerce and marketplaces, app stores, places and local, business and software reputation, jobs and salaries, markets and finance, congressional trading disclosures, news, web research and scraping, on-page SEO, prediction markets, Korean search, content analysis, and cross-platform composites.`,
     "",
     `Credit tiers: standard ${REGISTRY_STATS.standardEndpoints} · advanced ${REGISTRY_STATS.advancedEndpoints} · premium ${REGISTRY_STATS.premiumEndpoints} endpoints. ` +
       "The `Credits/call` column is the full range across a platform's endpoints, with metered endpoints shown at their ceiling — use `socialcrawl_pricing` for exact per-endpoint costs.",

@@ -85,6 +85,7 @@ interface DumpEndpoint {
   tags?: string[];
   contractDetails?: string[];
   responseFields?: Record<string, string>;
+  responseShape?: { root: string; itemKey?: string };
 }
 
 interface Dump {
@@ -104,54 +105,88 @@ interface Dump {
 }
 
 const PLATFORM_DESCRIPTIONS: Record<string, string> = {
+  web:
+    "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
   tiktok:
-    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user search, trending feed, audience demographics, followers, following, live streams, songs, video transcripts, and profile region lookup.",
+    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, trending feed, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   instagram:
-    "Profiles, posts, reels, comments (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
+    "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
   youtube:
-    "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
+    "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
   twitter:
-    "Profiles, tweets, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
+    "Profiles, tweets and their replies, tweet search and user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   linkedin:
-    "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
+    "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), the complete post-history archive walk (profile/posts/archive — 100 posts a page, metered per post), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   facebook:
-    "Pages, posts, comments and replies, group posts, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+    "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   reddit:
-    "Subreddit posts and details, single post detail, post comments, keyword search, subreddit search, the cross-source omni-search composite, and post video transcripts.",
+    "Subreddit posts and details, single post detail, post comments, user profiles with their post and comment history, keyword / comment / media search, subreddit discovery search, the cross-source omni-search composite, and post video transcripts.",
   threads:
     "Profiles, posts, post details, post comments, keyword search, and user search.",
   pinterest:
     "Pins, boards, user boards, keyword search, and Pinterest Save-Button counts for any URL (url-stats).",
   twitch:
     "Streamer profiles, clip details, user videos, and broadcast schedules.",
-  snapchat: "Public user profiles including subscriber count and bio.",
+  snapchat:
+    "Public user profiles including subscriber count and bio, plus comments on Spotlight posts.",
   truthsocial: "Profiles, user posts, and post details.",
+  telegram:
+    "Public Telegram channel profiles, channel post feeds, and single post lookups.",
   kick: "Clip details including view count, duration, and category.",
-  kwai: "Profiles, user posts, and post details from Kwai (Kuaishou's international short-video app).",
+  kwai:
+    "Profiles, user posts, and post details from Kwai (Kuaishou's international short-video app).",
   tiktokshop:
     "TikTok Shop product details, product reviews, shop product listings, shop search, and creator showcases.",
   perplexity:
     "Web research via Perplexity Sonar — returns a grounded answer with cited source URLs.",
   google:
     "Google web search, Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
+  amazon:
+    "Product search, full ASIN product details, on-page reviews, buy-box sellers and offers, Amazon shop/storefront pages, Best Sellers charts by category, current deals, and seller profiles — across ~13 Amazon marketplaces via the country parameter.",
+  google_shopping:
+    "Google Shopping product search, full product details, price history for a product, reviews aggregated across retailers, and per-seller offers with itemised pricing.",
   google_news:
     "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by a primary news upstream with a DataForSEO Google News fallback and bidirectional query-derived source pinning.",
-  google_finance:
-    "Financial-instrument data — full quotes, a markets overview (indices + top movers), and ticker search by name. Backed by DataForSEO Google Finance.",
-  prism:
-    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
-  amazon:
-    "Product search, full ASIN product details, on-page reviews, buy-box sellers and offers, and Amazon shop/storefront pages — across ~13 Amazon marketplaces via the country parameter.",
-  google_shopping:
-    "Google Shopping product search, full product details, reviews aggregated across retailers, and per-seller offers with itemised pricing.",
+  finance:
+    "Financial-instrument data — full quotes, ticker search by name, a markets overview (indices + top movers), instrument news, daily price-history bars, company financial statements, and options chains.",
+  google_trends:
+    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
   trustpilot:
     "Trustpilot business search and company reviews — brand-reputation data keyed by company domain (shipping, refunds, support sentiment). For product reviews use amazon/reviews or google_shopping/reviews.",
+  g2:
+    "G2 software marketplace — product pages by slug or URL, product reviews, category product listings and the full category URL index, vendor (seller) profiles with their product catalogue, and a product URL index for crawling.",
   google_play:
     "Google Play app search, full app details, app reviews with developer replies, store charts (top free/paid/grossing), a filterable app listings database, search suggestions, and categories/locations/languages reference data.",
   app_store:
     "Apple App Store app search, full app details, app reviews, store charts (top free/paid/grossing for iPhone and iPad), a filterable app listings database, search suggestions, and categories/locations/languages reference data.",
   tripadvisor:
-    "Place and business search (restaurants, hotels, attractions) and traveler reviews with owner replies, review images, and cross-language auto-translation metadata.",
+    "Hotels, restaurants, attractions and cruise ships — search and full detail for each, plus traveler reviews with owner replies, review images, and cross-language auto-translation metadata. Also place lookup by URL, destination autocomplete, and the experience types available in a destination.",
+  walmart:
+    "Walmart product details, product reviews, keyword search, category browsing, and every seller offering a product — across Walmart marketplaces via the country parameter.",
+  target:
+    "Target product details by TCIN, product reviews, category browsing, the full category taxonomy, and store lookup near a location.",
+  wayfair:
+    "Wayfair product search, product details by SKU, and customer reviews.",
+  home_depot:
+    "Home Depot keyword product search, product details by item id or URL (store- and zip-aware pricing), product reviews with rating, verified-purchase, and free-text filters, and store lookup near a ZIP code.",
+  ebay:
+    "eBay listing search — including sold and completed listings with realised sale prices and dates — and full listing details by item id, across eBay country sites.",
+  etsy:
+    "Etsy listings by id or URL, a shop's product catalogue, similar-listing recommendations, and search suggestions.",
+  sephora:
+    "Sephora product details, customer reviews, keyword search and search suggestions, category browsing with the root/child category tree, brand listings and per-brand products, store lookup near a coordinate, and per-SKU in-store availability.",
+  aliexpress:
+    "AliExpress product details, keyword search, similar products, customer reviews, per-SKU shipping options, hot products, featured promotions and their product lists, and the category tree.",
+  hm:
+    "H&M keyword product search and search suggestions, store listings by country, the supported countries/languages table, the category tree, and per-product supplier and factory disclosure.",
+  kohls:
+    "Kohl's keyword product search, product reviews, product questions and answers, store lookup near a coordinate, and the category tree.",
+  klarna:
+    "Klarna's shopping comparison graph — product details and every merchant offer for a product, keyword search and suggestions, user reviews, professional reviews and review-score overviews, price history, side-by-side product comparison, category browsing with sub-categories, filters, popular keywords and buying guides, and store listings with their products and filters.",
+  gumtree:
+    "Gumtree UK classifieds — listing search and details, similar listings, seller profiles and their active ads, search suggestions, trending searches, the category tree with per-category filters, and location autocomplete plus nearest-location lookup.",
+  yelp:
+    "Yelp business profiles by encid, business reviews, business search (compact and full-card variants), and search suggestions.",
   utility:
     "Free, zero-credit API self-discovery — list every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, no auth cost, 0 credits.",
   linktree:
@@ -160,13 +195,18 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Linkbio link-in-bio pages including display name, bio, avatar, and link list.",
   linkme:
     "Linkme link-in-bio pages including display name, bio, avatar, and link list.",
-  komi: "Komi link-in-bio pages including display name, bio, avatar, and link list.",
+  komi:
+    "Komi link-in-bio pages including display name, bio, avatar, and link list.",
   pillar:
     "Pillar link-in-bio pages including display name, bio, avatar, and link list.",
   polymarket:
     "Prediction-market research — a server-side fan-out that expands a topic across multiple queries and ranks the merged Polymarket events.",
   hackernews:
     "Story search, story details, story comment trees, and user profiles. Backed by the public Algolia HN API.",
+  quora:
+    "Question search and question details, answer search, Space post search, profile search, and Space/topic search.",
+  douyin:
+    "Douyin (China's TikTok) — video search, creator profiles and their video feeds, single video detail, video comments and comment replies, creator search, and the hot-search trending board. Most lanes are metered per row returned, so cap `limit` before you call.",
   github:
     "Users, repositories, user repos, READMEs, releases, issues, pull requests, issue/PR comments, issue/PR search, and composite repo top-issues/dossier + user profile-velocity reports. Backed by the official GitHub REST API.",
   tavily:
@@ -179,22 +219,20 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Profiles, user posts, and post details from the AT Protocol social network.",
   spotify:
     "Artists, tracks, albums, podcasts, podcast episodes, and search across the Spotify catalog.",
+  apple_music:
+    "Apple Music catalog search plus artist, album, and track details.",
   search:
-    "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `forums` fuses Reddit + Hacker News + Naver 지식iN/카페 with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+    "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+  prism:
+    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
   content_analysis:
     "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
-  web:
-    "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
-  google_trends:
-    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
-  walmart:
-    "Walmart product details, product reviews, keyword search, category browsing, and every seller offering a product — across Walmart marketplaces via the country parameter.",
-  target:
-    "Target product details by TCIN, product reviews, category browsing, the full category taxonomy, and store lookup near a location.",
-  home_depot:
-    "Home Depot product details by item id or URL (store- and zip-aware pricing) and product reviews with rating, verified-purchase, and free-text filters.",
-  ebay:
-    "eBay listing search — including sold and completed listings with realised sale prices and dates — and full listing details by item id, across eBay country sites.",
+  on_page:
+    "Single-URL on-page SEO audit — the technical, content, and meta checks for one page in one call.",
+  jobs:
+    "Job listings across LinkedIn, Indeed, Bing and Xing — keyword/location search plus single-listing detail for each, LinkedIn organization-id resolution, and salary ranges by job title and country with title suggestions.",
+  us_congress_trades:
+    "US Congress STOCK Act disclosures — searchable trade feeds (all, latest 48h, recent 7d), the members who have disclosed, per-politician summaries and trades, per-ticker stats and trades, per-state delegation trades, and the full statistics suite: party comparison, sectors, issuers, most-active politicians, most-traded tickers, volume over time, unusual activity, buy/sell ratio, and late-filing reporting gaps.",
 };
 
 const root = resolve(import.meta.dirname, "..");
@@ -413,6 +451,13 @@ function renderEndpoint(e: DumpEndpoint): string {
       lines.push(`      ${str(k)}: ${str(v)},`);
     }
     lines.push("    },");
+  }
+  if (e.responseShape) {
+    const shapeParts = [`root: ${str(e.responseShape.root)}`];
+    if (e.responseShape.itemKey) {
+      shapeParts.push(`itemKey: ${str(e.responseShape.itemKey)}`);
+    }
+    lines.push(`    responseShape: { ${shapeParts.join(", ")} },`);
   }
 
   lines.push("  },");

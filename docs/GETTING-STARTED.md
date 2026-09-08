@@ -6,15 +6,16 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 9 tools that let it interact with 48 platforms and 381 endpoints — social media, commerce & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Google Shopping), app stores, places & travel, business reputation, web research, full web scraping & browser automation, prediction markets, search trends, Google News/Finance/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
+Once installed, your AI agent gains 10 tools that let it interact with 65 platforms and 572 endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, on-page SEO audits, web research, full web scraping & browser automation, prediction markets, Google News/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
 
-- **Discover** what platforms and endpoints are available — browse by platform, search by free text across all 381 endpoints, or ask the live API to describe itself for free via its own `/v1/utility/*` endpoints
+- **Discover** what platforms and endpoints are available — browse by platform, search by free text across all 572 endpoints, or ask the live API to describe itself for free via its own `/v1/utility/*` endpoints
 - **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, analytics, and Prism composites
-- **Price** any call before making it — the tier ladder, flat overrides, and the real min-max band for the 26 metered endpoints, with the rule that decides where inside the band you land
+- **Price** any call before making it — the tier ladder, flat overrides, and the real min-max band for the 41 metered endpoints, with the rule that decides where inside the band you land
 - **Read** detailed API documentation on demand — authentication, credits, pricing, errors, idempotency, pagination, caching, response schema, and rate limits
 - **Check** your credit balance, or read the itemised ledger to see exactly what any past request charged and refunded
 - **Schedule** Monitors that re-run any recipe on a cadence and deliver each result to a signed webhook
 - **Scrape & browse** the open web — scrape/search/map/extract, async crawl/agent jobs, change monitors, and interactive browser sessions via `socialcrawl_web`
+- **Filter listening to a panel you supply** — upload up to 10,000 public identities and ask which of *them* posted your keywords, with per-member coverage, via `socialcrawl_cohorts`
 
 All data comes back in a clean, unified response envelope (`success`, `platform`, `endpoint`, `data`, `credits_used`, `credits_remaining`, `request_id`, `cached`) — the same structure whether you're querying TikTok, Instagram, YouTube, or any other platform. Only the inner `data` payload changes shape, and it's typed per archetype (`Author`, `Post`, `PostList`, etc.) so a post looks like a post no matter where it came from.
 
@@ -141,11 +142,11 @@ The agent calls `socialcrawl_request` with `platform: "instagram"`, `resource: "
 
 > "What social media platforms can you access?"
 
-The agent calls `socialcrawl_list_platforms` and shows all 48 platforms, grouped by category, with endpoint counts and credit ranges.
+The agent calls `socialcrawl_list_platforms` and shows all 65 platforms, grouped by category, with endpoint counts and credit ranges.
 
 > "Show me all the TikTok endpoints"
 
-The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 20 endpoints with their required parameters and credit costs.
+The agent calls `socialcrawl_list_endpoints` with `platform: "tiktok"` and returns all 34 endpoints with their required parameters and credit costs.
 
 ### Cross-platform research
 
@@ -161,7 +162,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 ---
 
-## Understanding the 9 Tools
+## Understanding the 10 Tools
 
 ### `socialcrawl_list_platforms`
 
@@ -169,7 +170,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Input:** None.
 
-**Output:** Tables of all 48 platforms grouped by category, each with its slug, endpoint count, credit range, and a description of the available data.
+**Output:** Tables of all 65 platforms grouped by category, each with its slug, endpoint count, credit range, and a description of the available data.
 
 **No API key required.** This queries local bundled data.
 
@@ -177,7 +178,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 ### `socialcrawl_list_endpoints`
 
-**When to use:** When you need to know what endpoints exist, what parameters they take, and what they cost — either for one platform, or by searching across all 381 endpoints.
+**When to use:** When you need to know what endpoints exist, what parameters they take, and what they cost — either for one platform, or by searching across all 572 endpoints.
 
 **Input:** (all optional)
 - `platform` — the platform slug, e.g., `"tiktok"`, `"instagram"`, `"youtube"`
@@ -203,7 +204,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Output by action:**
 
-- **`overview`** — the tier ladder with per-tier counts, every free endpoint, every flat override, all 26 metered endpoints with their min-max band and charging rule, the cache TTL table, and the full refund matrix.
+- **`overview`** — the tier ladder with per-tier counts, every free endpoint, every flat override, all 41 metered endpoints with their min-max band and charging rule, the cache TTL table, and the full refund matrix.
 - **`endpoint`** — one endpoint's price, whether it is ladder / flat / metered, the registry's exact charging rule, the parameters that actually move the bill, the cost of paging it, and the worst case to budget for.
 - **`platform`** — a whole platform's cost table plus its metered rules.
 - **`list`** — a ranked, filtered table across platforms, with the total worst-case spend of the listed rows. Use `maxCost: 1` for "everything I can call for a single credit", or the default `sort: "cost_desc"` for the most expensive endpoints.
@@ -219,7 +220,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 **When to use:** To learn the API from the API — at 0 credits. This drives the `/v1/utility/*` family, four endpoints served in-process from the live endpoint registry, so they can never drift from what is actually callable.
 
 **Input:** (all optional)
-- `action` — `"quickstart"` (default), `"catalog"`, `"endpoint"`, `"llms"`, or `"freshness"`
+- `action` — `"quickstart"` (default), `"catalog"`, `"endpoint"`, `"llms"`, `"freshness"`, or `"status"`
 - `platform` — scope quickstart, catalog, or llms to one platform slug
 - `search`, `method` — catalog filters
 - `id` — required by `endpoint`: an id (`tiktok/profile`), a path (`/v1/tiktok/profile`), or a full URL
@@ -234,6 +235,7 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 - **`endpoint`** (`GET /v1/utility/endpoint`) — the deepest per-endpoint object the API exposes: every parameter with type, description and example, the exact pricing rule, cache TTL, the paging recipe, an example response with its schema URL, a copy-paste curl, and related endpoints to walk next.
 - **`llms`** (`GET /v1/utility/llms`) — the agent context corpus for the whole API or one platform, as markdown or structured JSON. An agent with a key can bootstrap itself in one call instead of crawling documentation.
 - **`freshness`** — compares the live registry totals against this server's bundled catalogue and tells you whether to upgrade.
+- **`status`** (`GET /v1/status`) — every platform's live circuit-breaker state, with the impaired ones listed first. The honest answer to "should I retry this 502?". A public meta route: it needs no API key at all.
 
 **Requires API key?** No. With a key it calls the live endpoints; without one it answers everything except `llms` from bundled data, clearly labelled. Discovery must work before a key exists.
 
@@ -326,7 +328,7 @@ Both views cost **0 credits**.
 - `id` — the monitor id (required for get/runs/timeseries/pause/resume/delete)
 - `recipe`, `cadence`, `webhook_url` (required for `create`), plus optional `params`, `name`, `alert_rules`, `suppress_webhook_unless_alert`, and list/runs/timeseries filters
 
-**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 381 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
+**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 572 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
 
 **Requires API key.**
 
@@ -346,12 +348,32 @@ Both views cost **0 credits**.
 **Requires API key.** See `socialcrawl_get_docs` topic `web` for the full per-action reference.
 
 ---
+### `socialcrawl_cohorts`
+
+**When to use:** When you already know *who* matters and want their public social activity rather than the open firehose — a purchaser panel, a customer list, a creator roster. Cohorts (`/v1/cohorts/*` + `/v1/cohort-queries/*`) answer "which of *these specific* public identities posted my keywords?", with a coverage record for every member so a partial crawl can never read as "nobody talked about you". Like `web` and monitors, it is a stateful family `socialcrawl_request` cannot express.
+
+**Input:**
+- `action` (required) — `create`, `add_members`, `estimate_cost`, `query`, `query_status`, `query_results`, `query_cancel`, `get`, `delete`
+- `cohort_id` / `query_id` — the id returned by `create` / `query`
+- `members` — up to 1,000 `{ external_id, platform, handle }` per `add_members` call, 10,000 per cohort. The ten supported platforms are instagram, tiktok, youtube, twitter, threads, bluesky, truth-social, kwai, twitch, linkedin
+- `keywords`, `date_from`, `max_pages_per_identity`, `max_items_per_identity`, `max_credits` — the query. All three caps are required and none has a default
+- `idempotencyKey` — optional; one is generated and echoed back if you omit it
+
+**The lifecycle:** `create` → `add_members` (repeat per 1,000) → `estimate_cost` → `query` (returns `202`) → `query_status` until it succeeds → `query_results`, paging with `cursor` until it is null.
+
+**Output:** `query_results` returns `items` (the matching posts, each carrying your own `external_id`) **and** `coverage` (one record per member, matched or not, with `window_complete`, `oldest_seen`, and a per-member `status`). Read coverage before treating a result set as exhaustive.
+
+**Credits:** every lifecycle call is **0 credits**. Only the query is metered, and its hold is a *computed* ceiling — `Σ(member × page cap × credits per page)`, at 5/page for LinkedIn, 2/page-round for Instagram and YouTube, 1 elsewhere, with a fixed cap of 1 page on X, Bluesky, Threads and Twitch. Run `estimate_cost` first: it computes that number locally, with no API call, and tells you exactly what `max_credits` must clear. You are then charged only for pages that actually succeeded, and the unspent reservation is refunded once.
+
+**Requires API key.** See `socialcrawl_get_docs` topic `cohorts` for the matching rules, the limits, and the full credit model.
+
+---
 
 ## How Credits Work
 
 Every API request costs credits, billed one of three ways.
 
-**Ladder** — the tier rate, charged per request. This covers 294 of the 381 endpoints.
+**Ladder** — the tier rate, charged per request. This covers 470 of the 572 endpoints.
 
 | Tier | Cost | What it covers |
 |------|------|----------------|
@@ -361,7 +383,7 @@ Every API request costs credits, billed one of three ways.
 
 **Flat** — a per-endpoint override (61 endpoints, 18 of them free). `GET /v1/search/everywhere` is a flat 20cr; the four `utility/*` discovery endpoints and all job/monitor/session management are 0cr.
 
-**Metered** — the charge depends on the request (26 endpoints). An upfront ceiling is deducted and automatically refunded down to the work actually done, so the endpoint's base cost is *not* what you pay: `/v1/search/news` shows a 1cr base but really charges 2-14cr depending on how many country legs return articles. Ask `socialcrawl_pricing` for the real band and the rule before you run one.
+**Metered** — the charge depends on the request (41 endpoints). An upfront ceiling is deducted and automatically refunded down to the work actually done, so the endpoint's base cost is *not* what you pay: `/v1/search/news` shows a 1cr base but really charges 2-62cr — 1 credit per Google country leg that returns articles, plus per-article billing if you add the bing engine. Ask `socialcrawl_pricing` for the real band and the rule before you run one.
 
 What is **never** charged:
 

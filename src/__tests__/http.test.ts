@@ -57,10 +57,10 @@ function firstText(result: Record<string, unknown>): string {
 }
 
 describe("Streamable HTTP endpoint", () => {
-  it("completes the MCP handshake and lists all nine tools", async () => {
+  it("completes the MCP handshake and lists all ten tools", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(9);
+    expect(tools).toHaveLength(10);
     await client.close();
   });
 

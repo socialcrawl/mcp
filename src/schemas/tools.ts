@@ -313,10 +313,10 @@ export const PricingInputSchema = z.object({
 
 export const DiscoverInputSchema = z.object({
   action: z
-    .enum(["quickstart", "catalog", "endpoint", "llms", "freshness"])
+    .enum(["quickstart", "catalog", "endpoint", "llms", "freshness", "status"])
     .optional()
     .describe(
-      "'quickstart' (default): auth, base URL, envelope, billing, the error taxonomy, limits, and a first call — GET /v1/utility/quickstart. 'catalog': the machine-readable list of every endpoint with live metered-aware prices — GET /v1/utility/endpoints. 'endpoint': one endpoint's complete usage guide, params, pricing rule, cache, paging, example response, curl, and related endpoints — GET /v1/utility/endpoint. 'llms': the agent context corpus for the whole API or one platform — GET /v1/utility/llms. 'freshness': compare the live registry against this server's bundled catalogue to see whether this MCP version is current.",
+      "'quickstart' (default): auth, base URL, envelope, billing, the error taxonomy, limits, and a first call — GET /v1/utility/quickstart. 'catalog': the machine-readable list of every endpoint with live metered-aware prices — GET /v1/utility/endpoints. 'endpoint': one endpoint's complete usage guide, params, pricing rule, cache, paging, example response, curl, and related endpoints — GET /v1/utility/endpoint. 'llms': the agent context corpus for the whole API or one platform — GET /v1/utility/llms. 'freshness': compare the live registry against this server's bundled catalogue to see whether this MCP version is current. 'status': every platform's live circuit-breaker state — GET /v1/status, the public meta route to read before retrying a persistent 502 or 503.",
     ),
   platform: z
     .string()
@@ -356,4 +356,156 @@ export const DiscoverInputSchema = z.object({
     .min(1)
     .optional()
     .describe("Page number (default 1). Long output is paged, not truncated."),
+}).strict();
+
+/**
+ * Cohorts: the stateful audience-filtered mention search. Every bound here
+ * mirrors `packages/social-api/src/platforms/cohorts/contract.ts`, so a call
+ * that would be rejected by the API is rejected locally first, for free.
+ */
+export const CohortsInputSchema = z.object({
+  action: z
+    .enum([
+      "create",
+      "get",
+      "delete",
+      "add_members",
+      "query",
+      "query_status",
+      "query_results",
+      "query_cancel",
+      "estimate_cost",
+    ])
+    .describe(
+      "Cohort operation. Lifecycle order: 'create' a cohort → 'add_members' (up to 1,000 per call, 10,000 per cohort) → 'estimate_cost' locally to size max_credits → 'query' (async, 202) → 'query_status' until it succeeds → 'query_results' (page with cursor). Also 'get' a cohort, 'query_cancel' a running query, and 'delete' a cohort with everything under it. Everything except 'query' costs 0 credits.",
+    ),
+  cohort_id: z
+    .string()
+    .optional()
+    .describe("Cohort id from 'create'. Required for get/delete/add_members/query."),
+  query_id: z
+    .string()
+    .optional()
+    .describe("Query id from 'query'. Required for query_status/query_results/query_cancel."),
+  idempotencyKey: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      "UUIDv4 for the write actions (create/add_members/query), which the API requires. Omit it and one is generated and echoed back — but supply your own (or reuse the echoed one) to make a retry replay the original call instead of creating a second cohort or reserving a second query.",
+    ),
+  name: z.string().max(120).optional().describe("create: human-readable label, up to 120 characters."),
+  retention_days: z
+    .number()
+    .int()
+    .min(7)
+    .max(90)
+    .optional()
+    .describe(
+      "create: 7-90, default 30. When it elapses the cohort and everything under it is purged. Uploading members or submitting a query renews the clock.",
+    ),
+  members: z
+    .array(
+      z.object({
+        external_id: z
+          .string()
+          .optional()
+          .describe("Your own opaque key, echoed back on every match and coverage row so you can join to your records. Optional in the API, but without it a match cannot be tied back to anything."),
+        platform: z
+          .enum([
+            "instagram",
+            "tiktok",
+            "youtube",
+            "twitter",
+            "threads",
+            "bluesky",
+            "truth-social",
+            "kwai",
+            "twitch",
+            "linkedin",
+          ])
+          .describe("The identity's platform. Only these ten are supported."),
+        handle: z
+          .string()
+          .describe("The public account handle — or the full profile URL for LinkedIn."),
+      }),
+    )
+    .max(1000)
+    .optional()
+    .describe(
+      "add_members (or estimate_cost): up to 1,000 identities per call, 10,000 per cohort. Rows are FLAT — a member with identities on several platforms is several rows sharing one external_id, not a nested array. Re-sending an external_id updates its identity rather than adding a row, so a nightly full re-push is safe. LinkedIn takes the full profile URL, not a bare handle.",
+    ),
+  platform_counts: z
+    .record(z.number().int().min(0))
+    .optional()
+    .describe(
+      "estimate_cost: the panel's platform mix as { instagram: 4000, youtube: 1000, ... } when you want a ceiling without passing the identities themselves.",
+    ),
+  keywords: z
+    .array(z.string())
+    .max(20)
+    .optional()
+    .describe(
+      "query (required): up to 20 terms. Matching is literal and whole-word after Unicode NFKC case-folding — no stemming, fuzzy matching, or brand-alias inference. Pass 'Acme' and 'AcmeCo' separately if you want both.",
+    ),
+  date_from: z
+    .string()
+    .optional()
+    .describe(
+      "query (required): a full RFC3339 timestamp (e.g. '2026-08-01T00:00:00.000Z'), not a bare calendar date. It bounds how far back each crawl reaches.",
+    ),
+  date_to: z.string().optional().describe("query: optional RFC3339 upper bound on the window."),
+  max_pages_per_identity: z
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .optional()
+    .describe(
+      "query (required, no default) and estimate_cost: page budget per member, 1-20. Twitter, Bluesky, Threads and Twitch serve one fixed page per identity and ignore anything above 1.",
+    ),
+  max_items_per_identity: z
+    .number()
+    .int()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe("query (required, no default): item budget per member, 1-1,000."),
+  max_credits: z
+    .number()
+    .int()
+    .min(1)
+    .max(1_000_000)
+    .optional()
+    .describe(
+      "query (required, no default): your own safety limit. Submission fails with a 400 before any credit is held if the computed ceiling exceeds it — run action 'estimate_cost' first to size it.",
+    ),
+  platforms: z
+    .array(
+      z.enum([
+        "instagram",
+        "tiktok",
+        "youtube",
+        "twitter",
+        "threads",
+        "bluesky",
+        "truth-social",
+        "kwai",
+        "twitch",
+        "linkedin",
+      ]),
+    )
+    .optional()
+    .describe("query: restrict the run to a subset of the platforms present in the cohort. Omit to query them all."),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(500)
+    .optional()
+    .describe("query_results: page size, 1-500 (default 100). It governs the coverage list too."),
+  cursor: z
+    .string()
+    .optional()
+    .describe("query_results: pass `next_cursor` back verbatim. Keep going until it is null."),
 }).strict();

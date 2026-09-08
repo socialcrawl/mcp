@@ -20,12 +20,12 @@ describe("pricing helpers", () => {
 
   it("quotes a metered endpoint as a band, never as its base", () => {
     const news = findEndpoint("search", "news")!;
-    // The static base is 1cr; the real charge is 2-14. Quoting the base would
+    // The static base is 1cr; the real charge is 2-62. Quoting the base would
     // understate every single call.
     expect(news.pricing.cost).toBe(1);
-    expect(formatCost(news.pricing)).toBe("2-14cr (metered)");
+    expect(formatCost(news.pricing)).toBe("2-62cr (metered)");
     expect(bestCaseCost(news.pricing)).toBe(2);
-    expect(worstCaseCost(news.pricing)).toBe(14);
+    expect(worstCaseCost(news.pricing)).toBe(62);
   });
 
   it("labels a free endpoint as free", () => {
@@ -38,9 +38,22 @@ describe("pricing helpers", () => {
   });
 
   it("falls back to the band when no rule is authored", () => {
-    const scrape = findEndpoint("web", "scrape")!;
-    expect(scrape.pricing.description).toBeUndefined();
-    expect(meteredRule(scrape.pricing)).toContain("between 1 and 5 credits");
+    // Synthetic: as of the 2026-09-08 wave every metered endpoint in the
+    // registry carries an authored rule (asserted below), so the fallback has
+    // no live example left. It still has to work — the next metered endpoint
+    // to land will reach the MCP before its wording does.
+    expect(
+      meteredRule({ cost: 1, tier: "standard", ladderCost: 1, model: "metered", minCost: 1, maxCost: 5 }),
+    ).toContain("between 1 and 5 credits");
+  });
+
+  it("every metered endpoint ships with an authored charging rule", () => {
+    const unauthored = ENDPOINTS.filter(
+      (e) => e.pricing.model === "metered" && !e.pricing.description,
+    ).map((e) => `${e.platform}/${e.resource}`);
+    // A band alone tells a caller the range but not what moves them inside it.
+    // The backend closed this gap; this guard is what keeps it closed.
+    expect(unauthored).toEqual([]);
   });
 
   it("identifies the parameters that move the bill", () => {
