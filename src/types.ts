@@ -107,6 +107,63 @@ export interface UpstreamInfo {
   fallbackKinds?: string[];
 }
 
+/**
+ * One opt-in row-join lane declared on an endpoint (the backend's "hydration
+ * engine", `packages/social-api/src/hydrate-list.ts`).
+ *
+ * A list endpoint whose rows are thin by construction — a Pinterest search row
+ * carries no save count, a LinkedIn reactor row no follower count — declares a
+ * sibling endpoint on the same platform that already answers that for ONE row,
+ * plus a token the caller puts in `include` to join every row to it inside the
+ * same call. The caller who does not ask pays exactly what they always paid.
+ *
+ * Billing is hold-then-keep, not a flat surcharge: the ceiling is held up
+ * front, `creditsPerItem` is KEPT for each row a fresh sibling lookup actually
+ * filled, and every other slot is refunded. Rows served from the sibling's own
+ * cache are free, rows the sibling could not fill are free, and a page that
+ * joined in full is cached whole so an immediate repeat is 0 credits.
+ *
+ * An endpoint offering several tokens (YouTube's `engagement,channel`) carries
+ * one lane per token, and a request pays the sum of the lanes it asked for.
+ */
+export interface HydrationLane {
+  /** CSV query param carrying the opt-in tokens — `include` everywhere today. */
+  param: string;
+  /** The token that switches this lane on, e.g. `engagement`. */
+  token: string;
+  /** Sibling endpoint that fills one row, as `platform/resource`. */
+  sibling: string;
+  /** Sibling's HTTP method when it is not GET (YouTube's batch siblings). */
+  siblingMethod?: string;
+  /** Canonical leaves this lane writes on each row, as the caller reads them. */
+  fills: string[];
+  /** Credits KEPT per row a fresh sibling lookup filled. */
+  creditsPerItem: number;
+  /** Most rows this lane will ever join on one page — the ceiling multiplier. */
+  maxItems: number;
+  /**
+   * Rows joined when the token is present and the caller sent no row cap. The
+   * caller buys the whole page by sending `rowLimitParam` explicitly.
+   */
+  defaultRowLimit?: number;
+  /** Integer param that caps rows joined, and with them the credits held. */
+  rowLimitParam?: string;
+  /**
+   * A batch sibling answers `size` keys in one lookup and never keeps more than
+   * `creditCap` for it, so the hold is the cheaper of per-row and per-chunk.
+   */
+  batch?: { size: number; creditCap: number };
+  /** Whether a sibling cache hit fills a row for free (true almost always). */
+  cacheSibling: boolean;
+  /** `_warnings` tokens: nothing filled / some rows not filled. */
+  warnings: { unavailable: string; partial: string };
+  /**
+   * Leaves this lane may OVERWRITE rather than only fill, on a row that flags
+   * its own value approximate (LinkedIn's rounded follower buckets).
+   */
+  replaceApproximate?: string[];
+}
+
 export interface Platform {
   slug: string;
   name: string;
@@ -188,6 +245,11 @@ export interface Endpoint {
    * (Analytics, Transcript, Audience, WebPage), whose payload has no fixed shape.
    */
   responseShape?: { root: string; itemKey?: string };
+  /**
+   * Opt-in row joins this endpoint offers, one entry per `include` token.
+   * Absent on an endpoint that declares none — which is most of them.
+   */
+  hydration?: HydrationLane[];
 }
 
 export interface SocialCrawlSuccessResponse {

@@ -29,6 +29,12 @@ export const ListEndpointsInputSchema = z.object({
     .describe(
       "Only show endpoints that cost at most this many credits per call (metered endpoints are judged by their ceiling).",
     ),
+  hydrating: z
+    .boolean()
+    .optional()
+    .describe(
+      "Only show endpoints that can fill their own rows in the same call via an `include=` row join (e.g. a search page that can carry engagement counts). Use it to find the one call that answers a question instead of a page plus one lookup per row.",
+    ),
   detail: z
     .enum(["compact", "full"])
     .optional()
@@ -253,16 +259,16 @@ export const GetDocsInputSchema = z.object({
     .optional()
     .default("overview")
     .describe(
-      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
+      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'hydration' (opt-in `include=` row joins), 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
     ),
 }).strict();
 
 export const PricingInputSchema = z.object({
   action: z
-    .enum(["overview", "endpoint", "platform", "list"])
+    .enum(["overview", "endpoint", "platform", "list", "hydration"])
     .optional()
     .describe(
-      "'overview' (default): the tier ladder, every free endpoint, every flat override, every metered band with its rule, cache TTLs, and the refund matrix. 'endpoint': one endpoint's exact price, metered rule, price-driving params, and worst case (needs platform + resource). 'platform': the cost table for one platform (needs platform). 'list': rank/filter endpoints by price across platforms.",
+      "'overview' (default): the tier ladder, every free endpoint, every flat override, every metered band with its rule, cache TTLs, and the refund matrix. 'endpoint': one endpoint's exact price, metered rule, price-driving params, row joins, and worst case (needs platform + resource) — add `include`/`rows` for an exact quote instead of a band. 'platform': the cost table for one platform (needs platform). 'list': rank/filter endpoints by price across platforms. 'hydration': every `include=` row join in the API, what each one fills, what it costs per row and what a fully-joined page holds (optionally scoped with `platform`).",
     ),
   platform: z
     .enum(platformSlugs as [string, ...string[]])
@@ -287,6 +293,20 @@ export const PricingInputSchema = z.object({
     .optional()
     .describe(
       "list: filter by billing model — 'ladder' (tier rate per request), 'flat' (per-endpoint override), 'metered' (query-dependent, ceiling deducted then refunded down), or 'free' (0 credits).",
+    ),
+  include: z
+    .string()
+    .optional()
+    .describe(
+      "endpoint: the `include=` row-join tokens you intend to send (comma-separated, e.g. 'engagement' or 'engagement,channel'). Turns the quoted band into the exact hold for that call, itemised per join. Costs nothing to ask.",
+    ),
+  rows: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "endpoint: the row cap you intend to send alongside `include` (the endpoint's own `limit`). A row join holds per row, so capping the rows caps the credits — quote it before you spend it.",
     ),
   maxCost: z
     .number()

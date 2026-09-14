@@ -7,6 +7,7 @@ import {
   formatTtl,
   worstCaseCost,
 } from "../pricing.js";
+import { describeLane } from "../hydration.js";
 import type { Endpoint } from "../types.js";
 
 export interface ListEndpointsParams {
@@ -14,6 +15,8 @@ export interface ListEndpointsParams {
   search?: string;
   method?: string;
   maxCost?: number;
+  /** Only endpoints that can fill their own rows via an `include=` join. */
+  hydrating?: boolean;
   detail?: "compact" | "full";
   /** 1-based page for output longer than one response. */
   page?: number;
@@ -137,6 +140,14 @@ function detailBlock(e: Endpoint): string[] {
       `**Sources:** \`${e.upstream.kind}\` primary, falling back to ${e.upstream.fallbackKinds.map((k) => `\`${k}\``).join(", ")}.`,
     );
   }
+  for (const lane of e.hydration ?? []) {
+    notes.push(`**Row join:** ${describeLane(lane)}`);
+    notes.push(
+      `  Fills ${lane.fills.map((f) => `\`${f}\``).join(", ")} where the row lacks them. ` +
+        `Kept only for a row a fresh lookup filled — cached and unfillable rows are refunded. ` +
+        `Read \`data.hydration\` for what it did; \`_warnings\` carries \`${lane.warnings.partial}\` if only some rows filled.`,
+    );
+  }
   if (e.responseShape) {
     notes.push(
       `**Rows at:** \`${e.responseShape.root}\`${
@@ -170,6 +181,12 @@ function summaryRow(e: Endpoint, withPlatform: boolean): string {
   if (e.optionalParams.length > 0) {
     paramsCell += ` +${e.optionalParams.length} optional`;
   }
+  // The token is worth calling out in a one-line row: it is the difference
+  // between a thin page and a filled one, and between the sticker price and
+  // several times it.
+  if (e.hydration && e.hydration.length > 0) {
+    paramsCell += ` · join: ${e.hydration.map((l) => `\`${l.param}=${l.token}\``).join(", ")}`;
+  }
   const label = withPlatform
     ? `/v1/${e.platform}/${e.resource}`
     : e.resource;
@@ -187,6 +204,7 @@ function paged(text: string, input: ListEndpointsParams): string {
     input.search ? `search "${input.search}"` : null,
     input.method ? `method "${input.method}"` : null,
     input.maxCost !== undefined ? `maxCost ${input.maxCost}` : null,
+    input.hydrating ? "hydrating true" : null,
     input.detail ? `detail "${input.detail}"` : null,
   ]
     .filter(Boolean)
@@ -204,6 +222,7 @@ function searchAcrossPlatforms(params: ListEndpointsParams): string {
   const matches = ENDPOINTS.filter((e) => {
     if (params.method && e.method !== params.method.toUpperCase()) return false;
     if (params.maxCost !== undefined && worstCaseCost(e.pricing) > params.maxCost) return false;
+    if (params.hydrating && (e.hydration?.length ?? 0) === 0) return false;
     if (params.platform && e.platform !== params.platform) return false;
     if (!q) return true;
     const haystack =
@@ -271,6 +290,9 @@ export function listEndpoints(params: ListEndpointsParams | string): string {
   }
   if (input.maxCost !== undefined) {
     endpoints = endpoints.filter((e) => worstCaseCost(e.pricing) <= input.maxCost!);
+  }
+  if (input.hydrating) {
+    endpoints = endpoints.filter((e) => (e.hydration?.length ?? 0) > 0);
   }
   if (endpoints.length === 0) {
     return `Error: No endpoints on platform "${input.platform}" match those filters.`;

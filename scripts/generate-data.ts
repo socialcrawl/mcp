@@ -86,6 +86,23 @@ interface DumpEndpoint {
   contractDetails?: string[];
   responseFields?: Record<string, string>;
   responseShape?: { root: string; itemKey?: string };
+  hydration?: DumpHydrationLane[];
+}
+
+interface DumpHydrationLane {
+  param: string;
+  token: string;
+  sibling: string;
+  siblingMethod?: string;
+  fills: string[];
+  creditsPerItem: number;
+  maxItems: number;
+  defaultRowLimit?: number;
+  rowLimitParam?: string;
+  batch?: { size: number; creditCap: number };
+  cacheSibling: boolean;
+  warnings: { unavailable: string; partial: string };
+  replaceApproximate?: string[];
 }
 
 interface Dump {
@@ -108,7 +125,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   web:
     "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
   tiktok:
-    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, trending feed, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   instagram:
     "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
   youtube:
@@ -150,7 +167,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   finance:
     "Financial-instrument data — full quotes, ticker search by name, a markets overview (indices + top movers), instrument news, daily price-history bars, company financial statements, and options chains.",
   google_trends:
-    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
+    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Backed by DataForSEO Google Trends.",
   trustpilot:
     "Trustpilot business search and company reviews — brand-reputation data keyed by company domain (shipping, refunds, support sentiment). For product reviews use amazon/reviews or google_shopping/reviews.",
   g2:
@@ -451,6 +468,40 @@ function renderEndpoint(e: DumpEndpoint): string {
       lines.push(`      ${str(k)}: ${str(v)},`);
     }
     lines.push("    },");
+  }
+  if (e.hydration && e.hydration.length > 0) {
+    lines.push("    hydration: [");
+    for (const h of e.hydration) {
+      const parts = [
+        `param: ${str(h.param)}`,
+        `token: ${str(h.token)}`,
+        `sibling: ${str(h.sibling)}`,
+      ];
+      if (h.siblingMethod) parts.push(`siblingMethod: ${str(h.siblingMethod)}`);
+      parts.push(`fills: [${h.fills.map(str).join(", ")}]`);
+      parts.push(`creditsPerItem: ${h.creditsPerItem}`);
+      parts.push(`maxItems: ${h.maxItems}`);
+      if (h.defaultRowLimit !== undefined) {
+        parts.push(`defaultRowLimit: ${h.defaultRowLimit}`);
+      }
+      if (h.rowLimitParam) parts.push(`rowLimitParam: ${str(h.rowLimitParam)}`);
+      if (h.batch) {
+        parts.push(
+          `batch: { size: ${h.batch.size}, creditCap: ${h.batch.creditCap} }`,
+        );
+      }
+      parts.push(`cacheSibling: ${h.cacheSibling}`);
+      parts.push(
+        `warnings: { unavailable: ${str(h.warnings.unavailable)}, partial: ${str(h.warnings.partial)} }`,
+      );
+      if (h.replaceApproximate && h.replaceApproximate.length > 0) {
+        parts.push(
+          `replaceApproximate: [${h.replaceApproximate.map(str).join(", ")}]`,
+        );
+      }
+      lines.push(`      { ${parts.join(", ")} },`);
+    }
+    lines.push("    ],");
   }
   if (e.responseShape) {
     const shapeParts = [`root: ${str(e.responseShape.root)}`];

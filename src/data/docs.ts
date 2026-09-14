@@ -6,9 +6,16 @@ import {
   endpointLabel,
   formatCost,
   formatTtl,
+  hydrationCeiling,
   meteredRule,
+  priceDrivingParams,
   worstCaseCost,
 } from "../pricing.js";
+import {
+  hydratingEndpoints,
+  laneCeilingCredits,
+  laneMaxCredits,
+} from "../hydration.js";
 import type { Endpoint } from "../types.js";
 
 /**
@@ -249,13 +256,18 @@ function buildPricingDoc(): string {
     "",
     `## Metered endpoints (${metered.length}) — the charge depends on your request`,
     "",
-    "| Endpoint | Band | Rule |",
-    "|----------|------|------|",
-    ...metered.map(
-      (e) =>
-        `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | ${formatCost(e.pricing)} | ${meteredRule(e.pricing)} |`,
-    ),
+    // The band and the knobs that move it, not the full authored rule: at 67
+    // metered endpoints the rules alone are ~40k characters and would push
+    // every later section off page 1. They are kept in full further down, and
+    // `socialcrawl_pricing action:"endpoint"` quotes one on demand.
+    "| Endpoint | Band | What moves the bill |",
+    "|----------|------|---------------------|",
+    ...metered.map((e) => {
+      const drivers = priceDrivingParams(e);
+      return `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | ${formatCost(e.pricing)} | ${drivers.length > 0 ? drivers.map((d) => `\`${d}\``).join(", ") : "the result size"} |`;
+    }),
     "",
+    ...hydrationSection(),
     "## Cost per endpoint",
     "",
   ];
@@ -282,7 +294,162 @@ function buildPricingDoc(): string {
   }
 
   lines.push(
-    "For one endpoint's exact price, metered rule, price-driving parameters, and worst case, use the `socialcrawl_pricing` tool.",
+    "",
+    `## Metered rules in full (${metered.length})`,
+    "",
+    "The exact authored rule for every metered endpoint. `socialcrawl_pricing` with `action: \"endpoint\"` returns one of these on its own, plus the worst case and (on a hydrating endpoint) an exact quote for the `include` you intend to send.",
+    "",
+    ...metered.flatMap((e) => [
+      `**\`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\`** — ${formatCost(e.pricing)}`,
+      meteredRule(e.pricing),
+      "",
+    ]),
+    "For one endpoint's exact price, metered rule, price-driving parameters, row joins, and worst case, use the `socialcrawl_pricing` tool.",
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * The `include=` row joins, summarised inside the pricing doc.
+ *
+ * It belongs here and not only in its own topic because it is the reason 26
+ * endpoints stopped being a flat ladder price: anyone reading the pricing
+ * reference to budget a job needs to know that the same endpoint costs its
+ * sticker price untouched, and several times that when it is asked to fill
+ * its own rows.
+ */
+function hydrationSection(): string[] {
+  const hydrating = hydratingEndpoints();
+  if (hydrating.length === 0) return [];
+  const laneCount = hydrating.reduce((n, e) => n + (e.hydration?.length ?? 0), 0);
+
+  return [
+    `## Row hydration — ${laneCount} opt-in joins on ${hydrating.length} endpoints`,
+    "",
+    "These endpoints can fill their own rows from a sibling endpoint in the same call when you send `include=`. Opt-in: without the token the price is the plain one in the table above. The ceiling is held up front and a credit is KEPT only for a row a fresh sibling lookup actually filled — cached rows and unfillable rows are refunded.",
+    "",
+    "| Endpoint | `include=` | Plain | Ceiling with every join |",
+    "|----------|------------|-------|-------------------------|",
+    ...hydrating.map(
+      (e) =>
+        `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | ${(e.hydration ?? []).map((l) => `\`${l.token}\``).join(", ")} | ${e.pricing.cost}cr | ${e.pricing.cost + hydrationCeiling(e)}cr |`,
+    ),
+    "",
+    "Full detail — what each join fills, its per-row rate and its row cap — is in the `hydration` docs topic and `socialcrawl_pricing` with `action: \"hydration\"`.",
+    "",
+  ];
+}
+
+/**
+ * The `hydration` topic: every opt-in row join in the API, generated from the
+ * lanes the registry declares, so it cannot drift from what the engine does.
+ */
+function buildHydrationDoc(): string {
+  const hydrating = hydratingEndpoints();
+  const laneCount = hydrating.reduce((n, e) => n + (e.hydration?.length ?? 0), 0);
+  const platforms = [...new Set(hydrating.map((e) => e.platform))];
+
+  const lines: string[] = [
+    "# SocialCrawl API — Row Hydration (`include=`)",
+    "",
+    `${laneCount} opt-in joins across ${hydrating.length} endpoints on ${platforms.length} platforms.`,
+    "",
+    "## The problem it solves",
+    "",
+    "Some lists are thin by construction. A Pinterest search result carries no save count; a LinkedIn reactor row carries no follower count; a YouTube playlist carries no view count or duration. The upstream simply does not publish those fields on a list — but another SocialCrawl endpoint answers them for one row.",
+    "",
+    "Before row hydration you wrote that join yourself: one call for the page, one call per row, a client-side merge, and a bill that was the sum of both. Now you send one token and the API does it inside the same call, at the sibling's price, with its cache in front of it.",
+    "",
+    "## How to use it",
+    "",
+    "```",
+    "GET /v1/pinterest/search?query=kitchen&include=engagement",
+    "GET /v1/youtube/playlist?playlistId=PL...&include=engagement,channel",
+    "GET /v1/linkedin/search/people?keywords=cto&include=profile&limit=3",
+    "```",
+    "",
+    "- **Opt-in.** No token, no join, no extra credit, no extra latency. A caller who never sends `include` pays exactly what they always paid.",
+    "- **Comma-separated** where an endpoint offers more than one token. Each holds, bills, refunds and warns on its own terms, and the call holds the sum of the ones you asked for.",
+    "- **Lower-case.** Tokens are matched case-insensitively on the CSV, but some lanes validated capitals as a 400 at first — send them lower-case.",
+    "- **An unknown token is a free 400**, rejected before billing.",
+    "",
+    "## What it costs",
+    "",
+    "The ceiling is held up front; the settled charge is almost always lower:",
+    "",
+    "- a credit is **kept per row a fresh sibling lookup filled**;",
+    "- a row served from the sibling's **own cache is free** (and a fresh lookup warms that cache for later direct calls);",
+    "- a row the sibling **could not fill is refunded**;",
+    "- a row that already had every declared leaf is **never looked up**;",
+    "- a page that joined **in full is cached whole**, so an immediate repeat of the same call is 0 credits.",
+    "",
+    "Where a lane offers a row cap (`limit` on most), sending it caps the rows joined **and** the credits held together — quote it with `socialcrawl_pricing action:\"endpoint\"` before you spend it.",
+    "",
+    "## Reading the result",
+    "",
+    "Every hydrated response carries a `data.hydration` block:",
+    "",
+    "```json",
+    '"hydration": {',
+    '  "include": "engagement",',
+    '  "rows": 12, "looked_up": 12, "filled": 12,',
+    '  "cached": 12, "unfilled": 0,',
+    '  "credits_held": 12, "extra_credits": 0, "ms": 23',
+    "}",
+    "```",
+    "",
+    "`credits_held` is what the join reserved and `extra_credits` what it kept — the difference was refunded. `ms` is the join's wall-clock, not the sum of the lookups. The envelope's `credits_used` is always the real charge for the whole call.",
+    "",
+    "Warnings tell you when a page came back less than whole: `_warnings: [\"<token>_unavailable\"]` when nothing filled, `[\"<token>_partial\"]` when only some rows did. A partial page is not cached, so the next caller gets a fresh attempt.",
+    "",
+    "## What a join will and will not touch",
+    "",
+    "- **Null-only.** A join writes a declared leaf only where the row lacks it. It never overwrites data the page already returned.",
+    "- **Except a declared approximation.** A leaf the row itself flags as approximate — LinkedIn's rounded follower buckets, a date derived from \"4 months ago\" — is replaced by the sibling's exact value, and the flag is set to false.",
+    "- **Derived fields are recomputed.** A row that gained engagement has `computed.engagement_rate` and `computed.estimated_reach` recomputed through the same formula the transform uses, so the rate agrees with the engagement the row now carries.",
+    "",
+    "## Every join",
+    "",
+    "| Endpoint | Token | Joins to | Per row | Max rows | Held by default | Held for a full page |",
+    "|----------|-------|----------|---------|----------|--------------|-------------------|",
+  ];
+
+  for (const e of hydrating) {
+    for (const lane of e.hydration ?? []) {
+      const rate = lane.batch
+        ? `${lane.creditsPerItem}cr (cap ${lane.batch.creditCap} per ${lane.batch.size})`
+        : `${lane.creditsPerItem}cr`;
+      const prefix =
+        lane.siblingMethod && lane.siblingMethod !== "GET"
+          ? `${lane.siblingMethod} `
+          : "";
+      lines.push(
+        `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | \`${lane.token}\` | \`${prefix}/v1/${lane.sibling}\` | ${rate} | ${lane.maxItems} | ${e.pricing.cost + laneCeilingCredits(lane)}cr | ${e.pricing.cost + laneMaxCredits(lane)}cr |`,
+      );
+    }
+  }
+
+  lines.push("", "## What each join fills", "");
+  for (const e of hydrating) {
+    for (const lane of e.hydration ?? []) {
+      lines.push(
+        `**\`/v1/${e.platform}/${e.resource}\` + \`${lane.param}=${lane.token}\`**`,
+        "",
+        lane.fills.map((f) => `\`${f}\``).join(", "),
+        "",
+      );
+      if (lane.replaceApproximate && lane.replaceApproximate.length > 0) {
+        lines.push(
+          `Replaces rather than only fills: ${lane.replaceApproximate.map((f) => `\`${f}\``).join(", ")} — on a row that flags its own value approximate.`,
+          "",
+        );
+      }
+    }
+  }
+
+  lines.push(
+    "Use `socialcrawl_pricing` with `action: \"hydration\"` for the same catalogue priced, or `action: \"endpoint\"` with `include` and `rows` for an exact quote of one call.",
   );
 
   return lines.join("\n");
@@ -392,6 +559,7 @@ export const FIXED_TOPICS = [
   "idempotency",
   "pagination",
   "caching",
+  "hydration",
   "response-schema",
   "limits",
   "monitors",
@@ -418,6 +586,7 @@ export const DOCS: Record<string, string> = (() => {
     monitors: HANDWRITTEN.monitors,
     cohorts: HANDWRITTEN.cohorts,
     pricing: buildPricingDoc(),
+    hydration: buildHydrationDoc(),
     full: buildFullDoc(),
   };
   for (const platform of PLATFORMS) {

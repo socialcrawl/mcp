@@ -7,18 +7,18 @@
 
 /** Live platform / endpoint / tier counts from the backend registry. */
 export const REGISTRY_STATS = {
-  "totalEndpoints": 572,
+  "totalEndpoints": 575,
   "totalPlatforms": 65,
   "socialPlatforms": 31,
   "universalSearchPlatforms": 14,
   "universalSearchSources": 17,
-  "standardEndpoints": 327,
-  "advancedEndpoints": 210,
+  "standardEndpoints": 329,
+  "advancedEndpoints": 211,
   "premiumEndpoints": 35,
-  "standardLadder": 277,
-  "advancedLadder": 171,
-  "premiumLadder": 22,
-  "customCount": 102
+  "standardLadder": 258,
+  "advancedLadder": 166,
+  "premiumLadder": 19,
+  "customCount": 132
 } as const;
 
 /** The credit-tier ladder. Endpoints may override it flat or meter per query. */

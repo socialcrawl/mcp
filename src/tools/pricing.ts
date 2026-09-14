@@ -2,6 +2,13 @@ import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoin
 import { PLATFORMS, findPlatform } from "../data/platforms.js";
 import { CACHE_TTLS, CREDIT_LADDER, REGISTRY_STATS } from "../data/registry-meta.js";
 import {
+  describeLane,
+  hydratingEndpoints,
+  laneCeilingCredits,
+  laneMaxCredits,
+  quoteHydration,
+} from "../hydration.js";
+import {
   bestCaseCost,
   endpointLabel,
   endpointPath,
@@ -11,6 +18,7 @@ import {
   formatTtl,
   freeEndpoints,
   meteredEndpoints,
+  hydrationCeiling,
   meteredRule,
   worstCaseCost,
 } from "../pricing.js";
@@ -24,7 +32,12 @@ import type { Endpoint } from "../types.js";
  * charge differ from the sticker price.
  */
 
-export type PricingAction = "overview" | "endpoint" | "platform" | "list";
+export type PricingAction =
+  | "overview"
+  | "endpoint"
+  | "platform"
+  | "list"
+  | "hydration";
 
 export interface PricingParams {
   action?: PricingAction;
@@ -37,6 +50,10 @@ export interface PricingParams {
   minCost?: number;
   sort?: "cost_asc" | "cost_desc" | "platform" | "name";
   limit?: number;
+  /** endpoint: the `include=` tokens you intend to send, for an exact quote. */
+  include?: string;
+  /** endpoint: the row cap you intend to send, which shrinks the hold. */
+  rows?: number;
 }
 
 const BILLING_RULES = [
@@ -46,6 +63,7 @@ const BILLING_RULES = [
   "**Failures are refunded.** 502 `UPSTREAM_ERROR`, 503 `SERVICE_UNAVAILABLE`, 500 `INTERNAL_ERROR`, and request-deadline 504s all reverse the charge. 400/401/402/405/409/422/429 never deduct in the first place (validation runs before billing).",
   "**Metered endpoints deduct a ceiling and refund down.** The upfront hold is the worst case for your query; the settled charge is the work actually done, reported as `credits_used` in the envelope and the `X-Credits-Used` header.",
   "**`/v1/search/everywhere` has a coverage floor.** Zero usable items = full refund; coverage below 50% of the called sources = 50% refund (10cr instead of 20cr).",
+  "**Row joins (`include=`) hold per row and keep per row FILLED.** On the endpoints that offer one, the ceiling is held up front, a credit is kept only for a row a fresh sibling lookup actually filled, and every other slot is refunded — rows served from the sibling's cache are free, unfillable rows are free, and a page that joined in full is cached whole. See `action: \"hydration\"`.",
   "**Monitors add +1 credit per scheduled run** on top of the recipe's own cost. Managing monitors is free.",
 ];
 
@@ -198,7 +216,7 @@ function buildEndpointDetail(params: PricingParams): string {
     "",
     "## Worst case for budgeting",
     "",
-    `A single call can deduct at most **${worstCaseCost(endpoint.pricing)} credits** and at least **${bestCaseCost(endpoint.pricing)} credits** (0 on a cache hit, an empty result, or an upstream failure).`,
+    `A single call can deduct at most **${worstCaseCost(endpoint.pricing)} credit${worstCaseCost(endpoint.pricing) === 1 ? "" : "s"}** and at least **${bestCaseCost(endpoint.pricing)} credit${bestCaseCost(endpoint.pricing) === 1 ? "" : "s"}** (0 on a cache hit, an empty result, or an upstream failure).`,
   ];
 
   if (endpoint.pricing.model === "metered") {
@@ -206,6 +224,56 @@ function buildEndpointDetail(params: PricingParams): string {
       "",
       "The upfront hold is the ceiling for your specific query; the settled charge comes back in `credits_used`. Read it from the response envelope rather than assuming the hold.",
     );
+  }
+
+  // An exact quote beats a band. Once the caller says which joins they intend
+  // to ask for, the hold is not a range at all — it is arithmetic, and this is
+  // the same arithmetic the backend's pricer runs.
+  if (endpoint.hydration && endpoint.hydration.length > 0) {
+    const quote = quoteHydration(endpoint, params.include, params.rows);
+    lines.push("", "## Your quote");
+    if (params.include === undefined) {
+      lines.push(
+        "",
+        `Without \`include\`, this call is exactly **${endpoint.pricing.cost} credit${endpoint.pricing.cost === 1 ? "" : "s"}** — the joins are opt-in, and nothing changes for a caller who never asks.`,
+        "",
+        `Pass \`include\` (and \`rows\`, if you intend to send a row cap) to price a specific join: e.g. \`include: "${endpoint.hydration[0].token}"\`.`,
+      );
+    } else {
+      if (quote.unknownTokens.length > 0) {
+        lines.push(
+          "",
+          `**This endpoint does not offer ${quote.unknownTokens.map((t) => `\`${t}\``).join(", ")}.** It accepts ${endpoint.hydration.map((l) => `\`${l.token}\``).join(", ")}. An unknown token is rejected before billing (a free 400) — but it also joins nothing.`,
+        );
+      }
+      lines.push(
+        "",
+        `\`include=${params.include}\`${params.rows !== undefined ? ` with a row cap of ${params.rows}` : ""} holds **${quote.held} credits** up front:`,
+        "",
+        "| Part | Rows | Held |",
+        "|------|------|------|",
+        `| the page itself | — | ${quote.base}cr |`,
+        ...quote.lanes.map(
+          (l) =>
+            `| \`${l.lane.param}=${l.lane.token}\` → \`${l.lane.sibling}\` | ${l.rows} | ${l.held}cr |`,
+        ),
+      );
+      if (quote.lanes.length > 0) {
+        lines.push(
+          "",
+          `It settles between **${quote.floor}** and **${quote.held}** credits: ${quote.base} for the page, and each join keeps ${quote.lanes
+            .map((l) => `${l.lane.creditsPerItem}cr`)
+            .join(" / ")} only for a row a fresh sibling lookup actually filled. Every cached row, every unfillable row and every unused slot is refunded.`,
+        );
+        const capped = quote.lanes.filter((l) => l.lane.rowLimitParam);
+        if (params.rows === undefined && capped.length > 0) {
+          lines.push(
+            "",
+            `To hold less, send \`${capped[0].lane.rowLimitParam}\` — it caps the rows joined and the credits together.`,
+          );
+        }
+      }
+    }
   }
 
   if (endpoint.paginatable || endpoint.pagination) {
@@ -310,6 +378,84 @@ function buildList(params: PricingParams): string {
   ].join("\n");
 }
 
+/**
+ * The catalogue of opt-in row joins, priced.
+ *
+ * This answers "what can I get in ONE call, and what does it cost" — the
+ * question the engine was built for. Before it, a caller paid for a page and
+ * then paid again, per row, to fill the page in; this is the same work at the
+ * sibling's price with the cache hits taken off.
+ */
+function buildHydrationCatalogue(params: PricingParams): string {
+  const all = hydratingEndpoints();
+  const scoped = params.platform
+    ? all.filter((e) => e.platform === params.platform)
+    : all;
+
+  if (scoped.length === 0) {
+    return [
+      params.platform
+        ? `No endpoint on \`${params.platform}\` offers an \`include=\` row join.`
+        : "No endpoint offers an `include=` row join.",
+      "",
+      `${all.length} endpoint${all.length === 1 ? "" : "s"} across ${new Set(all.map((e) => e.platform)).size} platforms do — drop \`platform\` to see them all.`,
+    ].join("\n");
+  }
+
+  const laneCount = scoped.reduce((n, e) => n + (e.hydration?.length ?? 0), 0);
+  const lines: string[] = [
+    `# Row hydration — ${laneCount} join${laneCount === 1 ? "" : "s"} across ${scoped.length} endpoint${scoped.length === 1 ? "" : "s"}${params.platform ? ` on ${params.platform}` : ""}`,
+    "",
+    "A list endpoint whose rows are thin by construction can fill them from a sibling endpoint **inside the same call**, when you ask with `include=`. A caller who does not ask pays exactly what they always paid.",
+    "",
+    "**How it is billed:** the ceiling is held up front; a credit is KEPT only for a row a fresh sibling lookup actually filled. Rows served from the sibling's cache are free, rows it could not fill are refunded, and a page that joined in full is cached whole — so an immediate repeat is 0 credits. `credits_used` is the real charge, and `data.hydration` itemises rows, lookups, cache hits, credits held/kept and milliseconds.",
+    "",
+    "| Endpoint | Token | Joins to | Per row | Max rows | Plain | With every join |",
+    "|----------|-------|----------|---------|----------|-------|-----------------|",
+  ];
+
+  for (const e of scoped) {
+    for (const lane of e.hydration ?? []) {
+      const rate = lane.batch
+        ? `${lane.creditsPerItem}cr (cap ${lane.batch.creditCap} per ${lane.batch.size})`
+        : `${lane.creditsPerItem}cr`;
+      const siblingPrefix =
+        lane.siblingMethod && lane.siblingMethod !== "GET"
+          ? `${lane.siblingMethod} `
+          : "";
+      lines.push(
+        `| \`${endpointPath(e)}\` | \`${lane.token}\` | \`${siblingPrefix}/v1/${lane.sibling}\` | ${rate} | ${lane.maxItems}${lane.defaultRowLimit !== undefined ? ` (${lane.defaultRowLimit} by default)` : ""} | ${e.pricing.cost}cr | ${e.pricing.cost + hydrationCeiling(e)}cr |`,
+      );
+    }
+  }
+
+  lines.push("", "## What each join fills", "");
+  for (const e of scoped) {
+    for (const lane of e.hydration ?? []) {
+      lines.push(
+        `**\`${endpointPath(e)}\` + \`${lane.param}=${lane.token}\`** — the join holds ${laneCeilingCredits(lane) === laneMaxCredits(lane) ? `at most ${laneMaxCredits(lane)}cr` : `${laneCeilingCredits(lane)}cr by default and ${laneMaxCredits(lane)}cr for a full page`}, on top of the ${e.pricing.cost}cr page.`,
+        lane.fills.map((f) => `\`${f}\``).join(", "),
+        "",
+      );
+    }
+  }
+
+  lines.push(
+    "## Rules that hold for every join",
+    "",
+    "- **Opt-in only.** No token, no join, no extra credit, no extra latency.",
+    "- **Null-only.** A join writes a leaf only where the row lacks it. It never overwrites what the page already returned, except a leaf the row itself flags as approximate (LinkedIn's rounded follower buckets).",
+    "- **A row cap caps the bill.** Where a lane offers one, sending it shrinks the rows joined and the credits held together.",
+    "- **Several tokens are comma-separated**, and each holds, bills, refunds and warns on its own terms; the call holds the sum of the ones you asked for.",
+    "- **Latency is real.** A join adds roughly 0.2 to 10 seconds on a fresh page depending on the lane, and nothing when the rows are already cached.",
+    "- **An unknown token is a free 400**, rejected before billing.",
+    "",
+    'For one endpoint’s exact hold, use `action: "endpoint"` with `platform`, `resource` and the `include` you intend to send.',
+  );
+
+  return lines.join("\n");
+}
+
 export function pricing(params: PricingParams): string {
   const action = params.action ?? "overview";
 
@@ -326,9 +472,11 @@ export function pricing(params: PricingParams): string {
       return buildPlatformTable(params.platform);
     case "list":
       return buildList(params);
+    case "hydration":
+      return buildHydrationCatalogue(params);
     case "overview":
       return buildOverview();
     default:
-      return `Error: Unknown action "${String(action)}". Valid actions: overview, endpoint, platform, list.`;
+      return `Error: Unknown action "${String(action)}". Valid actions: overview, endpoint, platform, list, hydration.`;
   }
 }

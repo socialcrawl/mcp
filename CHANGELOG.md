@@ -4,6 +4,176 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **API errors now keep the server's message, reason, and `request_id`.** A
+  customer reported errors such as "Upstream error fetching data. Credits have
+  been auto-refunded." with no request id to quote, although the API body
+  carried a top-level `request_id` and a specific `error.message`. The 401,
+  404 (`RESOURCE_NOT_FOUND`), 405, 429, 502 and 503 branches of
+  `formatHttpError` returned fixed strings that dropped both. Every branch now
+  passes the server's `error.message` through (a short lead-in only names the
+  category; the fixed wording is kept as the fallback when the body has no
+  message), adds `reason: …` from `error.details.reason` when present, and
+  ends with `request_id: req-…` on its own line, read from the body or, when
+  the body is missing or not JSON, from the `X-Request-Id` header. Applies to
+  every tool, since `makeRequest` and `apiRequest` share the formatter.
+  - 429 now says which limit was hit (600 requests/minute or 50 in flight)
+    instead of always blaming concurrency.
+  - 402 `KEY_BUDGET_EXCEEDED` no longer tells the agent to top up the account,
+    which does not clear a per-key cap.
+  - README, `docs/GETTING-STARTED.md` and `docs/HOW-IT-WORKS.md` describe the
+    new format.
+
+## [1.12.0] - 2026-09-14
+
+Registry re-sync: three new endpoints, two new price levers, and a pricing-doc
+guard that no longer fails on the next endpoint the backend ships.
+
+### Added
+
+- **`tiktok/hashtags/popular`** (6-96cr metered) — TikTok's own trending-hashtag
+  board for a market and time window: the overall board plus 15 industry
+  boards. 2 credits per hashtag returned, minimum 6; one board is 6 credits and
+  `industry=all` holds 96 for sixteen boards, settling around 88-92. A ranked
+  leaderboard with no second page.
+- **`tiktok/videos/popular`** (26-45cr metered) — the Top Videos board for the
+  US, Japan, Vietnam, Thailand or Indonesia, orderable by views, engagement or
+  six-second views. 25 credits per board plus 1 per video returned.
+- **`google_trends/trending`** (5cr) — Trending Now by location, filtered by
+  hour window, category, status and sort.
+- **`coverage=full` on `instagram/followers` and `instagram/following`** — a
+  merged walk that adds accounts from several reads and never repeats one
+  across pages, until the rows reach the profile's own `data.total`. Requires
+  `handle` and a cursor from this mode only continues this mode.
+- **`feed=global|local` on `tiktok/trending`** — the worldwide web feed
+  (~13 videos, 3-12s) or the For You feed as a phone in `region` would see it
+  (median 24 videos, 12-35s, mostly in-country).
+
+### Changed
+
+- **Re-synced with the backend registry: 572 → 575 endpoints, 24 further
+  endpoints changed.** Platforms stay at 65.
+- **`instagram/followers` and `instagram/following` moved from a flat ladder
+  rate to a 5-10cr metered band**, because `coverage=full` doubles the page
+  price. Metered endpoints 67 → 71, ladder 444 → 443. The band matters here:
+  measured 13/09, a full following list of 2,652 accounts took 54 pages (540
+  credits) and a follower list of 2,360 took 59 (590), since the later pages of
+  a follower walk add fewer new accounts. `socialcrawl_pricing` names
+  `coverage` as the lever that moves the bill.
+- **`instagram/location/posts` now pages with a cursor.** It was declared
+  single-page ("Instagram serves this location grid as one page of roughly 60
+  recent posts"); the upstream exposes a working cursor now, so the endpoint
+  carries a real pagination descriptor and the single-page note is gone.
+- `threads/search` refined its metered rule: a post Threads publishes no view
+  count for is now free rather than billed (it still gets its pinned flag).
+- Descriptions refreshed on 19 endpoints; upstream source chains on 3.
+
+### Fixed
+
+- **The pricing doc's page-1 guard was one endpoint away from failing for no
+  reader-visible reason.** It asserted `## Cost per endpoint` onto page 1,
+  which sat at 24,975 of 25,000 characters. The summary a caller actually needs
+  without paging — the three models, free, flat overrides, the metered bands
+  and the row-join table — is what is pinned to page 1 now; the grouped
+  per-endpoint price table and the authored metered rules are a reference that
+  is looked up rather than read, so they are asserted as reachable instead.
+  The page ceiling moved 2 → 3, with a note that three pages is the point to
+  re-read the doc for duplication rather than raise the number again.
+
+### Tests
+
+- `EXPECTED_ENDPOINTS` 572 → 575 (the intentional drift guard).
+- 325 → 326 tests.
+
+## [1.11.0] - 2026-09-12
+
+Row hydration: the opt-in `include=` joins, and the 79-endpoint registry
+re-sync that came with them.
+
+### Added
+
+- **Row hydration is a first-class surface.** 33 joins across 28 endpoints let
+  a list fill its own rows from a sibling endpoint inside the same call — a
+  Pinterest search that carries save and comment counts, a LinkedIn people
+  search whose rows hold exact follower and connection counts, a YouTube
+  playlist with view counts, durations and subscriber counts, Facebook photo
+  and event lists with their details, a Reddit community search with
+  subscriber counts, Threads and TikTok searches with engagement and profile
+  data. Before this the caller paid for the page and then paid again, per row,
+  to fill it in.
+  - `src/hydration.ts` is a port of the backend's single pricing leaf
+    (`hydrate/pricing.ts`), so a quote here is the number the API actually
+    holds rather than an approximation of the prose. It covers the row-cap
+    rule (`limit` shrinks the hold), a lane's `defaultRowLimit` (the Instagram
+    similar roster holds its top 20, not all 80), and batch siblings, where
+    the charge is the cheaper of per-row and per-chunk (a YouTube 50-id
+    lookup is capped at 5 credits, not 50).
+  - `socialcrawl_pricing` gains **`action: "hydration"`** — every join, what it
+    fills, its per-row rate, its row cap and what a fully-joined page holds,
+    optionally scoped to one platform.
+  - `socialcrawl_pricing` with `action: "endpoint"` gains **`include` and
+    `rows`**. Describe the call you intend to make and the band becomes
+    arithmetic: `include: "profile", rows: 3` on `linkedin/search/people`
+    returns "holds 22 credits (10cr page + 12cr for 3 rows)", itemised per
+    join, for free.
+  - `socialcrawl_list_endpoints` gains **`hydrating: true`**, and prints each
+    join in the full parameter reference and as a marker in the summary row.
+  - `socialcrawl_get_docs` gains the **`hydration`** topic: the billing model,
+    the `data.hydration` report, the `_warnings` tokens, the null-only rule,
+    and a table of every lane — generated from the lanes themselves, so it
+    cannot drift from the engine.
+  - `socialcrawl_request` now either quotes what a join actually held for the
+    `include=` you sent, or — when the endpoint offers one and you did not ask
+    — says so and what it would cost. That is the path that turns an
+    "engagement is null" ticket into one extra token.
+
+### Changed
+
+- **Re-synced with the backend registry (79 endpoints changed).** Platform and
+  endpoint totals are unchanged at 65 / 572; the drift was in the contracts.
+- **26 endpoints stopped being flat ladder prices and became metered bands**
+  (41 metered endpoints → 67), because a row join moves the bill. The MCP was
+  quoting several of these materially wrong: `linkedin/search/people` and
+  `linkedin/post/reactions` are 10-50cr, not 10; `instagram/similar` is
+  5-85cr, not 5; `threads/user/posts` is 1-165cr, not 1; `pinterest/search`
+  and `reddit/subreddits/search` are 1-26cr, not 1.
+- 42 endpoints gained optional params (`include`, and a `limit` that caps the
+  rows joined and the credits together), 10 gained or refined a pagination
+  descriptor, 9 more declare a `limitParam`, and 3 changed archetype or
+  response shape (`linkedin/post/reactions` now names its `author` item key).
+- **The `pricing` doc was restructured** so it still opens with the whole
+  summary. The metered table on page 1 now carries the band and the params
+  that move it; the full authored rules moved to their own section further
+  down, and a row-hydration summary sits between them. Still 2 pages, still
+  complete.
+- `priceDrivingParams` names a hydrating endpoint's `include` and row-cap
+  params from the lane itself rather than fishing them out of the rule text —
+  they are the meter, not a mention of it.
+
+### Data layer
+
+- `scripts/extract-mcp-data.ts` (backend) emits a new **`hydration`**
+  projection from the registry's `HydrateSpec`, flattened one entry per opt-in
+  token: the sibling, the leaves it writes, the per-row rate, the row cap, the
+  batch cap, the warning tokens and the `replaceApproximate` leaves. The MCP
+  reads real declarations instead of parsing prose.
+- `src/types.ts` gains `HydrationLane`; `scripts/generate-data.ts` renders it.
+
+### Tests
+
+- New `src/__tests__/hydration.test.ts` (25 tests). The load-bearing one
+  reconciles every metered band the registry authored against the ceiling
+  re-derived from the lanes — two independent derivations of the same number,
+  so a drift in either is caught before a customer budgets against it. Also
+  pinned: every lane's sibling exists in this build and is on the same
+  platform, every token is an accepted `include` value (or the API would 400
+  it), a multi-token endpoint can actually send both, an endpoint with a join
+  is never still priced as a ladder, and no surface hides a join.
+- 300 → 325 tests.
+
 ## [1.10.0] - 2026-09-08
 
 Re-sync with the backend registry (**48 platforms / 381 endpoints → 65 platforms /

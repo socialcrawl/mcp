@@ -18,11 +18,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 34,
+    endpointCount: 36,
     social: true,
     category: "major",
     description:
-      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, trending feed, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   },
   {
     slug: "instagram",
@@ -215,10 +215,10 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "google_trends",
     name: "Google Trends",
-    endpointCount: 2,
+    endpointCount: 3,
     social: false,
     description:
-      "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term. Backed by DataForSEO Google Trends.",
+      "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Backed by DataForSEO Google Trends.",
   },
   {
     slug: "trustpilot",

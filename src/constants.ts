@@ -7,4 +7,4 @@ export const TIMEOUT_MS = 30_000;
 // stale copy behind. Import it from there.
 
 export const SERVER_NAME = "socialcrawl-mcp";
-export const SERVER_VERSION = "1.10.0";
+export const SERVER_VERSION = "1.12.0";

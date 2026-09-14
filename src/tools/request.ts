@@ -3,6 +3,7 @@ import { findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { makeRequest, apiRequest } from "../client.js";
 import { formatCost, worstCaseCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
+import { quoteHydration } from "../hydration.js";
 import type { Endpoint } from "../types.js";
 
 interface RequestParams {
@@ -248,6 +249,44 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
   ];
   if (endpoint.pricing.model === "metered" && endpoint.pricing.description) {
     headerLines.push(`**Metered rule:** ${endpoint.pricing.description}`);
+  }
+
+  // Row joins, on the surface that actually spends the credits.
+  //
+  // Two different callers need two different things here. The one who sent a
+  // token wants the band replaced by the number this call actually held; the
+  // one who did not send a token usually does not know the option exists, and
+  // is the caller who files "engagement is null" after paying for a page and
+  // then paying again per row to fill it in.
+  if (endpoint.hydration && endpoint.hydration.length > 0) {
+    const sentInclude = merged.include;
+    const includeValue =
+      typeof sentInclude === "string" && sentInclude.trim() !== ""
+        ? sentInclude
+        : undefined;
+    const rowCap = Number(merged.limit);
+    const quote = quoteHydration(
+      endpoint,
+      includeValue,
+      Number.isFinite(rowCap) ? rowCap : undefined,
+    );
+    if (quote.lanes.length > 0) {
+      headerLines.push(
+        `**Row join:** \`include=${includeValue}\` held ${quote.held}cr (${quote.base}cr page + ${quote.lanes
+          .map((l) => `${l.held}cr for ${l.rows} rows of \`${l.lane.token}\``)
+          .join(" + ")}). Only rows a fresh lookup filled were kept — see \`data.hydration\` for rows, cache hits, credits held vs kept, and \`credits_used\` for the settled charge.`,
+      );
+    } else if (includeValue === undefined) {
+      headerLines.push(
+        `**Row join available:** this endpoint can fill its own rows in the same call. Add \`include=${endpoint.hydration
+          .map((l) => l.token)
+          .join(",")}\` to join each row to ${endpoint.hydration
+          .map((l) => `\`/v1/${l.sibling}\``)
+          .join(" and ")} — ${endpoint.hydration
+          .map((l) => `${l.creditsPerItem}cr per row filled, at most ${l.maxItems} rows`)
+          .join("; ")}. Cached and unfillable rows are free.`,
+      );
+    }
   }
   const unknown = unknownParams(endpoint, merged);
   if (unknown.length > 0) {

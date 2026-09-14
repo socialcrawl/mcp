@@ -6,11 +6,11 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 10 tools that let it interact with 65 platforms and 572 endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, on-page SEO audits, web research, full web scraping & browser automation, prediction markets, Google News/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
+Once installed, your AI agent gains 10 tools that let it interact with 65 platforms and 575 endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, on-page SEO audits, web research, full web scraping & browser automation, prediction markets, Google News/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
 
-- **Discover** what platforms and endpoints are available — browse by platform, search by free text across all 572 endpoints, or ask the live API to describe itself for free via its own `/v1/utility/*` endpoints
+- **Discover** what platforms and endpoints are available — browse by platform, search by free text across all 575 endpoints, or ask the live API to describe itself for free via its own `/v1/utility/*` endpoints
 - **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, analytics, and Prism composites
-- **Price** any call before making it — the tier ladder, flat overrides, and the real min-max band for the 41 metered endpoints, with the rule that decides where inside the band you land
+- **Price** any call before making it — the tier ladder, flat overrides, and the real min-max band for the 71 metered endpoints, with the rule that decides where inside the band you land
 - **Read** detailed API documentation on demand — authentication, credits, pricing, errors, idempotency, pagination, caching, response schema, and rate limits
 - **Check** your credit balance, or read the itemised ledger to see exactly what any past request charged and refunded
 - **Schedule** Monitors that re-run any recipe on a cadence and deliver each result to a signed webhook
@@ -178,13 +178,14 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 ### `socialcrawl_list_endpoints`
 
-**When to use:** When you need to know what endpoints exist, what parameters they take, and what they cost — either for one platform, or by searching across all 572 endpoints.
+**When to use:** When you need to know what endpoints exist, what parameters they take, and what they cost — either for one platform, or by searching across all 575 endpoints.
 
 **Input:** (all optional)
 - `platform` — the platform slug, e.g., `"tiktok"`, `"instagram"`, `"youtube"`
 - `search` — free text over endpoint names, summaries, descriptions, archetypes, and tags. With no `platform`, it searches every platform; with one, it narrows inside that platform
 - `method` — `GET` | `POST` | `PATCH` | `DELETE`
 - `maxCost` — only endpoints that can cost at most this many credits (metered endpoints judged by their ceiling)
+- `hydrating` — only endpoints that can fill their own rows in the same call via an `include=` join
 - `detail` — `"full"` (default for a single platform) or `"compact"`
 
 **Output:** A summary table plus, in full detail, the complete parameter contract for each endpoint: required params with examples, `oneOf` groups, optional params with their type, integer range, enum values, and couplings, CSV entry limits, the paging style and native cursor param, cache TTL, async/streaming mode, upstream fallback sources, and the price (with the metered rule where one applies).
@@ -204,10 +205,13 @@ The agent calls `socialcrawl_get_docs` with `topic: "credits"` and returns the p
 
 **Output by action:**
 
-- **`overview`** — the tier ladder with per-tier counts, every free endpoint, every flat override, all 41 metered endpoints with their min-max band and charging rule, the cache TTL table, and the full refund matrix.
+- **`overview`** — the tier ladder with per-tier counts, every free endpoint, every flat override, all 71 metered endpoints with their min-max band and charging rule, the cache TTL table, and the full refund matrix.
 - **`endpoint`** — one endpoint's price, whether it is ladder / flat / metered, the registry's exact charging rule, the parameters that actually move the bill, the cost of paging it, and the worst case to budget for.
 - **`platform`** — a whole platform's cost table plus its metered rules.
+- **`hydration`** — every opt-in `include=` row join in the API: what each one fills, its per-row rate, its row cap, and what a fully-joined page holds. Scope it to one platform with `platform`.
 - **`list`** — a ranked, filtered table across platforms, with the total worst-case spend of the listed rows. Use `maxCost: 1` for "everything I can call for a single credit", or the default `sort: "cost_desc"` for the most expensive endpoints.
+
+Pass `include` (and `rows`) to the `endpoint` action and the answer stops being a band: it is the exact upfront hold for that call, itemised per join, computed with the same formula the backend's pricer uses.
 
 **Why this exists:** a single number is a lie for most of the surface. A metered endpoint's base cost understates every call, and a flat endpoint ignores its tier rate entirely. This tool always quotes a metered endpoint as a band, never as its base.
 
@@ -328,7 +332,7 @@ Both views cost **0 credits**.
 - `id` — the monitor id (required for get/runs/timeseries/pause/resume/delete)
 - `recipe`, `cadence`, `webhook_url` (required for `create`), plus optional `params`, `name`, `alert_rules`, `suppress_webhook_unless_alert`, and list/runs/timeseries filters
 
-**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 572 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
+**Output:** The monitor, list, run history, or time-series JSON. Monitors are **not** registry endpoints (not part of the 575 count) and use POST/PATCH/DELETE in addition to GET. Managing them costs **0 credits**; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium.
 
 **Requires API key.**
 
@@ -373,7 +377,7 @@ Both views cost **0 credits**.
 
 Every API request costs credits, billed one of three ways.
 
-**Ladder** — the tier rate, charged per request. This covers 470 of the 572 endpoints.
+**Ladder** — the tier rate, charged per request. This covers 443 of the 575 endpoints.
 
 | Tier | Cost | What it covers |
 |------|------|----------------|
@@ -402,17 +406,27 @@ Other facts worth knowing:
 
 ## Error Handling
 
-The MCP handles errors gracefully and gives the agent actionable guidance:
+The MCP handles errors gracefully and gives the agent actionable guidance. Every API error keeps the server's own `error.message`, then adds `reason: …` when the API names one and `request_id: req-…` on its own line. For example, a transcript of a deleted video reads:
+
+```
+Error: Resource not found (youtube). The video is unavailable (deleted, private, or it never existed). You were not charged for this request.
+reason: video_gone
+request_id: req-a1b2c3d4e5f6
+```
+
+Quote the `request_id` when you report a problem: it is how a single call is found in the logs and the credit ledger.
 
 | Error | What the agent sees |
 |-------|---------------------|
 | Missing API key | "No API key configured. Set SOCIALCRAWL_API_KEY..." |
-| Invalid API key | "Invalid API key. Check your SOCIALCRAWL_API_KEY configuration." |
-| Insufficient credits | "Insufficient credits (X remaining). Top up at socialcrawl.dev/billing." |
-| Bad platform/resource | "Unknown platform/resource. Use socialcrawl_list_endpoints to see available endpoints." |
+| Invalid API key | "Invalid API key. API key not found, revoked, or expired. Check your SOCIALCRAWL_API_KEY configuration." |
+| Insufficient credits | "Insufficient credits (X remaining). Your account has X credits remaining. This endpoint requires Y credits. Top up at socialcrawl.dev/dashboard/billing." |
+| Bad platform/resource | "Endpoint /v1/tiktok/fake not found. Unknown endpoint: /v1/tiktok/fake. Use socialcrawl_list_endpoints to see available endpoints for tiktok." |
 | Missing parameters | "Missing required parameter: handle. This endpoint requires: handle." |
-| Platform down | "Platform temporarily unavailable. Try again shortly." |
-| Upstream error | "Upstream error fetching data. Credits have been auto-refunded." |
+| Platform down | "Service unavailable. instagram is temporarily unavailable. Your credits have been refunded." |
+| Upstream error | "Upstream error. pinterest returned an error for this request and every available source failed. Your credits have been refunded. This is usually transient, retry after 30 seconds." |
+
+Every error that came back from the API is followed by its `request_id` (and `reason`, when present) as shown in the example. The missing-key and missing-parameter errors are caught locally before any call is made, so they have no request id.
 
 The agent can self-correct from most errors by calling `socialcrawl_list_platforms` or `socialcrawl_list_endpoints` to discover the right platform, endpoint, or parameters.
 

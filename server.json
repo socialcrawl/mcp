@@ -2,12 +2,12 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.RidioDevelopment/socialcrawl",
   "title": "SocialCrawl",
-  "description": "Access 65 platforms and 572 endpoints through one unified API — social media (incl. Douyin, Telegram, Quora, Apple Music), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & local (Tripadvisor, Yelp, Google Business/Hotels), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search — with exact per-endpoint credit pricing (ladder, flat, and metered bands) for every one.",
+  "description": "One API for 65 platforms and 575 endpoints: social, commerce, retail, jobs, finance, web scraping.",
   "repository": {
     "url": "https://github.com/RidioDevelopment/socialcrawl-mcp",
     "source": "github"
   },
-  "version": "1.10.0",
+  "version": "1.12.0",
   "remotes": [
     {
       "type": "streamable-http",
@@ -26,7 +26,7 @@
     {
       "registryType": "npm",
       "identifier": "socialcrawl-mcp",
-      "version": "1.10.0",
+      "version": "1.12.0",
       "transport": {
         "type": "stdio"
       },

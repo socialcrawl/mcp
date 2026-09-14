@@ -1,4 +1,5 @@
 import { ENDPOINTS } from "./data/endpoints.js";
+import { explainHydration, laneMaxCredits } from "./hydration.js";
 import type { Endpoint, Pricing } from "./types.js";
 
 /**
@@ -50,14 +51,23 @@ export function bestCaseCost(p: Pricing): number {
  * it cannot drift from the pricer.
  */
 export function priceDrivingParams(e: Endpoint): string[] {
+  // A hydrating endpoint's opt-in token and row cap move the bill by
+  // construction — they ARE the meter — so they are named from the lane
+  // rather than fished out of the prose.
+  const fromLanes = new Set<string>();
+  for (const lane of e.hydration ?? []) {
+    fromLanes.add(lane.param);
+    if (lane.rowLimitParam) fromLanes.add(lane.rowLimitParam);
+  }
   const rule = e.pricing.description;
-  if (!rule) return [];
+  if (!rule) return [...fromLanes];
   const haystack = rule.toLowerCase();
   const names = [
     ...e.optionalParams.map((p) => p.name),
     ...e.params.map((p) => p.name),
   ];
   return names.filter((name) => {
+    if (fromLanes.has(name)) return true;
     // Whole-word match, and never a name short enough to be ordinary prose:
     // a substring test reported `to` as a price driver on search/news because
     // the rule says "settles down to the actual charge".
@@ -105,6 +115,9 @@ export function explainPricing(e: Endpoint): string[] {
       `**Price-driving parameters:** ${drivers.map((d) => `\`${d}\``).join(", ")} — changing these changes the bill.`,
     );
   }
+
+  const hydration = explainHydration(e);
+  if (hydration.length > 0) lines.push(...hydration);
 
   if (e.cache.ttlSeconds > 0) {
     lines.push(
@@ -169,4 +182,16 @@ export function endpointLabel(e: Endpoint): string {
 /** Fully-qualified path label: `GET /v1/tiktok/profile`. */
 export function endpointPath(e: Endpoint): string {
   return `${e.method} /v1/${e.platform}/${e.resource}`;
+}
+
+/** Every endpoint offering an `include=` row join, cheapest ceiling first. */
+export function hydratingEndpointsByCost(): Endpoint[] {
+  return ENDPOINTS.filter((e) => (e.hydration?.length ?? 0) > 0).sort(
+    (a, b) => worstCaseCost(a.pricing) - worstCaseCost(b.pricing),
+  );
+}
+
+/** Total credits every join on this endpoint can hold on one page. */
+export function hydrationCeiling(e: Endpoint): number {
+  return (e.hydration ?? []).reduce((sum, l) => sum + laneMaxCredits(l), 0);
 }
