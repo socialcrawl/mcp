@@ -16,6 +16,7 @@ import {
   laneCeilingCredits,
   laneMaxCredits,
 } from "../hydration.js";
+import { judgedEndpoints, judgmentHoldMax, labelFamily } from "../judgments.js";
 import type { Endpoint } from "../types.js";
 
 /**
@@ -293,21 +294,65 @@ function buildPricingDoc(): string {
     lines.push("");
   }
 
+  // The judgment, `seen` and `max_pages` wording repeats verbatim across
+  // dozens of rules (~20k characters at 130 metered endpoints). Each repeated
+  // clause is printed once and referenced by its marker, so the rules stay
+  // exact without the doc spilling onto a fourth page.
+  const rules = metered.map((e) => meteredRule(e.pricing));
+  const shared = sharedClauses(rules);
   lines.push(
     "",
     `## Metered rules in full (${metered.length})`,
     "",
-    "The exact authored rule for every metered endpoint. `socialcrawl_pricing` with `action: \"endpoint\"` returns one of these on its own, plus the worst case and (on a hydrating endpoint) an exact quote for the `include` you intend to send.",
+    "The exact authored rule for every metered endpoint. `socialcrawl_pricing` with `action: \"endpoint\"` returns one of these on its own (with the shared clauses expanded), plus the worst case and an exact quote for the `params` you intend to send.",
     "",
-    ...metered.flatMap((e) => [
+    ...(shared.length > 0
+      ? [
+          "**Shared clauses** — a marker in a rule below stands for the full sentence here:",
+          "",
+          ...shared.map((c) => `- **${c.id}** ${c.text}`),
+          "",
+        ]
+      : []),
+    ...metered.flatMap((e, i) => [
       `**\`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\`** — ${formatCost(e.pricing)}`,
-      meteredRule(e.pricing),
+      abbreviateRule(rules[i], shared),
       "",
     ]),
     "For one endpoint's exact price, metered rule, price-driving parameters, row joins, and worst case, use the `socialcrawl_pricing` tool.",
   );
 
   return lines.join("\n");
+}
+
+/** Sentence split that keeps each sentence byte-identical to the rule. */
+function ruleSentences(rule: string): string[] {
+  return rule.split(/(?<=\.)\s+(?=[A-Z`])/).map((x) => x.trim()).filter(Boolean);
+}
+
+/**
+ * Sentences that recur verbatim in at least three metered rules and are long
+ * enough to be worth a marker, most frequent first, as `[S1]`, `[S2]`, ….
+ */
+export function sharedClauses(rules: string[]): { id: string; text: string }[] {
+  const counts = new Map<string, number>();
+  for (const rule of rules) {
+    for (const sentence of new Set(ruleSentences(rule))) {
+      counts.set(sentence, (counts.get(sentence) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .filter(([text, n]) => n >= 3 && text.length >= 60)
+    .sort((a, b) => b[1] * b[0].length - a[1] * a[0].length)
+    .map(([text], i) => ({ id: `[S${i + 1}]`, text }));
+}
+
+/** A rule with every shared clause replaced by its marker. */
+export function abbreviateRule(rule: string, shared: { id: string; text: string }[]): string {
+  const byText = new Map(shared.map((c) => [c.text, c.id]));
+  return ruleSentences(rule)
+    .map((sentence) => byText.get(sentence) ?? sentence)
+    .join(" ");
 }
 
 /**
@@ -339,6 +384,72 @@ function hydrationSection(): string[] {
     "Full detail — what each join fills, its per-row rate and its row cap — is in the `hydration` docs topic and `socialcrawl_pricing` with `action: \"hydration\"`.",
     "",
   ];
+}
+
+/**
+ * The `judgments` topic: every judged lane, generated from the registry's
+ * declared label / relevance offers so it cannot drift from the engine.
+ */
+function buildJudgmentsDoc(): string {
+  const lanes = judgedEndpoints();
+  const families = new Map<string, Endpoint[]>();
+  for (const e of lanes) {
+    const fam = labelFamily(e) ?? "row";
+    families.set(fam, [...(families.get(fam) ?? []), e]);
+  }
+  const lines: string[] = [
+    "# SocialCrawl API — Judgments (labels and relevance)",
+    "",
+    `${lanes.length} list endpoints judge their rows for you. **On by default and free:** every page carries the free label presets under \`computed.labels\`, and every judged search carries \`computed.relevance\` against your query — at no extra credit, without changing any existing field, and without dropping or reordering a row. \`data.labels\` and \`data.relevance\` report each judgment's status (\`complete\`, \`partial\`, \`skipped\`) and \`pending\`: rows still being judged when the page was sent carry \`null\` and are filled on your next call or cached read.`,
+    "",
+    "## What costs credits",
+    "",
+    "- a `label=` preset outside the lane's free defaults,",
+    "- `label=intent` together with `offer=` (intent alone is free),",
+    "- `relevance=score|filter` with your own topic in `relevant_to=` (relevance against your query is free).",
+    "",
+    "Each holds 1 credit per started 25 rows of the page's judged-row cap — 4 credits on a 100-row page (5 on `tiktok/search`, 8 on `linkedin/search/posts` and `search/multi`) — and settles to **1 credit per started 25 rows judged fresh on this request**. Rows judged before (labels are cached per row for 30 days), cached pages, and a page where nothing could be judged are free.",
+    "",
+    "## Controls",
+    "",
+    "| Param | Effect |",
+    "|-------|--------|",
+    "| `judgments=off` (or `label=none`) | The page exactly as before default judgments: no `computed.labels`, no `computed.relevance`. |",
+    "| `label=<csv>` | Adds the named presets to the free defaults (which keep running). |",
+    "| `relevance=score` / `filter` | `score` waits for every row; `filter` also drops off-topic rows and lists them in `data.relevance.dropped_ids`. A row that could not be judged is never dropped. |",
+    "| `relevance_threshold=0..1` | How strict `filter` is (default 0.5). |",
+    "| `relevant_to=<text>` | Up to 200 characters describing what you mean, used as the topic instead of the query (metered). |",
+    "| `brand=` / `brand_description=` | Required context for `label=mention` (without `brand` it is skipped and not billed). |",
+    "| `offer=` | What you sell, for `label=intent`; adds `fits_offer` (and makes intent metered). |",
+    "| `reports=<phrase>` | What to look for with `label=reports` on reviews. |",
+    "| `exclude=<csv>` | Drops rows a label flags at ≥0.8 (posts: `engagement_bait` with `label=quality`; comments: `spam`, `low_quality`). |",
+    "| `label_evidence=1` | Adds `computed.labels_evidence.<preset>` — the verbatim sentence behind each label. |",
+    "| `dry_run=1` | Cost preview in `data.estimate` (rows_expected, rows_cached, label_credits_min/max, base_credits) without fetching or judging — 0 credits. |",
+    "| `fit=goal` + `goal=` (+ `fit_tokens=`) | Keeps the rows and fields your goal needs and stubs the rest; `data.held_back` lists them with a free recall id. |",
+    "",
+  ];
+  for (const [family, eps] of families) {
+    const presets = [...new Set(eps.flatMap((e) => e.judgments?.labels?.presets ?? []))];
+    const free = [...new Set(eps.flatMap((e) => e.judgments?.labels?.free ?? []))];
+    lines.push(
+      `## ${family === "row" ? "Relevance-only" : `${family[0].toUpperCase()}${family.slice(1)}`} lanes (${eps.length})`,
+      "",
+      ...(presets.length > 0
+        ? [`Presets: ${presets.map((p) => `\`${p}\`${free.includes(p) ? " (free)" : ""}`).join(", ")}.`, ""]
+        : []),
+      "| Endpoint | Relevance | Hold per metered opt-in |",
+      "|----------|-----------|-------------------------|",
+      ...eps.map(
+        (e) =>
+          `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | ${e.judgments?.relevance ? "free; `relevant_to` metered" : "—"} | ${judgmentHoldMax(e)}cr |`,
+      ),
+      "",
+    );
+  }
+  lines.push(
+    'Quote one call exactly with `socialcrawl_pricing` (`action: "endpoint"`, `params: { label: "mention", brand: "Acme" }`), or list every judged lane with `action: "judgments"`.',
+  );
+  return lines.join("\n");
 }
 
 /**
@@ -560,6 +671,8 @@ export const FIXED_TOPICS = [
   "pagination",
   "caching",
   "hydration",
+  "judgments",
+  "batch-jobs",
   "response-schema",
   "limits",
   "monitors",
@@ -585,6 +698,8 @@ export const DOCS: Record<string, string> = (() => {
     discovery: HANDWRITTEN.discovery,
     monitors: HANDWRITTEN.monitors,
     cohorts: HANDWRITTEN.cohorts,
+    "batch-jobs": HANDWRITTEN["batch-jobs"],
+    judgments: buildJudgmentsDoc(),
     pricing: buildPricingDoc(),
     hydration: buildHydrationDoc(),
     full: buildFullDoc(),

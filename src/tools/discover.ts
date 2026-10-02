@@ -1,13 +1,15 @@
 import { apiRequest, makeRequest } from "../client.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { PLATFORMS, findPlatform } from "../data/platforms.js";
-import { REGISTRY_STATS } from "../data/registry-meta.js";
+import { REGISTRY_FINGERPRINT, REGISTRY_STATS } from "../data/registry-meta.js";
+import { capabilityIndex } from "../judgments.js";
 import { SERVER_VERSION } from "../constants.js";
 import { page } from "../paginate.js";
 import {
   endpointPath,
   explainPricing,
   formatCost,
+  formatRange,
   formatTtl,
   worstCaseCost,
 } from "../pricing.js";
@@ -18,13 +20,15 @@ import type { Endpoint } from "../types.js";
  * The `/v1/utility/*` family — SocialCrawl describing itself, from inside
  * itself, at 0 credits.
  *
- * Four endpoints, all free and served in-process from the endpoint registry
+ * Six endpoints, all free and served in-process from the endpoint registry
  * (no upstream, no network, no retries):
  *
- * - `utility/quickstart` — everything needed for a first successful call.
- * - `utility/endpoints`  — the machine-readable catalogue of every endpoint.
- * - `utility/endpoint`   — the full usage guide for one endpoint.
- * - `utility/llms`       — the agent context corpus, whole-API or per-platform.
+ * - `utility/quickstart`   — everything needed for a first successful call.
+ * - `utility/endpoints`    — the machine-readable catalogue of every endpoint.
+ * - `utility/endpoint`     — the full usage guide for one endpoint.
+ * - `utility/capabilities` — each cross-cutting param, its price, its endpoints.
+ * - `utility/plan`         — a plain-words job turned into priced calls.
+ * - `utility/llms`         — the agent context corpus, whole-API or per-platform.
  *
  * Two things make this worth its own tool rather than raw `socialcrawl_request`:
  *
@@ -45,6 +49,8 @@ export type DiscoverAction =
   | "quickstart"
   | "catalog"
   | "endpoint"
+  | "capabilities"
+  | "plan"
   | "llms"
   | "freshness"
   | "status";
@@ -55,6 +61,10 @@ export interface DiscoverParams {
   search?: string;
   method?: string;
   id?: string;
+  /** capabilities: one parameter only. */
+  param?: string;
+  /** plan: the job in plain words. */
+  query?: string;
   format?: "markdown" | "json";
   live?: boolean;
   page?: number;
@@ -153,7 +163,9 @@ function localQuickstart(platformSlug?: string): string {
     "|----------|---------|",
     "| See what exists | `socialcrawl_list_platforms`, or `socialcrawl_discover` with `action: \"catalog\"` |",
     "| Find an endpoint | `socialcrawl_list_endpoints` with a `search` term |",
-    "| Know what it costs | `socialcrawl_pricing` |",
+    "| Know what it costs | `socialcrawl_pricing` (add `params` for an exact, itemised quote) |",
+    "| Find which endpoints can do X | `socialcrawl_discover` with `action: \"capabilities\"` |",
+    "| Turn a job into calls | `socialcrawl_discover` with `action: \"plan\"` and a `query` |",
     "| Learn one endpoint fully | `socialcrawl_discover` with `action: \"endpoint\"` and an `id` |",
     "| Understand a contract | `socialcrawl_get_docs` — credits, errors, pagination, caching, limits |",
     "| Check this server is current | `socialcrawl_discover` with `action: \"freshness\"` |",
@@ -389,6 +401,15 @@ function guideBody(e: Endpoint): string[] {
 
   lines.push("## Pricing", "", ...explainPricing(e), "");
 
+  if (e.featuredParams && e.featuredParams.length > 0) {
+    lines.push(
+      "## Worth knowing",
+      "",
+      ...e.featuredParams.map((f) => `- \`${f.name}=${f.example}\` — ${f.benefit}`),
+      "",
+    );
+  }
+
   lines.push("## Parameters", "");
   if (e.params.length > 0) {
     lines.push(e.method === "POST" ? "**Required (JSON body unless noted):**" : "**Required:**");
@@ -406,9 +427,7 @@ function guideBody(e: Endpoint): string[] {
       const bits: string[] = [
         opt.type === "enum" && opt.enumValues ? `enum: ${opt.enumValues.join("|")}` : opt.type,
       ];
-      if (opt.minimum !== undefined || opt.maximum !== undefined) {
-        bits.push(`range ${opt.minimum ?? ""}-${opt.maximum ?? ""}`);
-      }
+      if (opt.minimum !== undefined || opt.maximum !== undefined) bits.push(formatRange(opt.minimum, opt.maximum));
       const csv = e.csvConstraints?.[opt.name];
       if (csv) {
         bits.push(
@@ -482,7 +501,11 @@ function guideBody(e: Endpoint): string[] {
       ? "Use `socialcrawl_web` — the `web` platform is action-based, not registry-driven."
       : `\`socialcrawl_request\` with platform \`${e.platform}\`, resource \`${e.resource}\`${e.method !== "GET" ? ` (${e.method} — array/object params go in \`body\`)` : ""}.`,
   );
-  lines.push("", `Related: ${relatedIds(e).map((r) => `\`${r}\``).join(", ") || "—"}`);
+  if (e.related && e.related.length > 0) {
+    lines.push("", "## Related endpoints", "", ...e.related.map((r) => `- \`${r.id}\` — ${r.why}`));
+  } else {
+    lines.push("", `Related: ${relatedIds(e).map((r) => `\`${r}\``).join(", ") || "—"}`);
+  }
   return lines;
 }
 
@@ -631,6 +654,144 @@ function renderGuide(data: Record<string, unknown>): string {
   return lines.join("\n");
 }
 
+// ── capabilities ───────────────────────────────────────────────────────
+
+interface CapabilityRow {
+  param: string;
+  family?: string;
+  what: string;
+  cost: string;
+  values?: string[];
+  free_values?: string[];
+  metered_values?: string[];
+  endpoints: string[];
+}
+
+function capabilityLines(c: CapabilityRow): string[] {
+  const title = c.family ? `\`${c.param}\` (${c.family} rows)` : `\`${c.param}\``;
+  const lines = [`## ${title}`, "", c.what, "", `**Cost:** ${c.cost}`];
+  if (c.free_values && c.free_values.length > 0) lines.push(`**Free values:** ${c.free_values.join(", ")}`);
+  if (c.metered_values && c.metered_values.length > 0) lines.push(`**Metered values:** ${c.metered_values.join(", ")}`);
+  if (c.values && c.values.length > 0) lines.push(`**Values:** ${c.values.join(", ")}`);
+  lines.push(
+    `**Endpoints (${c.endpoints.length}):** ${c.endpoints.map((id) => `\`${id}\``).join(", ")}`,
+    "",
+  );
+  return lines;
+}
+
+function localCapabilities(param?: string): string {
+  const all: CapabilityRow[] = capabilityIndex().map((c) => ({
+    param: c.param,
+    family: c.family,
+    what: c.what,
+    cost: c.cost,
+    free_values: c.freeValues,
+    metered_values: c.meteredValues,
+    endpoints: c.endpoints,
+  }));
+  const rows = param ? all.filter((c) => c.param === param) : all;
+  if (param && rows.length === 0) {
+    return `Error: No capability '${param}'. Known: ${[...new Set(all.map((c) => c.param))].join(", ")}.`;
+  }
+  return [
+    `# Cross-cutting parameters${param ? ` — \`${param}\`` : ""}`,
+    "",
+    LOCAL_NOTE,
+    "",
+    ...rows.flatMap(capabilityLines),
+  ].join("\n");
+}
+
+function renderCapabilities(data: Record<string, unknown>): string {
+  const d = data as { capabilities?: CapabilityRow[]; filters?: { param?: string | null } };
+  const rows = d.capabilities ?? [];
+  return [
+    `# Cross-cutting parameters${d.filters?.param ? ` — \`${d.filters.param}\`` : ""}`,
+    "",
+    LIVE_NOTE,
+    "",
+    ...rows.flatMap(capabilityLines),
+  ].join("\n");
+}
+
+// ── plan ───────────────────────────────────────────────────────────────
+
+interface PlanStepRow {
+  id?: string;
+  method?: string;
+  path?: string;
+  params?: Record<string, string>;
+  missing?: string[];
+  binds?: Record<string, string>;
+  depends_on?: string;
+  body?: Record<string, unknown>;
+  credits?: number | null;
+  run?: string;
+  notes?: string[];
+  curl?: string;
+}
+
+function renderPlan(data: Record<string, unknown>, query: string): string {
+  const d = data as {
+    recipe?: string | null;
+    uncertain?: boolean;
+    reason?: string;
+    confidence?: number;
+    steps?: PlanStepRow[];
+    ask?: { step: string; param: string }[];
+    cannot?: string[];
+    alternatives?: { endpoint: string; probability: number }[];
+    cheaper?: string | null;
+    deeper?: string | null;
+  };
+  const steps = d.steps ?? [];
+  const lines: string[] = [`# Call plan — "${query}"`, "", LIVE_NOTE, ""];
+  if (d.uncertain || steps.length === 0) {
+    lines.push(
+      `**No confident plan** (reason: \`${d.reason ?? "unknown"}\`). The planner never guesses a chain. Try \`socialcrawl_list_endpoints\` with a \`search\` term, or rephrase the job more concretely.`,
+      "",
+    );
+  } else {
+    const total = steps.reduce((n, st) => n + (st.credits ?? 0), 0);
+    lines.push(
+      `Recipe: \`${d.recipe ?? "?"}\` · confidence ${d.confidence ?? "?"} · ${steps.length} step${steps.length === 1 ? "" : "s"} · ${total} credits at published page prices (one call each).`,
+      "",
+    );
+    steps.forEach((st, i) => {
+      lines.push(
+        `## ${i + 1}. \`${st.method ?? "GET"} ${st.path ?? "?"}\` — ${st.credits === null || st.credits === undefined ? "price on run" : `${st.credits}cr`} · ${st.run ?? ""}`,
+        "",
+      );
+      if (st.params && Object.keys(st.params).length > 0) lines.push(`Params: \`${JSON.stringify(st.params)}\``);
+      if (st.missing && st.missing.length > 0) lines.push(`Still needed: ${st.missing.map((m) => `\`${m}\``).join(", ")}`);
+      if (st.binds) {
+        lines.push(
+          `Filled from earlier rows: ${Object.entries(st.binds).map(([k, v]) => `\`${k}\` ← \`${v}\``).join(", ")}`,
+        );
+      }
+      if (st.body) lines.push(`Body: \`${JSON.stringify(st.body)}\``);
+      for (const n of st.notes ?? []) lines.push(`- ${n}`);
+      if (st.curl) lines.push("", "```bash", st.curl, "```");
+      lines.push("");
+    });
+  }
+  if (d.ask && d.ask.length > 0) {
+    lines.push(`**Ask the user for:** ${d.ask.map((a) => `\`${a.param}\` (step ${a.step})`).join(", ")}`, "");
+  }
+  if (d.cannot && d.cannot.length > 0) lines.push("**Not available:**", ...d.cannot.map((c) => `- ${c}`), "");
+  if (d.alternatives && d.alternatives.length > 0) {
+    lines.push(`**Alternatives:** ${d.alternatives.map((a) => `\`${a.endpoint}\` (${a.probability})`).join(", ")}`, "");
+  }
+  if (d.cheaper) lines.push(`**Cheaper:** ${d.cheaper}`);
+  if (d.deeper) lines.push(`**Deeper:** ${d.deeper}`);
+  lines.push(
+    "",
+    "Run each step with `socialcrawl_request`, and quote any step exactly with `socialcrawl_pricing` (`action: \"endpoint\"` plus `params`).",
+  );
+  return lines.join("\n");
+}
+
 // ── freshness ──────────────────────────────────────────────────────────
 
 function renderFreshness(live: { platforms?: number; endpoints?: number } | null): string {
@@ -640,7 +801,7 @@ function renderFreshness(live: { platforms?: number; endpoints?: number } | null
       "",
       "The check calls `GET /v1/utility/endpoints` (0 credits) and compares its live registry stats against this server's bundled catalogue. It needs a configured API key and network access.",
       "",
-      `Bundled catalogue: **${REGISTRY_STATS.totalPlatforms} platforms, ${REGISTRY_STATS.totalEndpoints} endpoints** (socialcrawl-mcp v${SERVER_VERSION}).`,
+      `Bundled catalogue: **${REGISTRY_STATS.totalPlatforms} platforms, ${REGISTRY_STATS.totalEndpoints} endpoints** (socialcrawl-mcp v${SERVER_VERSION}, registry fingerprint \`${REGISTRY_FINGERPRINT.slice(0, 12)}\`).`,
     ].join("\n");
   }
 
@@ -655,6 +816,8 @@ function renderFreshness(live: { platforms?: number; endpoints?: number } | null
     "|---|-----------|-----------|",
     `| Live API | ${live.platforms ?? "?"} | ${live.endpoints ?? "?"} |`,
     `| This server (v${SERVER_VERSION}) | ${REGISTRY_STATS.totalPlatforms} | ${REGISTRY_STATS.totalEndpoints} |`,
+    "",
+    `Bundled registry fingerprint: \`${REGISTRY_FINGERPRINT.slice(0, 12)}\` (a hash of every endpoint's method, path and parameter names). Equal counts with a different backend fingerprint mean a parameter changed; \`action: "endpoint"\` always reads the live contract.`,
     "",
   ];
 
@@ -749,6 +912,45 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
       return paged(renderGuide(data));
     }
 
+    case "capabilities": {
+      if (!canGoLive) return paged(localCapabilities(params.param));
+      const response = await makeRequest(ctx, {
+        platform: "utility",
+        resource: "capabilities",
+        params: params.param ? { param: params.param } : undefined,
+      });
+      const data = envelopeData(response);
+      if (!data) {
+        if (response.startsWith("Error:") && response.includes("No capability")) return response;
+        return paged(`${localCapabilities(params.param)}\n\n> Live call failed: ${response.split("\n")[0]}`);
+      }
+      return paged(renderCapabilities(data));
+    }
+
+    case "plan": {
+      const q = params.query?.trim();
+      if (!q) {
+        return 'Error: `action: "plan"` requires `query` — the job in plain words, e.g. "track mentions of Acme on TikTok and Reddit".';
+      }
+      if (!canGoLive) {
+        return [
+          `# Call plan — "${q}"`,
+          "",
+          LOCAL_NOTE,
+          "",
+          "`utility/plan` runs the planner server-side and has no bundled equivalent (it is free, but needs an API key). Without one: search with `socialcrawl_list_endpoints` (`search`), then quote each candidate with `socialcrawl_pricing` (`action: \"endpoint\"` plus `params`).",
+        ].join("\n");
+      }
+      const response = await makeRequest(ctx, {
+        platform: "utility",
+        resource: "plan",
+        params: { query: q },
+      });
+      const data = envelopeData(response);
+      if (!data) return response;
+      return paged(renderPlan(data, q));
+    }
+
     case "llms": {
       if (!canGoLive) {
         return [
@@ -814,7 +1016,7 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
     }
 
     default:
-      return `Error: Unknown action "${String(action)}". Valid actions: quickstart, catalog, endpoint, llms, freshness, status.`;
+      return `Error: Unknown action "${String(action)}". Valid actions: quickstart, catalog, endpoint, capabilities, plan, llms, freshness, status.`;
   }
 }
 
@@ -876,6 +1078,8 @@ export const DISCOVER_ACTION_RESOURCES: Record<DiscoverAction, string | null> = 
   quickstart: "quickstart",
   catalog: "endpoints",
   endpoint: "endpoint",
+  capabilities: "capabilities",
+  plan: "plan",
   llms: "llms",
   freshness: "endpoints",
   // Not a utility endpoint — the public `/v1/status` meta route.

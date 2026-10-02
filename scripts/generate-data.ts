@@ -87,6 +87,28 @@ interface DumpEndpoint {
   responseFields?: Record<string, string>;
   responseShape?: { root: string; itemKey?: string };
   hydration?: DumpHydrationLane[];
+  judgments?: DumpJudgments;
+  featuredParams?: { name: string; benefit: string; example: string }[];
+  related?: { id: string; why: string }[];
+}
+
+interface DumpJudgments {
+  offParam: string;
+  labels?: {
+    param: string;
+    presets: string[];
+    free: string[];
+    metered: string[];
+    rowsPerCredit: number;
+    rowPath: string;
+  };
+  relevance?: {
+    param: string;
+    values: string[];
+    topicParam: string;
+    meteredTopicParam: string;
+    rowsPerCredit: number;
+  };
 }
 
 interface DumpHydrationLane {
@@ -103,11 +125,18 @@ interface DumpHydrationLane {
   cacheSibling: boolean;
   warnings: { unavailable: string; partial: string };
   replaceApproximate?: string[];
+  /**
+   * A lane that runs on every call unless `unlessParam=unlessValue` turns it
+   * off (YouTube's free exact-date join). Its token is not a caller-sendable
+   * `include` value, so it is emitted as `automaticJoins`, not `hydration`.
+   */
+  defaultOn?: { unlessParam: string; unlessValue: string };
 }
 
 interface Dump {
   generatedFrom: string;
   schemaVersion?: number;
+  registryFingerprint?: string;
   stats: Record<string, number>;
   creditLadder: Record<string, number>;
   cacheTtls: Record<string, number>;
@@ -125,23 +154,23 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   web:
     "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
   tiktok:
-    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   instagram:
-    "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search, username suggestions, trending reels and music, audio reels, embed HTML, and AI-powered media transcripts.",
+    "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
   youtube:
     "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
   twitter:
     "Profiles, tweets and their replies, tweet search and user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   linkedin:
-    "Personal profiles and company pages, posts, reposts, reactions, group and company posts, post comments and replies, people and company-people search, structured profile sub-resources (experiences, educations, skills, honors, certifications, publications, volunteers, recommendations, interests, images, videos), the complete post-history archive walk (profile/posts/archive — 100 posts a page, metered per post), jobs (job search, company jobs, job details), company insights and job counts, groups, location/school/industry search, post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
+    "Personal profiles (single sub-resources, or one-call bundles: profile/all, profile/complete, profile/with-posts) and company pages (incl. lookup by website domain, also-viewed pages, employee counts by location), posts and post-with-comments, reposts, reactions, group and company posts, post comments and replies, Pulse articles with their comments and reactions, people search (keyword or a search-results URL), company and hashtag search, similar members, structured profile sub-resources (experiences, educations, skills, position skills, top position, honors, certifications, publications, volunteers, recommendations, followed companies/groups/schools/newsletters/Top Voices, images, videos, last activity), jobs (job search, company jobs, jobs a member posted, a job's hiring team, job details), company insights and job counts, groups, location/school/industry search, the complete post-history archive walk (profile/posts/archive — metered per post), post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   facebook:
-    "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+    "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   reddit:
     "Subreddit posts and details, single post detail, post comments, user profiles with their post and comment history, keyword / comment / media search, subreddit discovery search, the cross-source omni-search composite, and post video transcripts.",
   threads:
     "Profiles, posts, post details, post comments, keyword search, and user search.",
   pinterest:
-    "Pins, boards, user boards, keyword search, and Pinterest Save-Button counts for any URL (url-stats).",
+    "Pins, boards, user boards, keyword search, Pinterest Trends by country (top rising search terms), and Pinterest Save-Button counts for any URL (url-stats).",
   twitch:
     "Streamer profiles, clip details, user videos, and broadcast schedules.",
   snapchat:
@@ -205,7 +234,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   yelp:
     "Yelp business profiles by encid, business reviews, business search (compact and full-card variants), and search suggestions.",
   utility:
-    "Free, zero-credit API self-discovery — list every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, no auth cost, 0 credits.",
+    "Free, zero-credit API self-discovery — list and search every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), the cross-cutting parameters that work across endpoints with their prices (`capabilities`), a priced call plan for a goal in plain words (`plan`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, 0 credits.",
   linktree:
     "Linktree link-in-bio pages including display name, bio, avatar, and link list.",
   linkbio:
@@ -230,18 +259,22 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Web search with optional LLM-synthesised answer, content extraction from URLs, lightweight sitemap discovery, and full multi-page crawl.",
   naver:
     "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, and Naver Data Lab search-trend + shopping-insight time series.",
+  xiaohongshu:
+    "Xiaohongshu (RED / Little Red Book) — note search, the hot-search trending board, creator profiles and their note lists, full note detail, and top-level note comments. Metered at 5 credits per returned row, so cap `limit` before you call.",
+  producthunt:
+    "The public Product Hunt launch feed — about 50 current launches in one page, optionally filtered by topic slug.",
   rumble:
     "Video search, channel videos, video details, video comments, and video transcripts.",
   bluesky:
-    "Profiles, user posts, and post details from the AT Protocol social network.",
+    "Profiles, user posts, post details, and keyword post search (newest-first or top, with date, language and author filters) from the AT Protocol social network.",
   spotify:
     "Artists, tracks, albums, podcasts, podcast episodes, and search across the Spotify catalog.",
   apple_music:
-    "Apple Music catalog search plus artist, album, and track details.",
+    "Apple Music catalog search, artist, album, and track details, and the per-country Apple Music charts (top songs, albums, music videos, playlists).",
   search:
-    "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+    "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   prism:
-    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, and video/app/product intelligence. Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
+    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
   content_analysis:
     "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
   on_page:
@@ -257,10 +290,10 @@ const dump: Dump = JSON.parse(
   readFileSync(resolve(root, "registry-dump.json"), "utf8"),
 );
 
-// ── Guard: dump must be the rich v2 schema ─────────────────────────────
-if (dump.schemaVersion !== 2) {
+// ── Guard: dump must be the v3 schema (judgments, featured params, related) ──
+if (dump.schemaVersion !== 3 || !dump.registryFingerprint) {
   console.error(
-    `registry-dump.json is schema v${dump.schemaVersion ?? 1}; this generator needs v2. ` +
+    `registry-dump.json is schema v${dump.schemaVersion ?? 1}; this generator needs v3 with a registryFingerprint. ` +
       `Re-run the backend extractor: cd codebase/packages/social-api && pnpm dlx tsx scripts/extract-mcp-data.ts`,
   );
   process.exit(1);
@@ -322,6 +355,14 @@ const metaTs = `/**
  * scripts/generate-data.ts — do not hand-edit.
  * Source: ${dump.generatedFrom}
  */
+
+/**
+ * SHA-256 over every active endpoint's method, path and parameter names, as
+ * the backend computes it (\`docs/registry-dump.ts\`). Two catalogues with the
+ * same fingerprint accept exactly the same calls; the freshness check compares
+ * it with the live API's.
+ */
+export const REGISTRY_FINGERPRINT = ${JSON.stringify(dump.registryFingerprint)};
 
 /** Live platform / endpoint / tier counts from the backend registry. */
 export const REGISTRY_STATS = ${JSON.stringify(dump.stats, null, 2)} as const;
@@ -469,9 +510,10 @@ function renderEndpoint(e: DumpEndpoint): string {
     }
     lines.push("    },");
   }
-  if (e.hydration && e.hydration.length > 0) {
-    lines.push("    hydration: [");
-    for (const h of e.hydration) {
+  const renderLanes = (key: string, lanes: DumpHydrationLane[]): void => {
+    if (lanes.length === 0) return;
+    lines.push(`    ${key}: [`);
+    for (const h of lanes) {
       const parts = [
         `param: ${str(h.param)}`,
         `token: ${str(h.token)}`,
@@ -499,7 +541,45 @@ function renderEndpoint(e: DumpEndpoint): string {
           `replaceApproximate: [${h.replaceApproximate.map(str).join(", ")}]`,
         );
       }
+      if (h.defaultOn) {
+        parts.push(
+          `defaultOn: { unlessParam: ${str(h.defaultOn.unlessParam)}, unlessValue: ${str(h.defaultOn.unlessValue)} }`,
+        );
+      }
       lines.push(`      { ${parts.join(", ")} },`);
+    }
+    lines.push("    ],");
+  };
+  renderLanes("hydration", (e.hydration ?? []).filter((h) => !h.defaultOn));
+  renderLanes("automaticJoins", (e.hydration ?? []).filter((h) => h.defaultOn));
+  if (e.judgments) {
+    const j = e.judgments;
+    const parts = [`offParam: ${str(j.offParam)}`];
+    if (j.labels) {
+      parts.push(
+        `labels: { param: ${str(j.labels.param)}, presets: [${j.labels.presets.map(str).join(", ")}], free: [${j.labels.free.map(str).join(", ")}], metered: [${j.labels.metered.map(str).join(", ")}], rowsPerCredit: ${j.labels.rowsPerCredit}, rowPath: ${str(j.labels.rowPath)} }`,
+      );
+    }
+    if (j.relevance) {
+      parts.push(
+        `relevance: { param: ${str(j.relevance.param)}, values: [${j.relevance.values.map(str).join(", ")}], topicParam: ${str(j.relevance.topicParam)}, meteredTopicParam: ${str(j.relevance.meteredTopicParam)}, rowsPerCredit: ${j.relevance.rowsPerCredit} }`,
+      );
+    }
+    lines.push(`    judgments: { ${parts.join(", ")} },`);
+  }
+  if (e.featuredParams && e.featuredParams.length > 0) {
+    lines.push("    featuredParams: [");
+    for (const f of e.featuredParams) {
+      lines.push(
+        `      { name: ${str(f.name)}, benefit: ${str(f.benefit)}, example: ${str(f.example)} },`,
+      );
+    }
+    lines.push("    ],");
+  }
+  if (e.related && e.related.length > 0) {
+    lines.push("    related: [");
+    for (const r of e.related) {
+      lines.push(`      { id: ${str(r.id)}, why: ${str(r.why)} },`);
     }
     lines.push("    ],");
   }

@@ -162,6 +162,63 @@ export interface HydrationLane {
    * its own value approximate (LinkedIn's rounded follower buckets).
    */
   replaceApproximate?: string[];
+  /**
+   * Set only on an automatic join (`Endpoint.automaticJoins`): the lane runs on
+   * every call, free, unless the caller sends `unlessParam=unlessValue`.
+   */
+  defaultOn?: { unlessParam: string; unlessValue: string };
+}
+
+/**
+ * The SocialCrawl judgments an endpoint offers on its rows (labels and/or
+ * relevance), from the backend's `labels/` engine. On by default and free:
+ * every row of a judged list carries `computed.labels` (and
+ * `computed.relevance` on a search) at no extra credit. Only the presets in
+ * `labels.metered`, `label=intent` with `offer=`, and a caller-written
+ * relevance topic (`relevant_to=`) add credits: a hold of one credit per
+ * started `rowsPerCredit` rows of the page's judged-row cap, refunded down to
+ * the rows actually judged fresh. `<offParam>=off` returns the page unjudged.
+ */
+export interface Judgments {
+  /** `judgments` — `off` turns the free default judgments off. */
+  offParam: string;
+  labels?: {
+    /** CSV param that asks for presets — `label` everywhere today. */
+    param: string;
+    /** Every preset this lane offers, in published order. */
+    presets: string[];
+    /** Presets on by default and free when asked for explicitly too. */
+    free: string[];
+    /** Presets that add credits (1 per started `rowsPerCredit` fresh rows). */
+    metered: string[];
+    rowsPerCredit: number;
+    /** Where the judged rows live: `items[].post`, `items[].comment`, `items[].review`. */
+    rowPath: string;
+  };
+  relevance?: {
+    /** `relevance` — `score` or `filter`. */
+    param: string;
+    values: string[];
+    /** The request param judged against by default (free) — usually `query`. */
+    topicParam: string;
+    /** The caller-written topic param that makes relevance metered. */
+    meteredTopicParam: string;
+    rowsPerCredit: number;
+  };
+}
+
+/** A param worth knowing about on this endpoint, with what it buys you. */
+export interface FeaturedParam {
+  name: string;
+  benefit: string;
+  example: string;
+}
+
+/** A related endpoint (composite, batch, cross-platform twin) and why. */
+export interface RelatedEndpoint {
+  /** `platform/resource`. */
+  id: string;
+  why: string;
 }
 
 export interface Platform {
@@ -250,6 +307,19 @@ export interface Endpoint {
    * Absent on an endpoint that declares none — which is most of them.
    */
   hydration?: HydrationLane[];
+  /**
+   * Joins the API runs on every call without being asked (YouTube's exact
+   * publish dates), each switched off by its `defaultOn` param. Free today
+   * (`creditsPerItem: 0`); listed so a caller knows where a leaf comes from
+   * and which param turns the extra latency off.
+   */
+  automaticJoins?: HydrationLane[];
+  /** Label / relevance judgments this endpoint offers on its rows. */
+  judgments?: Judgments;
+  /** Up to three params worth knowing about, with a one-line benefit each. */
+  featuredParams?: FeaturedParam[];
+  /** Related-by-job endpoints, each with the reason it is related. */
+  related?: RelatedEndpoint[];
 }
 
 export interface SocialCrawlSuccessResponse {

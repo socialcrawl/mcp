@@ -6,6 +6,52 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-02
+
+Registry re-sync from 575 to 631 endpoints and 65 to 67 platforms, on dump schema v3, with first-class support for the API's judgment layer and its cost levers.
+
+### Added
+
+- **56 endpoints and 2 platforms.** Prices below are the bands every surface quotes.
+  - **Xiaohongshu** (new platform): `search`, `trending`, `profile/posts`, `post/comments` (5-100cr, 5 per row returned); `profile`, `post` (5cr).
+  - **Product Hunt** (new platform): `launches` (1cr).
+  - **LinkedIn (22)**: `profile/all` (5-50cr), `profile/complete`, `profile/with-posts`, `search/companies`, `search/hashtag`, `search/people/by-url` (10cr); `company/by-domain`, `company/also-viewed`, `company/employees-count`, `profile/similar`, `profile/posted-jobs`, `job/hiring-team`, `profile/articles`, `article`, `article/comments`, `article/reactions`, `profile/activity`, `profile/interests/{schools,newsletters,top-voices}`, `profile/position-skills`, `profile/top-position`, `post/with-comments` (5cr).
+  - **Facebook**: `search/posts` (1-9cr), `search/groups` (1-15cr), `search/pages`, `search/people`, `search/videos` (1cr).
+  - **Prism**: `find-accounts` (2-17cr), `mentions` (1-9cr), `adverse-screen` (25-75cr), `brief-check` (15cr), `format-lift` (4cr), `earliness` (25cr), `trend-board` (30cr), `audience-language` (2-26cr), `comment-leads` (0-243cr), `investigate` (1cr), and **async background jobs**: `POST jobs` (the batch endpoint's own per-row price, whole job held at submit), `GET jobs` and `GET jobs/{job_id}` (free).
+  - **Also new:** `search/multi` (0-28cr, the sum of each platform's native page), `tiktok/similar` (5cr), `instagram/media/screen-text` (5cr), `pinterest/trends` (10cr), `apple_music/charts` (1cr), `bluesky/search` (1cr), and the free `utility/capabilities` and `utility/plan`.
+- **Judgments.** The dump's `judgments` block (labels and relevance) is carried on every one of the 49 judged endpoints. `src/judgments.ts` ports the backend's hold arithmetic (`labelHoldCredits`, `relevanceHoldCredits`, `paidLabelPresets`, `judgedRowCap`), so a quote is the hold the API takes: free default presets cost 0; a metered preset, `intent` with `offer=`, or `relevant_to=` holds 1 credit per started 25 rows of the judged-row cap (4 on a 100-row page; 5 on `tiktok/search`; 8 on `linkedin/search/posts` and `search/multi`).
+  - `socialcrawl_pricing` gains **`action: "judgments"`**: every judged lane with its free and metered presets and its hold.
+  - `socialcrawl_request` quotes the judgment hold on the call that spends it, says when free default judgments are on the rows, and warns about `label=mention` without `brand=` and about `relevant_to` without `relevance=`.
+  - A test cross-checks the mirrored row caps against every authored "holds N extra credits" sentence, so a backend change cannot drift silently.
+- **Exact per-call and per-job quotes.** `socialcrawl_pricing` `action: "endpoint"` takes **`params`** (the exact query you will send) and **`calls`**. It returns an itemised hold: the page, each `include=` join, each metered judgment, × `max_pages` (each page walked is billed as one call), × `calls`. A metered band that depends on more than joins and judgments is budgeted at its ceiling, with a note saying so.
+- **Cost levers.** Every endpoint that declares `max_pages`, `seen`, `since`, `stop_at_id`, `scan_pages`, `min_views`, `max_age_days`, `sort_rows`, `trim`, `fit`, `download_media` or `dry_run` names it with its price effect in pricing, listings and guides. `priceDrivingParams` now names `label`, `offer`, `relevant_to`, `max_pages`, `seen` and `scan_pages` wherever they are declared.
+- **`socialcrawl_discover`** gains `capabilities` (`/v1/utility/capabilities`; answers from bundled data without a key, filter with `param`) and `plan` (`/v1/utility/plan`, a plain-words job turned into priced calls; needs a key).
+- **Featured params and related endpoints** (dump v3 `featuredParams`, `related`) appear in listings and endpoint guides; the guide's "Related" line uses the registry's curated list instead of a same-platform guess.
+- **Automatic joins.** YouTube's free exact-date join, which runs unless `exact_dates=false`, ships as `automaticJoins`, separate from the opt-in `include=` lanes. It is described wherever the endpoint is, and never offered as an `include` token.
+- **`socialcrawl_request`** resolves path-param endpoints (`prism/jobs/{job_id}` with `params: { job_id }`, or the concrete path) and takes `method` for resources served by GET and POST, inferring POST from a `body`.
+- **Docs topics** `judgments` (generated from the registry) and `batch-jobs` (batches and `/v1/prism/jobs`). `overview`, `credits`, `pagination` and `discovery` cover the free default judgments, `max_pages`, `seen`, `since` / `stop_at_id`, `scan_pages`, `dry_run`, dropped-param `data._warnings`, `meta.hint` and `X-SocialCrawl-Hints: off`.
+- `REGISTRY_FINGERPRINT` (the backend's hash of every method, path and parameter name) is bundled and shown by `freshness`.
+
+### Changed
+
+- **60 endpoints changed price.** Most moved from a ladder rate to a metered band as they gained `label=`, `max_pages`, `seen` or `scan_pages`. For example: `tiktok/search` 1 → 1-42cr, `linkedin/profile/posts` 5 → 5-200cr, `linkedin/search/posts` 5 → 1-56cr, `instagram/search/reels` 1 → 1-69cr, `tiktok/search/users` 1-31 → 1-100cr, the review lanes 5 → 5-9cr, and `search/creators` 10 → 10-12cr. Metered endpoints 71 → 130, flat 61 → 70, ladder 443 → 431.
+- 569 parameters were added to existing endpoints, chiefly `judgments`, `label`, `label_evidence`, `dry_run`, `fit`, `goal`, `fit_tokens`, `exclude`, `reports`, `brand`, `offer`, `relevance`, `relevant_to`, `max_pages`, `seen`, `since` and `stop_at_id`. Local validation covers each one's enum, range, coupling and CSV limits.
+- Endpoint search in `socialcrawl_list_endpoints` also matches parameter names and label presets, so a search like `stop_at_id` or `purchase_intent` finds the right lanes. Integer bounds with only one side print as `min N` / `max N` instead of `range N-`.
+- An undeclared param is reported as dropped, with a pointer to the API's `data._warnings` line, instead of "ignored".
+- The pricing doc's metered rules print each clause shared across several rules once, as `[S1]` to `[Sn]`. The repeated judgment, `seen` and `max_pages` wording would otherwise have pushed the doc onto a fourth page. Every rule stays exact.
+- Platform descriptions were refreshed for LinkedIn, Facebook, Prism, TikTok, Instagram, Pinterest, Apple Music, Bluesky, Universal Search and Utility.
+- `scripts/generate-data.ts` requires dump schema v3 with a `registryFingerprint`.
+
+### Known gaps (backend)
+
+- `linkedin/profile/all` (5-50cr) is metered with no authored charging rule; the backend extractor flags it too. The MCP quotes the band. The pricing test lists it as the one known exception, so a new unauthored endpoint still fails.
+
+### Tests
+
+- `EXPECTED_ENDPOINTS` 575 → 631, `EXPECTED_PLATFORMS` 65 → 67.
+- New `judgments.test.ts` (29 tests), and a guard that no fixed docs topic shares a platform slug (`jobs` is a platform, hence `batch-jobs`).
+- 326 → 356 tests.
+
 ### Fixed
 
 - **API errors now keep the server's message, reason, and `request_id`.** A

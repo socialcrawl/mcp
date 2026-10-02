@@ -54,9 +54,21 @@ Three billing models:
 
 Cache hits, idempotent replays, empty results, and upstream failures all cost 0 credits. Use the \`socialcrawl_pricing\` tool (or the \`pricing\` docs topic) for the exact cost of every endpoint.
 
+## Judgments — free by default
+
+Judged lists (comments, posts, reviews, and the main searches) label every row for free under \`computed.labels\`, and searches score each row's relevance to your query under \`computed.relevance\`. Metered presets (e.g. \`label=mention\`), \`label=intent\` with \`offer=\`, and a topic of your own in \`relevant_to=\` add 1 credit per started 25 rows judged fresh. \`judgments=off\` turns them off; \`dry_run=1\` previews the cost for free. See the \`judgments\` topic.
+
+## Walks, polling and dedupe
+
+Where an endpoint declares them: \`max_pages\` walks several pages in one call (each billed as a page), \`since\` / \`stop_at_id\` stop a walk at rows you already hold, \`seen=<id>\` drops rows you already received and discounts the page, and \`min_views\` / \`max_age_days\` / \`sort_rows\` filter and order rows server-side. See the \`pagination\` topic.
+
+## Batches and background jobs
+
+\`POST /v1/prism/profiles\` (50 handles), \`POST /v1/prism/post-stats\` (100 URLs) and \`POST /v1/prism/comment-lookup\` (25 comments) answer a batch in one call; \`POST /v1/prism/jobs\` runs up to 5,000 items in the background at the same per-row prices. See the \`batch-jobs\` topic.
+
 ## Free API discovery
 
-\`utility/endpoints\`, \`utility/endpoint\`, \`utility/quickstart\`, and \`utility/llms\` describe the API from inside the API at 0 credits — see the \`discovery\` topic.
+\`utility/endpoints\`, \`utility/endpoint\`, \`utility/capabilities\`, \`utility/plan\`, \`utility/quickstart\`, and \`utility/llms\` describe the API from inside the API at 0 credits — see the \`discovery\` topic.
 
 ## Meta Endpoints
 
@@ -130,7 +142,19 @@ Counting every endpoint under its declared tier: standard ${REGISTRY_STATS.stand
 
 A metered endpoint's real charge is decided by your query — quoting its base cost under-reports what you will pay. The router deducts a worst-case ceiling up front and refunds the difference when the work settles, so \`credits_used\` in the response envelope (and the \`X-Credits-Used\` header) is always the truth. Examples: \`prism/comments\` bills 1 credit per comment page scanned; \`search/news\` bills 2 credits plus 1 per country leg that returned articles; \`web/crawl\` holds \`limit\` credits and refunds every page it did not crawl.
 
-Use the \`socialcrawl_pricing\` tool with \`action: "endpoint"\` for any endpoint's exact band, rule, and price-driving parameters.
+Use the \`socialcrawl_pricing\` tool with \`action: "endpoint"\` for any endpoint's exact band, rule, and price-driving parameters — and pass \`params\` (the exact query you will send) plus \`calls\` for an itemised hold and a whole-job budget.
+
+### Judgments
+
+Judged lists carry free default labels (posts: sponsored, intent, niche · comments: sentiment, question, purchase_intent, complaint · reviews: sentiment, issue) and free relevance against your query. A metered preset, \`label=intent\` with \`offer=\`, or \`relevance=score|filter\` with \`relevant_to=\` holds 1 credit per started 25 rows of the page's judged-row cap (4 on a 100-row page; 5 on \`tiktok/search\`, 8 on \`linkedin/search/posts\` and \`search/multi\`) and settles to 1 credit per started 25 rows judged fresh. Rows judged before, cached pages and pages where nothing could be judged are free. \`dry_run=1\` returns \`data.estimate\` for 0 credits. See the \`judgments\` topic.
+
+### Levers that change the bill
+
+- **\`max_pages\`** — walks up to N pages in one call; each page walked is billed as one call (a cached page is free), so the worst case is N × the page's hold.
+- **\`seen=<id>\`** — rows this account already received under the id are dropped and the page price falls with the share of repeats (page credits × new rows / rows, rounded up); a page of repeats is free. Join credits are never discounted.
+- **\`since\` / \`stop_at_id\`** — end a walk at rows you already hold; fewer pages billed.
+- **\`scan_pages\`** (comment lanes) — each page that added comments is billed; a page of only repeats is free.
+- **\`include=\`** — row joins hold per row and keep only rows filled fresh (see \`hydration\`).
 
 ## What is never charged
 
@@ -139,7 +163,8 @@ Use the \`socialcrawl_pricing\` tool with \`action: "endpoint"\` for any endpoin
 - **Empty results** (BIL-01) — an empty single-object lookup returns 404 \`RESOURCE_NOT_FOUND\` and an empty list returns 200 \`{items: []}\`; both auto-refund. You are never billed for a resource that does not exist or a search that matched nothing.
 - **Upstream and internal failures** — 502 \`UPSTREAM_ERROR\`, 503 \`SERVICE_UNAVAILABLE\`, 500 \`INTERNAL_ERROR\`, and request-deadline 504s all reverse the charge.
 - **Rejected requests** — 400/401/402/405/409/413/422/429 never deduct: validation runs before billing.
-- **The meta and discovery endpoints** — \`/v1/credits/balance\`, \`/v1/credits/transactions\`, the four \`utility/*\` discovery endpoints, and all monitor and web job/monitor/session management.
+- **The meta and discovery endpoints** — \`/v1/credits/balance\`, \`/v1/credits/transactions\`, the six \`utility/*\` discovery endpoints, reading background jobs (\`GET /v1/prism/jobs\`), and all monitor and web job/monitor/session management.
+- **A \`dry_run=1\` judgment preview.**
 
 ## Partial-coverage refund on universal search
 
@@ -152,6 +177,10 @@ Use the \`socialcrawl_pricing\` tool with \`action: "endpoint"\` for any endpoin
 ## Advisory warnings (ENV-03)
 
 Successful responses may include an optional \`data._warnings\` string array — non-fatal notices from the transform pipeline (e.g. an engagement-rate clamp, or \`walk_deadline_reached\` on a server-side page walk). Treat as observability hints, not as failures.
+
+**Dropped params are named.** A param the endpoint does not declare is dropped — never forwarded, never billed — and gets one \`data._warnings\` line: the closest declared name, the \`label=\` / \`relevance=\` form you probably meant, or "no such parameter". A rejected value's 400 carries \`details.allowed_values\`, \`details.example\` and, for a one-edit typo, \`details.did_you_mean\`.
+
+**\`meta.hint\`.** When a run of calls matches a cheaper pattern (the same handle on three platforms' profile lanes → \`prism/creator-card\`; 50 handles on one lane → \`POST /v1/prism/profiles\`; page 1 of the same list again → \`stop_at_id\`; comments on 5+ posts without \`label=\`), one response carries \`meta.hint\` with the suggestion and its price. Send the header \`X-SocialCrawl-Hints: off\` to suppress hints.
 
 ## Insufficient credits
 
@@ -285,6 +314,18 @@ For a handful it is **collect-until-N**: the endpoint walks upstream pages itsel
 ## Composites that walk for you
 
 Server-side composites marked *paginatable* (e.g. \`prism/comments\`) walk every page in one call and fold the results together. One call, one metered charge covering the whole walk — do not page these yourself.
+
+## Walk several pages in one call: \`max_pages\`
+
+Where an endpoint declares \`max_pages\` (1-5), one call walks up to that many pages and returns the rows from all of them, after any row filter. Each page walked is billed exactly as one call (a cached page is free). \`data.walk.stopped\` says why the walk ended (\`end\`, \`max_pages\`, \`time_budget\`, \`page_error\`) and \`data.next_cursor\` continues from there. The row filters \`min_views\`, \`max_age_days\` and \`sort_rows=views\` run on our side across every page walked; \`data.walk.discarded\` counts what they removed.
+
+## Incremental polling: \`since\` and \`stop_at_id\`
+
+On the profile feeds that declare them (Instagram posts/reels, TikTok videos, YouTube videos/shorts, Facebook posts, X tweets, Threads posts), \`since=<ISO date>\` drops rows older than the date and ends the walk at the first older dated row; \`stop_at_id=<post.id or post.url>\` drops that post and everything after it. Pinned rows never count as the boundary. When either is sent, \`pagination.stopped_at\` reports \`since\`, \`known_id\`, \`end\` or null. Billing is unchanged — the page you fetched costs a page — but you stop walking sooner.
+
+## Dedupe across calls: \`seen\`
+
+\`seen=<your id>\` (1-64 letters, digits, \`.\`, \`_\`, \`-\`) drops rows this account already received under the same id in the last 24 hours, and the page price falls with the share of repeats — a page of nothing but repeats is free. Use one id across a set of related searches; \`data.walk.repeats\` counts what was removed.
 
 ## Billing while paging
 
@@ -548,7 +589,7 @@ Prefer bundled (the default) for browsing and planning. Reach for \`socialcrawl_
 
   discovery: `# SocialCrawl API — Self-Describing Discovery (\`/v1/utility/*\`)
 
-Four endpoints let any client — an AI agent, a script, a third-party integration — learn the entire API from inside the API. All four are **free (0 credits)**, api-key-authed, and served **in-process from the endpoint registry**: no upstream call, no network hop, no retries, and therefore no drift. Whatever they say is exactly what is callable right now.
+Six endpoints let any client — an AI agent, a script, a third-party integration — learn the entire API from inside the API. All six are **free (0 credits)**, api-key-authed, and served **in-process from the endpoint registry**: no upstream call, no network hop, no retries, and therefore no drift. Whatever they say is exactly what is callable right now.
 
 Because \`cost: 0\` takes a read-only billing path, they succeed even at a zero balance and write no ledger rows. They are safe to call in a loop, on startup, or before every request.
 
@@ -615,6 +656,30 @@ MCP: \`socialcrawl_discover\` with \`action: "endpoint"\` and \`id\`. The tool a
 
 ---
 
+## \`GET /v1/utility/capabilities\` — which endpoints can do X
+
+Every cross-cutting parameter, once: the \`label\` presets per row family (comments, posts, reviews — which are free by default and which are metered), \`relevance\`, \`judgments\`, \`include\`, \`since\` / \`stop_at_id\`, \`recent_days\`, the row filters, \`seen\`, \`trim\`, \`download_media\`, \`market\` and \`fit\`. Each entry says what the parameter does, what it costs, and lists every endpoint that supports it.
+
+| Param | Type | Notes |
+|-------|------|-------|
+| \`param\` | string | Return one capability only (e.g. \`label\`, \`relevance\`, \`seen\`). An unknown one is a 404 naming every capability. |
+
+MCP: \`socialcrawl_discover\` with \`action: "capabilities"\` (and \`param\`). Without a key it answers from the bundled registry.
+
+---
+
+## \`GET /v1/utility/plan\` — turn a job into calls
+
+A job in plain words ("track mentions of Acme on TikTok and Reddit", "a creator's profile, posts and comments") becomes the exact calls to make, in order: method, path, the params your question filled, the ones still missing (\`ask\`), which step's rows fill a later step (\`binds\`), the credit price of each call, and a curl with every unknown value left as a \`{placeholder}\`. A question outside the planned jobs returns \`uncertain\` with no steps — never a guessed chain.
+
+| Param | Type | Notes |
+|-------|------|-------|
+| \`query\` | string | Required. The job in plain words. |
+
+MCP: \`socialcrawl_discover\` with \`action: "plan"\` and \`query\` (needs an API key; free).
+
+---
+
 ## \`GET /v1/utility/llms\` — agent context payload
 
 The SocialCrawl context corpus, served through the API: the same content as \`llms.txt\` for the whole API or one platform. An agent with a key can bootstrap itself in one call instead of scraping documentation pages.
@@ -649,6 +714,36 @@ Use \`/v1/utility/*\` when you need the **live** answer:
 - \`https://www.socialcrawl.dev/llms.txt\`, \`llms-full.txt\`, \`llms-{platform}.txt\` — the same corpus as static files.
 - \`GET /v1/credits/balance\` and \`GET /v1/credits/transactions\` — account metadata, also 0 credits.
 `,
+
+  "batch-jobs": `# SocialCrawl API — Batches and Background Jobs
+
+Some questions are "the same lookup for many things". SocialCrawl answers those in one call up to a batch size, and in a background job beyond it — at the batch endpoint's own per-row price either way.
+
+## Synchronous batches (POST, JSON body)
+
+| Endpoint | Batch | Price |
+|----------|-------|-------|
+| \`POST /v1/prism/profiles\` | up to 50 \`{ platform, handle }\` pairs (25 with \`include: "posts"\`) | 1 per successful row (5 on LinkedIn); with \`include: "posts"\` plus 1 for a posts page that came back with posts; failed handles refunded |
+| \`POST /v1/prism/post-stats\` | up to 100 post URLs, mixed platforms | 1 per successful URL (2 on Instagram, 5 on LinkedIn); dead and failed URLs refunded |
+| \`POST /v1/prism/comment-lookup\` | up to 25 known comments | 2 per found TikTok item, 5 per found Instagram item; the rest refunded |
+| \`POST /v1/youtube/videos\` / \`channels\` | up to 1,000 ids | 5 credits per 50-id chunk (1,000 ids = 100 credits) |
+| \`POST /v1/youtube/transcripts\` | up to 100 ids | 3 per successful transcript; the rest refunded |
+
+In this server: \`socialcrawl_request\` with the array in \`body\` (e.g. \`body: { items: [{ platform: "tiktok", handle: "scout2015" }] }\`).
+
+## Background jobs: \`/v1/prism/jobs\`
+
+For 51 to 5,000 items:
+
+1. **Submit** — \`POST /v1/prism/jobs\` with \`{ "endpoint": "prism/profiles" | "prism/post-stats", "items": [...] }\` (plus \`include: "posts"\` and \`since\` for profiles, and an optional \`webhook: { "url": "https://…" }\`). Every item is validated before anything is held — a bad item is a free 400 naming its index. The whole job's ceiling is held at submit and the 202 reports it as \`credits_used\`, with the \`job_id\` and, if you asked for a webhook, its signing secret (shown once).
+2. **Poll** — \`GET /v1/prism/jobs/{job_id}\` (free): \`status\` (\`queued\`, \`running\`, \`completed\`, \`failed\`), \`chunks_done\` of \`chunk_count\`, credits held and charged, the \`summary\` once complete, and \`results\` — the rows of up to five finished chunks, each exactly as the batch endpoint returns it plus \`index\`. Send \`next_cursor\` back as \`cursor\` for more rows; \`results_complete\` is true once every row has been read.
+3. **List** — \`GET /v1/prism/jobs\` (free) lists this key's jobs, newest first.
+
+**Billing.** The job runs in chunks of 50 (25 with posts), each exactly as a call to the batch endpoint. When the last chunk settles, the charge is the sum of the rows that succeeded and the rest of the hold is refunded; a job where every row failed is \`failed\` and charged nothing. A 402 at submit creates nothing. The same \`Idempotency-Key\` with the same body replays the job at 0 credits; with a different body it is a 422.
+
+**Webhook.** One \`batch.completed\` event (never the rows) signed \`x-socialcrawl-signature: t=<unix>,v1=<hmac>\` with the per-job secret, to a public https URL.
+
+In this server: \`socialcrawl_request\` with platform \`prism\`, resource \`jobs\` and the job in \`body\` to submit; resource \`jobs/{job_id}\` with \`params: { job_id }\` (or resource \`jobs/<id>\`) to poll; resource \`jobs\` with no body to list.`,
 
   monitors: `# SocialCrawl API — Monitors
 

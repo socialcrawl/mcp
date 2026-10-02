@@ -32,9 +32,9 @@ function forbidFetch(): void {
 }
 
 describe("the utility endpoints are registered and free", () => {
-  it("registers all four", () => {
+  it("registers all six", () => {
     const resources = getEndpointsByPlatform("utility").map((e) => e.resource).sort();
-    expect(resources).toEqual(["endpoint", "endpoints", "llms", "quickstart"]);
+    expect(resources).toEqual(["capabilities", "endpoint", "endpoints", "llms", "plan", "quickstart"]);
   });
 
   it("charges nothing for any of them", () => {

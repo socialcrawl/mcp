@@ -4,10 +4,12 @@ import { page } from "../paginate.js";
 import {
   endpointLabel,
   formatCost,
+  formatRange,
   formatTtl,
   worstCaseCost,
 } from "../pricing.js";
 import { describeLane } from "../hydration.js";
+import { explainAutomaticJoins, explainJudgments, leversOf } from "../judgments.js";
 import type { Endpoint } from "../types.js";
 
 export interface ListEndpointsParams {
@@ -38,9 +40,7 @@ function optionalParamLine(e: Endpoint, opt: Endpoint["optionalParams"][number])
     bits.push(opt.type);
   }
   if (opt.minimum !== undefined || opt.maximum !== undefined) {
-    const lo = opt.minimum !== undefined ? opt.minimum : "";
-    const hi = opt.maximum !== undefined ? opt.maximum : "";
-    bits.push(`range ${lo}-${hi}`);
+    bits.push(formatRange(opt.minimum, opt.maximum));
   }
   const csv = e.csvConstraints?.[opt.name];
   if (csv) {
@@ -89,6 +89,13 @@ function detailBlock(e: Endpoint): string[] {
     lines.push(
       "",
       `**Constraint:** supply at least one of ${group.map((n) => `\`${n}\``).join(", ")}.`,
+    );
+  }
+
+  if (e.featuredParams && e.featuredParams.length > 0) {
+    lines.push(
+      "",
+      `**Worth knowing:** ${e.featuredParams.map((f) => `\`${f.name}=${f.example}\` — ${f.benefit}`).join(" · ")}`,
     );
   }
 
@@ -148,6 +155,15 @@ function detailBlock(e: Endpoint): string[] {
         `Read \`data.hydration\` for what it did; \`_warnings\` carries \`${lane.warnings.partial}\` if only some rows filled.`,
     );
   }
+  notes.push(...explainAutomaticJoins(e));
+  notes.push(...explainJudgments(e));
+  const levers = leversOf(e).filter((l) => l.param !== "dry_run" || !e.judgments);
+  if (levers.length > 0) {
+    notes.push(`**Cost levers:** ${levers.map((l) => `\`${l.param}\` (${l.cost})`).join("; ")}`);
+  }
+  if (e.related && e.related.length > 0) {
+    notes.push(`**Related:** ${e.related.map((r) => `\`${r.id}\` (${r.why})`).join("; ")}`);
+  }
   if (e.responseShape) {
     notes.push(
       `**Rows at:** \`${e.responseShape.root}\`${
@@ -186,6 +202,12 @@ function summaryRow(e: Endpoint, withPlatform: boolean): string {
   // several times it.
   if (e.hydration && e.hydration.length > 0) {
     paramsCell += ` · join: ${e.hydration.map((l) => `\`${l.param}=${l.token}\``).join(", ")}`;
+  }
+  if (e.judgments) {
+    paramsCell += ` · judged: ${[
+      ...(e.judgments.labels ? ["`label`"] : []),
+      ...(e.judgments.relevance ? ["`relevance`"] : []),
+    ].join(", ")}`;
   }
   const label = withPlatform
     ? `/v1/${e.platform}/${e.resource}`
@@ -226,7 +248,7 @@ function searchAcrossPlatforms(params: ListEndpointsParams): string {
     if (params.platform && e.platform !== params.platform) return false;
     if (!q) return true;
     const haystack =
-      `${e.platform} ${e.resource} ${e.summary} ${e.description} ${e.archetype} ${e.actionLabel ?? ""} ${e.group ?? ""} ${(e.tags ?? []).join(" ")}`.toLowerCase();
+      `${e.platform} ${e.resource} ${e.summary} ${e.description} ${e.archetype} ${e.actionLabel ?? ""} ${e.group ?? ""} ${(e.tags ?? []).join(" ")} ${e.params.map((p) => p.name).join(" ")} ${e.optionalParams.map((p) => p.name).join(" ")} ${(e.judgments?.labels?.presets ?? []).join(" ")}`.toLowerCase();
     return haystack.includes(q);
   });
 

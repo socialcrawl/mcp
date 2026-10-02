@@ -11,8 +11,8 @@ import { paginate } from "../paginate.js";
  * fail loudly when the backend registry moves, which is the signal to re-run
  * the two-step regeneration pipeline (see scripts/generate-data.ts).
  */
-const EXPECTED_PLATFORMS = 65;
-const EXPECTED_ENDPOINTS = 575;
+const EXPECTED_PLATFORMS = 67;
+const EXPECTED_ENDPOINTS = 631;
 
 describe("Platform data integrity", () => {
   it(`has exactly ${EXPECTED_PLATFORMS} platforms`, () => {
@@ -369,6 +369,11 @@ describe("Documentation data integrity", () => {
 
   it("getAvailableTopics returns the fixed topics plus one per platform", () => {
     expect(getAvailableTopics()).toHaveLength(FIXED_TOPICS.length + PLATFORMS.length);
+  });
+
+  it("never names a fixed topic after a platform slug (the platform doc would shadow it)", () => {
+    const slugs = new Set(PLATFORMS.map((p) => p.slug));
+    expect(FIXED_TOPICS.filter((t) => slugs.has(t))).toEqual([]);
   });
 
   it("offers the cross-cutting contract topics", () => {

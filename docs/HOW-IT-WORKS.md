@@ -21,7 +21,7 @@ SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
-Data Platforms (65 platforms)
+Data Platforms (67 platforms)
 ```
 
 The MCP server exposes 10 tools. Four of them (list_platforms, list_endpoints, pricing, get_docs) query local bundled data and work without an API key or network connection. Five (request, check_balance, monitors, web, cohorts) make actual API calls and need a key. The tenth, discover, calls the free `/v1/utility/*` self-description endpoints when a key is present and falls back to bundled data when it is not; its `status` action reads the public `/v1/status` meta route with no key at all.
@@ -66,8 +66,8 @@ src/
 │   ├── cohorts.ts        # Stateful /v1/cohorts/* + /v1/cohort-queries/* audience-filtered search
 │   └── request.ts        # Pre-flight validation + API call execution (GET + POST batch)
 ├── data/                 # ALL GENERATED — see scripts/generate-data.ts
-│   ├── platforms.ts      # 65 platforms with metadata, social flag, and category
-│   ├── endpoints.ts      # 575 endpoints — params with bounds/couplings/CSV limits, the full
+│   ├── platforms.ts      # 67 platforms with metadata, social flag, and category
+│   ├── endpoints.ts      # 631 endpoints — params with bounds/couplings/CSV limits, the full
 │   │                     #   pricing model, pagination, cache, delivery mode, upstream sources
 │   ├── registry-meta.ts  # REGISTRY_STATS, CREDIT_LADDER, CACHE_TTLS
 │   ├── docs-handwritten.ts # Cross-cutting contract topics (auth, credits, errors, paging, …)
@@ -94,7 +94,7 @@ Each tool is registered using the MCP SDK's `server.registerTool()` API with:
 
 ### Tool Design Philosophy
 
-The MCP exposes 10 workflow-oriented tools rather than 575 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (Three surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, and the `cohorts` audience-filtered search — get their own action-based tools.)
+The MCP exposes 10 workflow-oriented tools rather than 631 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (Three surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, and the `cohorts` audience-filtered search — get their own action-based tools.)
 
 The typical agent workflow is:
 
@@ -112,7 +112,7 @@ Smart agents learn the API structure after 1-2 discovery calls and skip straight
 
 The MCP bundles all SocialCrawl knowledge as static TypeScript data. This means the discovery and documentation tools work without any network calls.
 
-### `data/platforms.ts` — 65 Platforms
+### `data/platforms.ts` — 67 Platforms
 
 A static array of platform metadata:
 
@@ -129,7 +129,7 @@ interface Platform {
 
 Queried by `socialcrawl_list_platforms` and used for pre-flight validation in `socialcrawl_request`.
 
-### `data/endpoints.ts` — 575 Endpoints
+### `data/endpoints.ts` — 631 Endpoints
 
 A static array of every endpoint definition:
 
@@ -299,7 +299,7 @@ Every successful `socialcrawl_request` call returns the same top-level shape, re
 }
 ```
 
-The envelope is stable across all 575 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
+The envelope is stable across all 631 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
 
 ### Response Truncation
 
@@ -379,7 +379,7 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| Data integrity | 63 | All 65 platforms present, 575 endpoints valid, totals match `REGISTRY_STATS`, pricing models coherent (ladder endpoints charge their tier rate; every metered endpoint quotes a band or a rule), integer bounds sane, param couplings and CSV constraints only name declared params, every doc topic exists, no duplicates, counts match |
+| Data integrity | 63 | All 67 platforms present, 631 endpoints valid, totals match `REGISTRY_STATS`, pricing models coherent (ladder endpoints charge their tier rate; every metered endpoint quotes a band or a rule), integer bounds sane, param couplings and CSV constraints only name declared params, every doc topic exists, no duplicates, counts match |
 | Pricing | 24 | Band-not-base quoting, authored rule vs band fallback, price-driving params, the five `socialcrawl_pricing` actions, budget filters judged by the metered ceiling |
 | Local validation + search | 23 | Enum, range, coupling, and CSV rejections without touching the network; cross-platform endpoint search; method/budget filters; full parameter-contract output |
 | Web + method-aware request | 21 | `socialcrawl_web` action routing, path-id validation, GET-query vs POST-body split, `in:query` routing, JSON-array coercion, web→tool redirect, the free `job_errors` / `crawl_preview` actions, metered rule in the header |
@@ -403,9 +403,9 @@ Tests use vitest with `vi.stubGlobal("fetch", ...)` for HTTP mocking and `proces
 
 ## Design Decisions
 
-### Why 10 tools instead of 575?
+### Why 10 tools instead of 631?
 
-575 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — by platform, by free-text search, or by budget — matching SocialCrawl's "one API, every platform" philosophy.
+631 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — by platform, by free-text search, or by budget — matching SocialCrawl's "one API, every platform" philosophy.
 
 ### Why bundle data instead of fetching it?
 

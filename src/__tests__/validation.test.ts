@@ -120,7 +120,8 @@ describe("socialcrawl_request local validation", () => {
       params: { handle: "charlidamelio", bogus_param: "x" },
     });
     expect(out).toContain("`bogus_param`");
-    expect(out).toContain("ignored");
+    expect(out).toContain("dropped");
+    expect(out).toContain("data._warnings");
   });
 
   it("does not flag the universal cursor/limit aliases", async () => {
@@ -200,8 +201,13 @@ describe("socialcrawl_list_endpoints", () => {
   });
 
   it("prints parameter bounds, enums, and couplings in full detail", () => {
-    const out = listEndpoints({ platform: "search" });
+    // The platform reference is paged; read every page.
+    const first = listEndpoints({ platform: "search" });
+    const pages = Number(/Page 1 of (\d+)/.exec(first)?.[1] ?? "1");
+    let out = first;
+    for (let p = 2; p <= pages; p++) out += listEndpoints({ platform: "search", page: p });
     expect(out).toContain("range 1-12");
+    expect(out).toContain("min 1");
     expect(out).toContain("enum: day|week|month|year");
   });
 

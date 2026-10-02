@@ -1,5 +1,10 @@
 import { ENDPOINTS } from "./data/endpoints.js";
 import { explainHydration, laneMaxCredits } from "./hydration.js";
+import {
+  explainAutomaticJoins,
+  explainJudgments,
+  explainLevers,
+} from "./judgments.js";
 import type { Endpoint, Pricing } from "./types.js";
 
 /**
@@ -58,6 +63,21 @@ export function priceDrivingParams(e: Endpoint): string[] {
   for (const lane of e.hydration ?? []) {
     fromLanes.add(lane.param);
     if (lane.rowLimitParam) fromLanes.add(lane.rowLimitParam);
+  }
+  // The same holds for the metered judgments and the page-walk levers: they
+  // are the meter whether or not the rule's prose happens to name them.
+  const declared = new Set([
+    ...e.optionalParams.map((p) => p.name),
+    ...e.params.map((p) => p.name),
+  ]);
+  const j = e.judgments;
+  if (j?.labels && declared.has(j.labels.param)) fromLanes.add(j.labels.param);
+  if (j?.labels && declared.has("offer")) fromLanes.add("offer");
+  if (j?.relevance && declared.has(j.relevance.meteredTopicParam)) {
+    fromLanes.add(j.relevance.meteredTopicParam);
+  }
+  for (const lever of ["max_pages", "seen", "scan_pages"]) {
+    if (declared.has(lever)) fromLanes.add(lever);
   }
   const rule = e.pricing.description;
   if (!rule) return [...fromLanes];
@@ -118,6 +138,9 @@ export function explainPricing(e: Endpoint): string[] {
 
   const hydration = explainHydration(e);
   if (hydration.length > 0) lines.push(...hydration);
+  lines.push(...explainAutomaticJoins(e));
+  lines.push(...explainJudgments(e));
+  lines.push(...explainLevers(e));
 
   if (e.cache.ttlSeconds > 0) {
     lines.push(
@@ -130,6 +153,13 @@ export function explainPricing(e: Endpoint): string[] {
   }
 
   return lines;
+}
+
+/** `range 1-5`, `min 1`, `max 100`. */
+export function formatRange(min?: number, max?: number): string {
+  if (min !== undefined && max !== undefined) return `range ${min}-${max}`;
+  if (min !== undefined) return `min ${min}`;
+  return `max ${max}`;
 }
 
 export function formatTtl(seconds: number): string {

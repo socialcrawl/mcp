@@ -22,6 +22,14 @@ import {
   meteredRule,
   worstCaseCost,
 } from "../pricing.js";
+import {
+  judgedEndpoints,
+  judgmentHoldMax,
+  judgedRowCap,
+  labelFamily,
+  quoteJudgments,
+  LEVERS,
+} from "../judgments.js";
 import type { Endpoint } from "../types.js";
 
 /**
@@ -37,7 +45,8 @@ export type PricingAction =
   | "endpoint"
   | "platform"
   | "list"
-  | "hydration";
+  | "hydration"
+  | "judgments";
 
 export interface PricingParams {
   action?: PricingAction;
@@ -54,6 +63,14 @@ export interface PricingParams {
   include?: string;
   /** endpoint: the row cap you intend to send, which shrinks the hold. */
   rows?: number;
+  /**
+   * endpoint: the exact query params you intend to send. Turns the band into
+   * an itemised hold: the page, every `include=` join, `label=` /
+   * `relevant_to=` judgments, and `max_pages` (each page billed as one call).
+   */
+  params?: Record<string, string>;
+  /** endpoint: how many such calls you plan, for a whole-job budget. */
+  calls?: number;
 }
 
 const BILLING_RULES = [
@@ -64,6 +81,11 @@ const BILLING_RULES = [
   "**Metered endpoints deduct a ceiling and refund down.** The upfront hold is the worst case for your query; the settled charge is the work actually done, reported as `credits_used` in the envelope and the `X-Credits-Used` header.",
   "**`/v1/search/everywhere` has a coverage floor.** Zero usable items = full refund; coverage below 50% of the called sources = 50% refund (10cr instead of 20cr).",
   "**Row joins (`include=`) hold per row and keep per row FILLED.** On the endpoints that offer one, the ceiling is held up front, a credit is kept only for a row a fresh sibling lookup actually filled, and every other slot is refunded — rows served from the sibling's cache are free, unfillable rows are free, and a page that joined in full is cached whole. See `action: \"hydration\"`.",
+  "**Judgments are free by default.** Judged lists carry `computed.labels` (and `computed.relevance` on searches) at no extra credit. Only a metered `label=` preset, `label=intent` with `offer=`, or a topic of your own in `relevant_to=` adds credits: a hold of 1 per started 25 rows of the page (4 on a 100-row page), settling to 1 per started 25 rows judged fresh. `dry_run=1` previews it for 0 credits. See `action: \"judgments\"`.",
+  "**`max_pages` bills each page walked as one call**, so its worst case is N × the page's hold (a cached page is free); `data.walk.stopped` says why the walk ended.",
+  "**`seen=<id>` discounts repeats.** Rows this account already received under the same id are dropped and the page price falls with the share of repeats (rounded up) — a page of repeats is free. Join credits are never discounted.",
+  "**`since` / `stop_at_id` end a walk early** at rows you already hold, so a daily poll pays only for pages with new rows.",
+  "**Background jobs (`POST /v1/prism/jobs`) hold the whole job at submit** and refund down to the rows that succeeded when the last chunk settles; reading a job is free.",
   "**Monitors add +1 credit per scheduled run** on top of the recipe's own cost. Managing monitors is free.",
 ];
 
@@ -171,6 +193,10 @@ function buildOverview(): string {
         `| \`${endpointPath(e)}\` | ${formatCost(e.pricing)} | ${meteredRule(e.pricing)} |`,
     ),
     "",
+    `## Judgments (${judgedEndpoints().length} endpoints) — free by default`,
+    "",
+    "Every judged list labels its rows for free (posts: sponsored, intent, niche · comments: sentiment, question, purchase_intent, complaint · reviews: sentiment, issue), and searches score relevance to your query for free. Metered presets, `intent` with `offer=`, and `relevant_to=` hold 1 credit per started 25 rows (4 on a 100-row page) and settle to the rows judged fresh. `action: \"judgments\"` lists every lane, its presets and its hold.",
+    "",
     "## Cache TTLs (a hit costs 0 credits)",
     "",
     "| Category | TTL |",
@@ -229,7 +255,8 @@ function buildEndpointDetail(params: PricingParams): string {
   // An exact quote beats a band. Once the caller says which joins they intend
   // to ask for, the hold is not a range at all — it is arithmetic, and this is
   // the same arithmetic the backend's pricer runs.
-  if (endpoint.hydration && endpoint.hydration.length > 0) {
+  const exactCall = params.params !== undefined || params.calls !== undefined;
+  if (!exactCall && endpoint.hydration && endpoint.hydration.length > 0) {
     const quote = quoteHydration(endpoint, params.include, params.rows);
     lines.push("", "## Your quote");
     if (params.include === undefined) {
@@ -276,6 +303,15 @@ function buildEndpointDetail(params: PricingParams): string {
     }
   }
 
+  if (params.params !== undefined || params.calls !== undefined) {
+    lines.push("", ...callQuote(endpoint, params));
+  } else if (endpoint.judgments || endpoint.optionalParams.some((o) => o.name === "max_pages")) {
+    lines.push(
+      "",
+      "Pass `params` (the exact query you intend to send, e.g. `{ \"label\": \"mention\", \"brand\": \"Acme\", \"max_pages\": \"3\" }`) and optionally `calls` for an itemised hold and a whole-job budget.",
+    );
+  }
+
   if (endpoint.paginatable || endpoint.pagination) {
     lines.push(
       "",
@@ -283,7 +319,7 @@ function buildEndpointDetail(params: PricingParams): string {
       "",
       endpoint.paginatable
         ? "This endpoint walks every page server-side — one call, one metered charge covering the whole walk."
-        : `Each page is a separate billed request. Page with \`cursor\` (the universal alias for \`${endpoint.pagination!.nativeParam}\`) and stop on \`pagination.has_more === false\`; a wrong cursor name is a free 400, not a silent re-bill of page 1.`,
+        : `Each page is a separate billed request. Page with \`cursor\`${endpoint.pagination!.nativeParam === "cursor" ? "" : ` (the universal alias for \`${endpoint.pagination!.nativeParam}\`)`} and stop on \`pagination.has_more === false\`; a wrong cursor name is a free 400, not a silent re-bill of page 1.`,
     );
     if (endpoint.collectUntilN) {
       lines.push(
@@ -297,6 +333,162 @@ function buildEndpointDetail(params: PricingParams): string {
     lines.push("", "## Contract details", "", ...endpoint.contractDetails.map((d) => `- ${d}`));
   }
 
+  return lines.join("\n");
+}
+
+/**
+ * Itemised hold for one exact call: the page (or band), every `include=` join
+ * the params ask for, the judgments they switch on, and `max_pages`, which
+ * bills every page walked as one call. Multiplied by `calls` for a job budget.
+ */
+function callQuote(endpoint: Endpoint, params: PricingParams): string[] {
+  const q: Record<string, string> = { ...(params.params ?? {}) };
+  if (params.include !== undefined && q.include === undefined) q.include = params.include;
+  if (params.rows !== undefined && q.limit === undefined) q.limit = String(params.rows);
+
+  const rows: string[] = [];
+  const notes: string[] = [];
+  const hasJoins = (endpoint.hydration?.length ?? 0) > 0;
+  const hydration = hasJoins
+    ? quoteHydration(endpoint, q.include, q.limit !== undefined ? Number(q.limit) : undefined)
+    : undefined;
+
+  // The page itself. Exact arithmetic is only valid when the band is fully
+  // explained by the base, the joins and the judgments; any other meter
+  // (`limit`-per-row, page walks the rule describes) is budgeted at the
+  // band's ceiling, because the authored rule is the only exact statement.
+  const pageFloor = bestCaseCost(endpoint.pricing);
+  const explained =
+    endpoint.pricing.cost +
+    (endpoint.hydration ?? []).reduce((n, l) => n + laneMaxCredits(l), 0) +
+    (endpoint.judgments?.labels &&
+    (endpoint.judgments.labels.metered.length > 0 || endpoint.judgments.labels.free.includes("intent"))
+      ? judgmentHoldMax(endpoint)
+      : 0) +
+    (endpoint.judgments?.relevance ? judgmentHoldMax(endpoint) : 0);
+  const exact =
+    endpoint.pricing.model !== "metered" || worstCaseCost(endpoint.pricing) <= explained;
+  let pageHold: number;
+  if (!exact) {
+    pageHold = worstCaseCost(endpoint.pricing);
+    rows.push(`| the page (metered band ${formatCost(endpoint.pricing)}, every opt-in included) | up to ${pageHold}cr |`);
+    notes.push("This endpoint meters on more than joins and judgments (see the rule above), so the band's ceiling is the budget; the settled charge follows the rule.");
+  } else if (hydration) {
+    pageHold = hydration.held;
+    rows.push(`| the page itself | ${hydration.base}cr |`);
+    for (const l of hydration.lanes) {
+      rows.push(`| \`include=${l.lane.token}\` (${l.rows} rows × ${l.lane.creditsPerItem}cr) | ${l.held}cr |`);
+    }
+  } else {
+    pageHold = endpoint.pricing.cost;
+    rows.push(`| the page itself | ${pageHold}cr |`);
+  }
+  if (hydration && hydration.unknownTokens.length > 0) {
+    notes.push(`\`${hydration.unknownTokens.join(", ")}\` is not an \`include\` token here — a free 400.`);
+  }
+
+  const jq = quoteJudgments(endpoint, q);
+  // Inside an unexplained band the judgment holds are already in the ceiling.
+  if (!exact) {
+    jq.held = 0;
+    jq.labelHold = 0;
+    jq.relevanceHold = 0;
+  }
+  if (jq.labelHold > 0) rows.push(`| \`label=${jq.paidPresets.join(",")}\` (${judgedRowCap(endpoint)} rows / 25) | ${jq.labelHold}cr |`);
+  if (jq.relevanceHold > 0) rows.push(`| \`relevant_to\` relevance (${judgedRowCap(endpoint)} rows / 25) | ${jq.relevanceHold}cr |`);
+  if (jq.unknownPresets.length > 0) {
+    notes.push(`\`${jq.unknownPresets.join(", ")}\` is not a \`label\` preset here — a free 400. Offered: ${endpoint.judgments?.labels?.presets.join(", ") ?? "none"}.`);
+  }
+  if (jq.freePresets.length > 0) notes.push(`\`${jq.freePresets.join(", ")}\` ${jq.freePresets.length === 1 ? "is" : "are"} free.`);
+  notes.push(...jq.notes);
+  // Judgments are cached per row: whatever was judged before is free, so the
+  // hold is a ceiling, the settle is 1 per started 25 rows judged fresh.
+  const perPage = pageHold + jq.held;
+
+  const declared = new Set(endpoint.optionalParams.map((o) => o.name));
+  let pages = 1;
+  if (q.max_pages !== undefined) {
+    const n = Number(q.max_pages);
+    if (!declared.has("max_pages")) {
+      notes.push("`max_pages` is not declared on this endpoint and would be dropped.");
+    } else if (Number.isFinite(n) && n >= 1) {
+      pages = Math.floor(n);
+      notes.push(`\`max_pages=${pages}\` walks up to ${pages} pages, each billed as one call (a cached page is free); the walk stops early at the last page.`);
+    }
+  }
+  if (q.seen !== undefined && declared.has("seen")) {
+    notes.push("`seen` discounts each page by its share of rows you already received under that id — the hold below is before that discount.");
+  }
+  if (q.dry_run === "1" && endpoint.judgments) {
+    notes.push("With `dry_run=1` this call itself costs 0 credits — it only returns the estimate.");
+  }
+
+  const perCall = perPage * pages;
+  const calls = Math.max(1, Math.floor(params.calls ?? 1));
+  const floor = pageFloor === 0 ? 0 : pageFloor;
+
+  const out = [
+    "## Your quote",
+    "",
+    `Params: \`${JSON.stringify(q)}\``,
+    "",
+    "| Part | Held per page |",
+    "|------|---------------|",
+    ...rows,
+    "",
+    `**Per page:** up to **${perPage}cr**${pages > 1 ? ` × ${pages} pages = up to **${perCall}cr** per call` : ""}. Floor: ${floor}cr per page (0 on a cache hit, an empty result, or a failure).`,
+  ];
+  if (calls > 1) {
+    out.push(
+      "",
+      `**Whole job (${calls} calls):** up to **${perCall * calls} credits** held in total, at least ${floor * calls} if every page is a fresh, non-empty, unjoined page. Repeats inside the cache window are free.`,
+    );
+  }
+  if (notes.length > 0) out.push("", ...notes.map((n) => `- ${n}`));
+  out.push("", "The settled charge is always `credits_used` on the response; `socialcrawl_check_balance` with `view: \"transactions\"` shows each hold and refund.");
+  return out;
+}
+
+/** Every lane that offers labels and/or relevance, with its presets and hold. */
+function buildJudgmentsCatalogue(params: PricingParams): string {
+  const all = judgedEndpoints();
+  const scoped = params.platform ? all.filter((e) => e.platform === params.platform) : all;
+  if (scoped.length === 0) {
+    return `No endpoint${params.platform ? ` on \`${params.platform}\`` : ""} offers labels or relevance. ${all.length} endpoints do — drop \`platform\` to see them.`;
+  }
+  const lines: string[] = [
+    `# Judgments — ${scoped.length} endpoint${scoped.length === 1 ? "" : "s"}${params.platform ? ` on ${params.platform}` : ""}`,
+    "",
+    "SocialCrawl judges the rows of these lists for you. **On by default and free:** every page carries the free label presets under `computed.labels` and, on a search, `computed.relevance` against your query. `judgments=off` (or `label=none`) returns the page unjudged.",
+    "",
+    "**What adds credits:** a metered `label=` preset, `label=intent` with `offer=`, or `relevance=score|filter` with your own topic in `relevant_to=`. Each holds 1 credit per started 25 rows of the page's judged-row cap (4cr on a 100-row page) and settles to 1 credit per started 25 rows judged FRESH: rows judged before, cached pages and pages where nothing could be judged are free. `dry_run=1` previews it for 0 credits.",
+    "",
+    "| Endpoint | Rows | Free labels | Metered labels | Relevance | Hold per opt-in |",
+    "|----------|------|-------------|----------------|-----------|-----------------|",
+  ];
+  for (const e of scoped) {
+    const j = e.judgments!;
+    lines.push(
+      `| \`${endpointPath(e)}\` | ${labelFamily(e) ?? "—"} | ${j.labels ? j.labels.free.join(", ") || "—" : "—"} | ${j.labels ? [...j.labels.metered, ...(j.labels.free.includes("intent") ? ["intent+offer"] : [])].join(", ") || "—" : "—"} | ${j.relevance ? `free; \`${j.relevance.meteredTopicParam}\` metered` : "—"} | ${judgmentHoldMax(e)}cr |`,
+    );
+  }
+  lines.push(
+    "",
+    "## Context params",
+    "",
+    "- `brand=` (required by `label=mention`; without it the preset is skipped and not billed) and `brand_description=`.",
+    "- `offer=` with `label=intent` adds `fits_offer` to every post (and makes `intent` metered).",
+    "- `reports=<phrase>` with `label=reports` on reviews.",
+    "- `exclude=` drops rows a label flags (e.g. `engagement_bait` with `label=quality`; `spam,low_quality` on comments).",
+    "- `label_evidence=1` adds `computed.labels_evidence.<preset>` — the verbatim sentence behind each label.",
+    "- `relevance_threshold=` (0-1, default 0.5) sets how strict `relevance=filter` is.",
+    "",
+    "## Other levers that move a bill",
+    "",
+    ...LEVERS.map((l) => `- \`${l.param}\` — ${l.what} ${l.cost}`),
+    "",
+    'For one call\'s exact hold: `action: "endpoint"` with `platform`, `resource` and `params` (e.g. `{ "label": "mention", "brand": "Acme" }`).',
+  );
   return lines.join("\n");
 }
 
@@ -474,9 +666,11 @@ export function pricing(params: PricingParams): string {
       return buildList(params);
     case "hydration":
       return buildHydrationCatalogue(params);
+    case "judgments":
+      return buildJudgmentsCatalogue(params);
     case "overview":
       return buildOverview();
     default:
-      return `Error: Unknown action "${String(action)}". Valid actions: overview, endpoint, platform, list, hydration.`;
+      return `Error: Unknown action "${String(action)}". Valid actions: overview, endpoint, platform, list, hydration, judgments.`;
   }
 }

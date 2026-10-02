@@ -58,12 +58,20 @@ export const RequestInputSchema = z.object({
   resource: z
     .string()
     .min(1, "Resource path is required")
-    .describe("Resource path (e.g., 'profile', 'post/comments', 'search')"),
+    .describe(
+      "Resource path (e.g., 'profile', 'post/comments', 'search'). A path-param endpoint takes the template plus the value in `params` (resource 'jobs/{job_id}', params { job_id: '…' }) or the concrete path ('jobs/job_abc123').",
+    ),
+  method: z
+    .enum(["GET", "POST", "PATCH", "DELETE"])
+    .optional()
+    .describe(
+      "HTTP method, only needed for a resource served by more than one (e.g. prism/jobs: GET lists your jobs, POST submits one). Inferred when omitted: sending a `body` selects the POST variant when one exists, otherwise GET.",
+    ),
   params: z
     .record(z.string())
     .optional()
     .describe(
-      "Query parameters as key-value pairs (e.g., { handle: 'charlidamelio' }). For GET endpoints these are the query string. For POST batch endpoints, put scalar query params here (e.g. { hl: 'en' }) and the array/object body in `body`.",
+      "Query parameters as key-value pairs (e.g., { handle: 'charlidamelio' }). For GET endpoints these are the query string. For POST batch endpoints, put scalar query params here (e.g. { hl: 'en' }) and the array/object body in `body`. Cross-cutting params work here too where an endpoint declares them: `label` / `relevance` / `relevant_to` / `judgments` (row judgments), `include` (row joins), `max_pages` / `seen` / `since` / `stop_at_id` (walks and incremental polling), `dry_run=1` (free judgment cost preview), `fit=goal` + `goal` (trim the page to what a goal needs), `trim`.",
     ),
   body: z
     .record(z.unknown())
@@ -259,16 +267,16 @@ export const GetDocsInputSchema = z.object({
     .optional()
     .default("overview")
     .describe(
-      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'hydration' (opt-in `include=` row joins), 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
+      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'hydration' (opt-in `include=` row joins), 'judgments' (free default labels/relevance and the metered presets), 'batch-jobs' (batches and background jobs), 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
     ),
 }).strict();
 
 export const PricingInputSchema = z.object({
   action: z
-    .enum(["overview", "endpoint", "platform", "list", "hydration"])
+    .enum(["overview", "endpoint", "platform", "list", "hydration", "judgments"])
     .optional()
     .describe(
-      "'overview' (default): the tier ladder, every free endpoint, every flat override, every metered band with its rule, cache TTLs, and the refund matrix. 'endpoint': one endpoint's exact price, metered rule, price-driving params, row joins, and worst case (needs platform + resource) — add `include`/`rows` for an exact quote instead of a band. 'platform': the cost table for one platform (needs platform). 'list': rank/filter endpoints by price across platforms. 'hydration': every `include=` row join in the API, what each one fills, what it costs per row and what a fully-joined page holds (optionally scoped with `platform`).",
+      "'overview' (default): the tier ladder, every free endpoint, every flat override, every metered band with its rule, judgments, cache TTLs, and the refund matrix. 'endpoint': one endpoint's exact price, metered rule, price-driving params, row joins, judgments, cost levers and worst case (needs platform + resource) — add `params` (the exact query you will send) and `calls` for an itemised hold and a whole-job budget. 'platform': the cost table for one platform (needs platform). 'list': rank/filter endpoints by price across platforms. 'hydration': every `include=` row join, what each fills, its per-row rate and what a fully-joined page holds. 'judgments': every endpoint with free default labels/relevance, which presets are metered, and the hold each opt-in takes (optionally scoped with `platform`).",
     ),
   platform: z
     .enum(platformSlugs as [string, ...string[]])
@@ -308,6 +316,19 @@ export const PricingInputSchema = z.object({
     .describe(
       "endpoint: the row cap you intend to send alongside `include` (the endpoint's own `limit`). A row join holds per row, so capping the rows caps the credits — quote it before you spend it.",
     ),
+  params: z
+    .record(z.string())
+    .optional()
+    .describe(
+      "endpoint: the exact query params you intend to send (e.g. { include: 'engagement', label: 'mention', brand: 'Acme', max_pages: '3' }). Returns an itemised hold — the page, each join, each metered judgment — multiplied by `max_pages`. Costs nothing to ask.",
+    ),
+  calls: z
+    .number()
+    .int()
+    .min(1)
+    .max(1_000_000)
+    .optional()
+    .describe("endpoint: how many such calls you plan (e.g. 200 profiles), for a whole-job budget."),
   maxCost: z
     .number()
     .min(0)
@@ -333,10 +354,10 @@ export const PricingInputSchema = z.object({
 
 export const DiscoverInputSchema = z.object({
   action: z
-    .enum(["quickstart", "catalog", "endpoint", "llms", "freshness", "status"])
+    .enum(["quickstart", "catalog", "endpoint", "capabilities", "plan", "llms", "freshness", "status"])
     .optional()
     .describe(
-      "'quickstart' (default): auth, base URL, envelope, billing, the error taxonomy, limits, and a first call — GET /v1/utility/quickstart. 'catalog': the machine-readable list of every endpoint with live metered-aware prices — GET /v1/utility/endpoints. 'endpoint': one endpoint's complete usage guide, params, pricing rule, cache, paging, example response, curl, and related endpoints — GET /v1/utility/endpoint. 'llms': the agent context corpus for the whole API or one platform — GET /v1/utility/llms. 'freshness': compare the live registry against this server's bundled catalogue to see whether this MCP version is current. 'status': every platform's live circuit-breaker state — GET /v1/status, the public meta route to read before retrying a persistent 502 or 503.",
+      "'quickstart' (default): auth, base URL, envelope, billing, the error taxonomy, limits, and a first call — GET /v1/utility/quickstart. 'capabilities': every cross-cutting parameter once (label presets per row family, relevance, judgments, include, since/stop_at_id, seen, max_pages, row filters, trim, fit, download_media) with what it does, what it costs and every endpoint that supports it — GET /v1/utility/capabilities (filter with `param`). 'plan': turn a job in plain words (`query`, e.g. 'track mentions of Acme on TikTok and Reddit') into the exact priced calls to make, in order — GET /v1/utility/plan (needs an API key; free). 'catalog': the machine-readable list of every endpoint with live metered-aware prices — GET /v1/utility/endpoints. 'endpoint': one endpoint's complete usage guide, params, pricing rule, cache, paging, example response, curl, and related endpoints — GET /v1/utility/endpoint. 'llms': the agent context corpus for the whole API or one platform — GET /v1/utility/llms. 'freshness': compare the live registry against this server's bundled catalogue to see whether this MCP version is current. 'status': every platform's live circuit-breaker state — GET /v1/status, the public meta route to read before retrying a persistent 502 or 503.",
     ),
   platform: z
     .string()
@@ -360,6 +381,15 @@ export const DiscoverInputSchema = z.object({
     .describe(
       "endpoint (required): the endpoint id as 'platform/resource' (e.g. 'tiktok/profile'), a path ('/v1/tiktok/profile'), or a full URL.",
     ),
+  param: z
+    .string()
+    .optional()
+    .describe("capabilities: return one capability only, by parameter name (e.g. 'label', 'relevance', 'seen')."),
+  query: z
+    .string()
+    .max(500)
+    .optional()
+    .describe("plan (required): the job in plain words, e.g. 'a creator's profile, posts and comments'."),
   format: z
     .enum(["markdown", "json"])
     .optional()
