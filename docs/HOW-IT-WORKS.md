@@ -6,14 +6,14 @@ A technical overview of the architecture, data flow, and design decisions behind
 
 ## Overview
 
-The SocialCrawl MCP server is a bridge between AI agents and the SocialCrawl API. It runs locally on the user's machine, communicates over stdio with the AI client (Claude Desktop, Cursor, VS Code), and makes HTTP requests to the SocialCrawl API on behalf of the agent.
+The SocialCrawl MCP server is a bridge between AI agents and the SocialCrawl API. It runs either locally over stdio (the AI client - Claude Desktop, Cursor, VS Code - spawns it) or as a hosted Streamable HTTP endpoint (`https://mcp.socialcrawl.dev/mcp`), and makes HTTP requests to the SocialCrawl API on behalf of the agent.
 
 ```
 AI Agent (Claude, Cursor, etc.)
     |
-    | MCP protocol (stdio)
+    | MCP protocol (stdio, or Streamable HTTP)
     |
-SocialCrawl MCP Server (local, npx)
+SocialCrawl MCP Server (local npx, or hosted)
     |
     | HTTPS (GET/POST/PATCH/DELETE)
     |
@@ -24,7 +24,7 @@ SocialCrawl API (www.socialcrawl.dev)
 Data Platforms (67 platforms)
 ```
 
-The MCP server exposes 10 tools. Four of them (list_platforms, list_endpoints, pricing, get_docs) query local bundled data and work without an API key or network connection. Five (request, check_balance, monitors, web, cohorts) make actual API calls and need a key. The tenth, discover, calls the free `/v1/utility/*` self-description endpoints when a key is present and falls back to bundled data when it is not; its `status` action reads the public `/v1/status` meta route with no key at all.
+Since 2.0.0 the MCP server exposes 7 tools. Three of them (find, endpoint, estimate) answer from local bundled data without an API key or network connection; with a key they first ask the free `/v1/utility/*` routes (`find`, `resolve`, `plan`, `endpoint`, `estimate`) and fall back to the bundled answer when a route is not deployed (the router's ENDPOINT_NOT_FOUND for the route itself is remembered for 10 minutes; a 404 for an unknown id is not; each call times out after 5 s). Four (request, collect, account, manage) make API calls and need a key, except account's `status` view, which reads the public `/v1/status` route. `SOCIALCRAWL_LEGACY_TOOLS=1` also registers the nine retired 1.x names (`src/tools/legacy.ts`).
 
 ---
 
@@ -32,9 +32,14 @@ The MCP server exposes 10 tools. Four of them (list_platforms, list_endpoints, p
 
 ### Transport
 
-**stdio** — the standard transport for locally-running MCP servers. The AI client spawns the MCP server as a subprocess and communicates via stdin/stdout using the MCP JSON-RPC protocol.
+The same `createServer(ctx)` (`src/server.ts`) serves two transports:
 
-Installation is zero-friction: `npx -y socialcrawl-mcp` downloads and runs the server on demand. No global install or manual setup required.
+- **stdio** (`src/index.ts`, `socialcrawl-mcp`) — the AI client spawns the server as a subprocess and talks MCP JSON-RPC over stdin/stdout. No port, no firewall, no separate service; `npx -y socialcrawl-mcp` runs it on demand. One process serves one user, so the key comes from `SOCIALCRAWL_API_KEY`.
+- **Streamable HTTP** (`src/app.ts` / `src/http.ts`, `socialcrawl-mcp-http`) — a hosted, stateless endpoint (`POST /mcp`): a fresh server and transport per request, with the caller's key taken from `Authorization: Bearer` or `x-api-key`. It never falls back to the operator's environment key. An optional OAuth 2.1 resource-server mode (preview, off unless `SOCIALCRAWL_OAUTH=1`) gates `tools/call` by scope (`src/oauth/scopes.ts`); see `docs/REMOTE-STREAMABLE-HTTP.md`.
+
+### ApiContext
+
+Every API-calling tool takes an `ApiContext` (`src/context.ts`): `{ apiKey, baseUrl, confirm? }`. The transport builds it (stdio from env via `contextFromEnv()`, HTTP from request headers) and `createServer` adds `confirm`, which asks the user to approve a spend through MCP elicitation when the client supports it. Tools never read `process.env` for the key themselves, which is what lets one HTTP process serve many callers safely. Results are built in one place (`src/result.ts` `toResult`): text for older clients, `structuredContent` for tools with an `outputSchema`, `isError` on failures, and `resource_link` blocks for stored bodies (`socialcrawl://results/<request_id>`, kept 30 minutes per key).
 
 ### Runtime
 
@@ -50,7 +55,12 @@ src/
 ├── index.ts              # stdio entrypoint
 ├── server.ts             # Server creation + tool registration
 ├── app.ts / http.ts      # Streamable HTTP transport (stateless, per-request context)
-├── client.ts             # HTTP client for SocialCrawl API calls
+├── client.ts             # HTTP client for SocialCrawl API calls (per-endpoint timeouts, SSE via sse.ts)
+├── context.ts            # ApiContext: key, base URL, spend-approval hook
+├── result.ts             # toResult: text + structuredContent + isError + resource links
+├── freshness.ts          # Once-per-process check that the bundled catalogue is not behind the API
+├── cost-guard.ts         # max_credits / confirm quoting before a spend
+├── oauth/                # Optional OAuth 2.1 resource-server mode (scopes, JWT verification)
 ├── pricing.ts            # Single source of price formatting — every surface routes through it
 ├── types.ts              # TypeScript interfaces
 ├── constants.ts          # Timeouts, character limits, server metadata
@@ -64,21 +74,23 @@ src/
 │   ├── monitors.ts       # Stateful /v1/monitors/* CRUD (POST/GET/PATCH/DELETE)
 │   ├── web.ts            # Stateful /v1/web/* surface — scrape/crawl/agent/jobs/monitors/sessions
 │   ├── cohorts.ts        # Stateful /v1/cohorts/* + /v1/cohort-queries/* audience-filtered search
-│   └── request.ts        # Pre-flight validation + API call execution (GET + POST batch)
+│   ├── collect.ts        # Walks a paged endpoint to N rows / a credit budget; stores rows as a result resource
+│   └── request.ts        # Pre-flight validation + API call execution (GET + POST batch), shaping, cost guard
 ├── data/                 # ALL GENERATED — see scripts/generate-data.ts
 │   ├── platforms.ts      # 67 platforms with metadata, social flag, and category
 │   ├── endpoints.ts      # 631 endpoints — params with bounds/couplings/CSV limits, the full
 │   │                     #   pricing model, pagination, cache, delivery mode, upstream sources
-│   ├── registry-meta.ts  # REGISTRY_STATS, CREDIT_LADDER, CACHE_TTLS
+│   ├── registry-meta.ts  # REGISTRY_FINGERPRINT, REGISTRY_STATS, CREDIT_LADDER, CACHE_TTLS
 │   ├── docs-handwritten.ts # Cross-cutting contract topics (auth, credits, errors, paging, …)
 │   └── docs.ts           # Generated per-platform, pricing, and full references
 └── schemas/
-    └── tools.ts          # Zod input validation schemas for all 10 tools
+    ├── tools.ts          # Zod input schemas: the 7 tools and the 1.x legacy names
+    └── outputs.ts        # outputSchema shapes (request, collect, check_balance, pricing)
 ```
 
 ---
 
-## The 10 Tools
+## The 7 Tools
 
 ### Tool Registration
 
@@ -87,22 +99,22 @@ Each tool is registered using the MCP SDK's `server.registerTool()` API with:
 - **Name** — snake_case, prefixed with `socialcrawl_` (e.g., `socialcrawl_request`)
 - **Input schema** — Zod schema for runtime validation. The MCP SDK converts Zod schemas to JSON Schema for the AI client.
 - **Annotations** — MCP tool annotations that help the AI client understand the tool's behavior:
-  - `readOnlyHint` — `true` for the read/discovery tools; `false` for `socialcrawl_monitors`, `socialcrawl_web`, and `socialcrawl_cohorts`, which create and delete stateful resources
-  - `destructiveHint` — `true` for `socialcrawl_monitors`/`socialcrawl_web`/`socialcrawl_cohorts` (they can delete monitors, cancel jobs, close sessions, drop a cohort and everything under it); `false` elsewhere
-  - `idempotentHint` — `true` for the GET/read tools; `false` for the stateful write tools
-  - `openWorldHint` — `true` for the tools that make external API calls (`request`, `check_balance`, `monitors`, `web`, `cohorts`), `false` for the local-data discovery tools
+  - `readOnlyHint` — `true` for `socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate` and `socialcrawl_account`; `false` for `socialcrawl_request` and `socialcrawl_collect` (billable) and for `socialcrawl_manage`, which creates and deletes stateful resources
+  - `destructiveHint` — `true` for `socialcrawl_manage` (it can delete monitors, cancel jobs, close sessions, drop a cohort and everything under it); `false` elsewhere
+  - `idempotentHint` — `true` for the read tools; `false` for request, collect and manage
+  - `openWorldHint` — `true` for every tool (each may call the API; the discovery tools fall back to bundled data)
 
 ### Tool Design Philosophy
 
-The MCP exposes 10 workflow-oriented tools rather than 631 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (Three surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, and the `cohorts` audience-filtered search — get their own action-based tools.)
+The MCP exposes 7 workflow-oriented tools rather than 633 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (The surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, the `cohorts` audience-filtered search and Prism background jobs — share one action-based tool, `socialcrawl_manage`.)
 
 The typical agent workflow is:
 
-1. `socialcrawl_list_platforms` — "What platforms exist?"
-2. `socialcrawl_list_endpoints` — "What can I do on TikTok?" or "which endpoints return transcripts?"
-3. `socialcrawl_pricing` — "What will that cost me?"
-4. `socialcrawl_request` — "Get me this specific data"
-5. `socialcrawl_get_docs` — "I need help understanding something"
+1. `socialcrawl_find` — "Which endpoint does this job?" (a task in plain words; ranked by `src/search/rank.ts`, with params filled from URLs and handles)
+2. `socialcrawl_endpoint` — "What do I send and what comes back?" (params, response fields, paging, latency, next steps; also guide topics)
+3. `socialcrawl_estimate` — "What will that cost me?"
+4. `socialcrawl_request` — "Get me this specific data" (or `socialcrawl_collect` for many pages in one call)
+5. `socialcrawl_account` / `socialcrawl_manage` — balance and status / monitors, cohorts, web, jobs
 
 Smart agents learn the API structure after 1-2 discovery calls and skip straight to `socialcrawl_request` for subsequent queries.
 
@@ -127,7 +139,7 @@ interface Platform {
 }
 ```
 
-Queried by `socialcrawl_list_platforms` and used for pre-flight validation in `socialcrawl_request`.
+Listed by `socialcrawl_find` and used for pre-flight validation in `socialcrawl_request`.
 
 ### `data/endpoints.ts` — 631 Endpoints
 
@@ -170,14 +182,16 @@ interface Endpoint {
 **None of this is hand-written.** It is generated from the main SocialCrawl codebase's endpoint registry (`packages/social-api/src/registry/config/`), the single source of truth, via a two-step pipeline:
 
 ```bash
-# 1. In the backend repo — writes registry-dump.json (schema v2) here
+# 1. In the backend repo — writes registry-dump.json (schema v3) here
 cd codebase/packages/social-api && pnpm dlx tsx scripts/extract-mcp-data.ts
 
-# 2. Here — regenerates platforms.ts, endpoints.ts, registry-meta.ts
-npm run generate:data
+# 2. Here — regenerates platforms.ts, endpoints.ts, registry-meta.ts, docs.ts
+npm run generate:data   # tsx scripts/generate-data.ts
 ```
 
-The generator refuses a v1 dump rather than silently producing a thinner data layer, and fails loudly on a new platform that has no description. The hardcoded platform/endpoint totals in `data-integrity.test.ts` are deliberate drift guards: when the backend moves they go red, and that is the signal to re-run the pipeline.
+In CI this runs without a human: the backend's `sync-downstream.yml` regenerates the dump on a registry change, runs this repo's tests against the new data, bumps the patch version and pushes; `publish.yml` then publishes to npm and the MCP Registry.
+
+The generator refuses a dump older than schema v3 (judgments, featured params, related endpoints) or one without a `registryFingerprint`, rather than silently producing a thinner data layer, and fails loudly on a new platform that has no description. Platform descriptions are maintained in `scripts/generate-data.ts`, and everything an agent reads is vendor-neutral: upstream supplier names never appear in tool descriptions, docs or results (`opacity.test.ts`). The hardcoded platform/endpoint totals in `data-integrity.test.ts` are deliberate drift guards: when the backend moves they go red, and that is the signal to re-run the pipeline.
 
 ### `data/docs.ts` — 61 Documentation Topics
 
@@ -199,7 +213,7 @@ Bundled llms.txt content from the SocialCrawl website, keyed by topic:
 | `limits` | Hand-written | Rate, concurrency, timeouts, circuit breaker, retry guidance |
 | `monitors` | Hand-written | The scheduled-recipe wrapper (`/v1/monitors/*`) |
 | `discovery` | Hand-written | The free self-describing `utility/*` endpoints |
-| `tiktok`, `instagram`, … | Generated | One per platform (48), built from ENDPOINTS at module load |
+| `tiktok`, `instagram`, … | Generated | One per platform, built from ENDPOINTS at module load |
 
 The split matters: the hand-written topics cover cross-cutting contracts that are *not* derivable from per-endpoint registry data, and live in `data/docs-handwritten.ts`. Everything endpoint-specific is generated at module load from ENDPOINTS, so a platform doc can never drift from the registry.
 
@@ -260,8 +274,8 @@ Optional params (`optional: true`, neither required nor part of a `oneOf` group)
 
 If pre-flight validation fails, the error message directs the agent to the right discovery tool:
 
-- Bad platform → "Use `socialcrawl_list_platforms` to see available platforms"
-- Bad resource → "Use `socialcrawl_list_endpoints` to see available endpoints for {platform}"
+- Bad platform → "Use `socialcrawl_find` to see the platforms" plus a did-you-mean
+- Bad resource → closest matches (ranked) and "Use `socialcrawl_find` with platform {platform}"
 - Missing required params → Lists what's missing with examples
 - Unsatisfied `oneOf` group → Lists the acceptable alternatives (e.g. "Provide one of: url, id")
 
@@ -275,7 +289,7 @@ The API client (`formatHttpError` in `src/client.ts`) maps every HTTP error to a
 | 401 | "Invalid API key. {server message} Check your SOCIALCRAWL_API_KEY configuration." |
 | 402 | "Insufficient credits (X remaining). {server message} Top up at socialcrawl.dev/dashboard/billing." (`KEY_BUDGET_EXCEEDED`: the server message only, since topping up does not clear a per-key cap) |
 | 404 `RESOURCE_NOT_FOUND` | "Resource not found ({platform}). {server message}" |
-| 404 other | "Endpoint /v1/... not found. {server message} Use socialcrawl_list_endpoints..." |
+| 404 other | "Endpoint /v1/... not found. {server message} Use socialcrawl_find..." |
 | 405 | "Method not allowed. {server message}" |
 | 429 | The server message, which names the limit hit (600/minute or 50 in flight) |
 | 502 | "Upstream error. {server message}" (fallback: "Upstream error fetching data. Credits have been auto-refunded.") |
@@ -322,13 +336,17 @@ If no API key is set, the server still starts and the discovery/docs tools work 
 
 ## Data Sync Strategy
 
-The bundled data in `data/` is a snapshot of the SocialCrawl API at the time the MCP package version was published. When the main codebase adds or changes endpoints:
+The bundled data in `data/` is a snapshot of the SocialCrawl API at the time the MCP package version was published. When the registry in the main codebase changes:
 
-1. Developer runs `pnpm generate:docs` in the main SocialCrawl codebase (regenerates OpenAPI spec + llms.txt files)
-2. Developer updates the MCP's `data/` files to match
-3. Version bump + `npm publish`
+1. `scripts/extract-mcp-data.ts` (backend) writes `registry-dump.json` (schema v3, with a `registryFingerprint`).
+2. `npm run generate:data` regenerates `data/` from it.
+3. The backend's `sync-downstream.yml` does both steps on every registry change on `main`, runs this repo's tests, bumps the patch version and pushes; `publish.yml` publishes.
 
-Users get updates automatically via `npx -y socialcrawl-mcp` (always pulls the latest version).
+Users on `npx -y socialcrawl-mcp` pick it up on the next launch. A long-running or pinned install can fall behind, which is what the freshness check is for.
+
+### Freshness check
+
+`src/freshness.ts` compares the bundled `REGISTRY_FINGERPRINT` with the live registry once per process (stdio: at startup; HTTP: on the first request, shared by every later request to the same base URL). It calls `GET /v1/utility/endpoints?fingerprint=1` and, because that route is not deployed everywhere, falls back on a 404 or any error to the endpoint/platform count comparison that `socialcrawl_discover` `action: "freshness"` uses. The probe has a 2.5 s timeout and never delays a tool call (a result that is ready within 250 ms is used, otherwise the next call picks it up). When the catalogue is behind, one line is appended to the next tool result and added to the structured `warnings`; offline, keyless or any failure is silent. Set `SOCIALCRAWL_FRESHNESS_CHECK=off` to disable it.
 
 ---
 
@@ -375,7 +393,7 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 
 ## Testing
 
-282 unit tests across 17 test suites:
+Around 690 tests across 31 suites (`npm test`). The main ones:
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
@@ -391,7 +409,9 @@ The registry doesn't host code — it hosts metadata that points to the npm pack
 | Pre-flight validation | 8 | Bad platform/resource/params caught locally, no-param endpoints pass through |
 | Discovery (`/v1/utility/*` + `/v1/status`) | 27 | Anonymous bundled fallback, live call shapes and id normalisation, metered-label preference, the freshness drift check, the keyless platform-status read, and the `setup` topic |
 | Cohorts | 26 | The full lifecycle across all eight routes, generated-vs-supplied `Idempotency-Key` (echoed so a retry replays), the local credit-ceiling calculation, every contract bound rejected without a network call, path-traversal id rejection, and cohort 409s not mislabelled as idempotency errors |
-| Server | 4 | All 10 tools registered, anonymous discovery, per-context key |
+| Server | 4 | The 7 tools registered, anonymous discovery, per-context key |
+| Freshness | 16 | Fingerprint match/mismatch, count fallback on 404, silent when offline or keyless, timeout, once-per-process, stale line in the next result and `warnings` |
+| Vendor neutrality | 90 | `tools/list`, instructions, every `get_docs` topic and `list_endpoints` detail output name no upstream supplier |
 | Surface coverage | 9 | Every endpoint callable through a tool, priced, documented, and listed with every one of its params and enum values — across pages |
 | Pagination | 11 | Line-boundary splitting, nothing lost across pages, clamped page numbers, short output left unpaged |
 | Response truncation | 3 | Under-limit untouched, over-limit truncated, full length reported |
@@ -403,9 +423,9 @@ Tests use vitest with `vi.stubGlobal("fetch", ...)` for HTTP mocking and `proces
 
 ## Design Decisions
 
-### Why 10 tools instead of 631?
+### Why 7 tools instead of 633?
 
-631 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — by platform, by free-text search, or by budget — matching SocialCrawl's "one API, every platform" philosophy.
+633 tools would flood the AI client's tool list and consume context window space. The agent would need to somehow know that `socialcrawl_get_tiktok_profile` exists. With a handful of workflow tools, the agent discovers capabilities dynamically — by a task in plain words, by platform, or by budget. Version 2.0.0 cut the surface from 11 tools to 7 so `tools/list` costs about 4.7k tokens instead of 12.8k — matching SocialCrawl's "one API, every platform" philosophy.
 
 ### Why bundle data instead of fetching it?
 
@@ -421,12 +441,12 @@ The trade-off is that data can become stale if the MCP package isn't updated. Bu
 
 Making API calls costs credits. A typo like `platfrom: "tikktok"` would consume 1 credit just to get a 404. Pre-flight validation catches these errors locally — saving credits and providing better error messages than the API would.
 
-### Why stdio transport?
+### Why both stdio and Streamable HTTP?
 
-stdio is the standard for local MCP servers. The AI client spawns the server as a subprocess — no port conflicts, no firewall issues, no separate server to manage. The user just adds a config block and it works.
+stdio is the standard for local MCP servers: the client spawns the server, so there is no port, no firewall and nothing to host, and the key stays on the user's machine. It cannot serve clients that only speak remote MCP (web chat apps), so the same server is also offered over stateless Streamable HTTP, with the key bound per request. Keeping the tools transport-agnostic behind `ApiContext` means neither transport has its own copy of the logic.
 
 ### Why read env vars at call time?
 
-`SOCIALCRAWL_API_KEY` and `SOCIALCRAWL_BASE_URL` are read via getter functions rather than module-level constants. This enables:
+On stdio, `SOCIALCRAWL_API_KEY` and `SOCIALCRAWL_BASE_URL` are read by `contextFromEnv()` when the server is built rather than held in module-level constants. This enables:
 - Tests to override env vars per-test without module caching issues
 - Runtime configuration changes (if the env var is updated while the server runs)

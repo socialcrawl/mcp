@@ -1,0 +1,275 @@
+[
+  {
+    "query": "instagram followers of a brand",
+    "expected": [
+      "instagram/followers"
+    ]
+  },
+  {
+    "query": "get the transcript of a youtube video",
+    "expected": [
+      "youtube/video/transcript"
+    ]
+  },
+  {
+    "query": "amazon product reviews by ASIN",
+    "expected": [
+      "amazon/reviews"
+    ]
+  },
+  {
+    "query": "linkedin company employees list",
+    "expected": [
+      "linkedin/company/people"
+    ]
+  },
+  {
+    "query": "reddit thread comments",
+    "expected": [
+      "reddit/post/comments"
+    ]
+  },
+  {
+    "query": "google maps reviews for a restaurant",
+    "expected": [
+      "google/business/extended-reviews"
+    ]
+  },
+  {
+    "query": "trending tiktok sounds",
+    "expected": [
+      "tiktok/search/music",
+      "tiktok/trending"
+    ]
+  },
+  {
+    "query": "x/twitter user tweets",
+    "expected": [
+      "twitter/user/tweets"
+    ]
+  },
+  {
+    "query": "who mentions my handle",
+    "expected": [
+      "prism/mentions",
+      "prism/brand-mentions"
+    ]
+  },
+  {
+    "query": "hotel reviews tripadvisor",
+    "expected": [
+      "tripadvisor/reviews"
+    ]
+  },
+  {
+    "query": "app store reviews for an app",
+    "expected": [
+      "app_store/app-reviews"
+    ]
+  },
+  {
+    "query": "naver blog posts korean",
+    "expected": [
+      "naver/blog/search"
+    ]
+  },
+  {
+    "query": "polymarket odds",
+    "expected": [
+      "polymarket/research"
+    ]
+  },
+  {
+    "query": "github repo stars",
+    "expected": [
+      "github/repo"
+    ]
+  },
+  {
+    "query": "pinterest trends in germany",
+    "expected": [
+      "pinterest/trends"
+    ]
+  },
+  {
+    "query": "tiktok music trending",
+    "expected": [
+      "tiktok/search/music",
+      "tiktok/trending"
+    ]
+  },
+  {
+    "query": "facebook page posts",
+    "expected": [
+      "facebook/profile/posts"
+    ]
+  },
+  {
+    "query": "youtube shorts of a channel",
+    "expected": [
+      "youtube/channel/shorts"
+    ]
+  },
+  {
+    "query": "instagram user profile info",
+    "expected": [
+      "instagram/profile"
+    ]
+  },
+  {
+    "query": "linkedin person profile",
+    "expected": [
+      "linkedin/profile"
+    ]
+  },
+  {
+    "query": "twitter followers list",
+    "expected": [
+      "twitter/user/followers"
+    ]
+  },
+  {
+    "query": "tiktok videos using a hashtag",
+    "expected": [
+      "tiktok/search/hashtag"
+    ]
+  },
+  {
+    "query": "reddit search posts",
+    "expected": [
+      "reddit/search"
+    ]
+  },
+  {
+    "query": "who liked an instagram post",
+    "expected": [
+      "instagram/post/likers"
+    ]
+  },
+  {
+    "query": "google search results",
+    "expected": [
+      "google/search"
+    ]
+  },
+  {
+    "query": "tweets mentioning a brand",
+    "expected": [
+      "twitter/search/tweets"
+    ]
+  },
+  {
+    "query": "r/python top posts",
+    "expected": [
+      "reddit/subreddit"
+    ]
+  },
+  {
+    "query": "searching tiktok for cooking videos",
+    "expected": [
+      "tiktok/search"
+    ]
+  },
+  {
+    "query": "comments on a youtube video",
+    "expected": [
+      "youtube/video/comments"
+    ]
+  },
+  {
+    "query": "instagram reels trending",
+    "expected": [
+      "instagram/reels/trending"
+    ]
+  },
+  {
+    "query": "amazon search for wireless earbuds",
+    "expected": [
+      "amazon/product-search"
+    ]
+  },
+  {
+    "query": "walmart reviews for a product",
+    "expected": [
+      "walmart/reviews"
+    ]
+  },
+  {
+    "query": "youtube channel subscriber count",
+    "expected": [
+      "youtube/channel"
+    ]
+  },
+  {
+    "query": "tiktok creator audience demographics",
+    "expected": [
+      "tiktok/user/audience"
+    ]
+  },
+  {
+    "query": "linkedin job postings at a company",
+    "expected": [
+      "linkedin/company/jobs"
+    ]
+  },
+  {
+    "query": "hacker news comments on a story",
+    "expected": [
+      "hackernews/story/comments"
+    ]
+  },
+  {
+    "query": "bluesky posts from a user",
+    "expected": [
+      "bluesky/user/posts"
+    ]
+  },
+  {
+    "query": "threads replies on a post",
+    "expected": [
+      "threads/post/comments"
+    ]
+  },
+  {
+    "query": "stock price history for tesla",
+    "expected": [
+      "finance/history"
+    ]
+  },
+  {
+    "query": "google play reviews of an app",
+    "expected": [
+      "google_play/app-reviews"
+    ]
+  },
+  {
+    "query": "trustpilot company reviews",
+    "expected": [
+      "trustpilot/reviews"
+    ]
+  },
+  {
+    "query": "yelp restaurants in austin",
+    "expected": [
+      "yelp/search"
+    ]
+  },
+  {
+    "query": "instagram stories of a user",
+    "expected": [
+      "instagram/stories"
+    ]
+  },
+  {
+    "query": "youtube search videos",
+    "expected": [
+      "youtube/search"
+    ]
+  },
+  {
+    "query": "tiktok profile posted videos",
+    "expected": [
+      "tiktok/profile/videos"
+    ]
+  }
+]

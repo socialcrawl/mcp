@@ -13,13 +13,14 @@ describe("Pre-flight validation", () => {
   it("rejects unknown platform", async () => {
     const result = await request(anonCtx, { platform: "fakebook", resource: "profile" });
     expect(result).toContain("Unknown platform");
-    expect(result).toContain("socialcrawl_list_platforms");
+    expect(result).toContain("socialcrawl_find");
+    expect(result).toContain("`facebook`");
   });
 
   it("rejects unknown resource for valid platform", async () => {
     const result = await request(anonCtx, { platform: "tiktok", resource: "nonexistent" });
     expect(result).toContain("Unknown resource");
-    expect(result).toContain("socialcrawl_list_endpoints");
+    expect(result).toContain("socialcrawl_find");
   });
 
   it("rejects missing required params", async () => {

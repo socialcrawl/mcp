@@ -269,6 +269,14 @@ export interface Endpoint {
    * `accept-header`, `always`, or `"<param>=<value>"` for a query trigger.
    */
   streaming?: string;
+  /**
+   * Client timeout the API recommends, in seconds (registry dump v4). Null or
+   * absent until measured latency exists; the MCP then falls back to `budget_ms`
+   * and the execution-mode defaults (`timeouts.ts`).
+   */
+  recommended_timeout_s?: number | null;
+  /** Server-side latency budget in milliseconds, when the registry carries one. */
+  budget_ms?: number | null;
   pagination?: PaginationInfo;
   /** Walks every page server-side (composites that harvest to completion). */
   paginatable?: boolean;
@@ -320,6 +328,93 @@ export interface Endpoint {
   featuredParams?: FeaturedParam[];
   /** Related-by-job endpoints, each with the reason it is related. */
   related?: RelatedEndpoint[];
+  /** What the endpoint is for, in the registry's words (dump v4). The ranker reads it. */
+  purpose?: EndpointPurpose;
+  /** Job taxonomy (dump v4): `purpose` (data_retrieval, account_control, ...) and `job_family`. */
+  taxonomy?: EndpointTaxonomy;
+  /** Measured latency over recent calls, in milliseconds (dump v4), when sampled. */
+  latency_ms?: LatencyStats;
+}
+
+/** Registry `purpose` block: one line each, generated from the same source as the skill. */
+export interface EndpointPurpose {
+  summary: string;
+  returns: string | null;
+  use_when: string | null;
+  not_for: string | null;
+}
+
+export interface EndpointTaxonomy {
+  purpose: string;
+  job_family: string;
+  takes_item_id_from_another_endpoint?: boolean;
+}
+
+export interface LatencyStats {
+  p50: number;
+  p95: number;
+  p99: number;
+  /** Calls sampled. */
+  n: number;
+  provisional?: boolean;
+  low_sample?: boolean;
+}
+
+/** One response field an endpoint returns (dump v4 `outputs.fields[]`). Absent facts are null. */
+export interface OutputField {
+  /** Path relative to the row (`comment.text`) or the page (`data.total`). */
+  path: string;
+  type: string;
+  nullable: boolean;
+  meaning: string | null;
+  /** Observed fill rate, 0 to 1, when measured. */
+  fill: number | null;
+  /** True when seen filled in a live capture. */
+  live: boolean | null;
+  /** The param that switches this field on (`label=toxic`), when it is opt-in. */
+  opt_in?: string;
+  /** `fallback`: only filled when the call falls back to a secondary source. */
+  source_hint?: string;
+}
+
+/**
+ * The contract's paging facts (registry dump `paging`). Every null means
+ * unknown, never "none". `page_size` already follows the registry precedence
+ * (pricing page size > a code constant > agreeing captures > a baseline).
+ */
+export interface EndpointPaging {
+  style: string;
+  page_size: number | null;
+  /** `declared`, `param_default` or `observed`. */
+  page_size_source: string | null;
+  /** Agreeing live captures behind an observed size. */
+  observed_n: number | null;
+  page_size_max: number | null;
+  max_pages: number | null;
+  max_pages_when: string | null;
+  /** e.g. `ceil(N/50) x 5-10` or `N rows x 5`. */
+  per_n_items: string | null;
+  /** `flat`, `per_page`, `per_row` or `unknown`. */
+  price_basis: string | null;
+  /** Credits per page; `max` null when only the floor is proven. */
+  credits_per_page: { min: number; max: number | null } | null;
+  credits_per_row: number | null;
+}
+
+/** What one endpoint returns (dump v4 `outputs`). */
+export interface EndpointOutputs {
+  archetype: string;
+  /** Where the rows live, e.g. `data.items[].comment`. */
+  rows_at: string | null;
+  fields: OutputField[];
+  /** Fields the archetype declares but this endpoint never fills. */
+  never_filled: string[];
+  /** Page-level keys beside the rows (`data.total`, `data.labels`, ...). */
+  page_level: string[];
+  /** `field_map` (declared), `inferred_sample` (from a captured response) or `unknown`. */
+  source: string;
+  /** Where an inferred field list came from (`{ file }`). */
+  inferred_from?: Record<string, string>;
 }
 
 export interface SocialCrawlSuccessResponse {

@@ -1,11 +1,23 @@
 import { findPlatform } from "../data/platforms.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { makeRequest, apiRequest } from "../client.js";
+import type { ProgressTick, ResponseMeta } from "../client.js";
+import { timeoutSecondsFor, wantsStream } from "../timeouts.js";
+import { pollLine, requestJobHandle } from "../jobs.js";
 import { formatCost, worstCaseCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
 import { quoteHydration } from "../hydration.js";
 import { quoteJudgments } from "../judgments.js";
 import type { Endpoint } from "../types.js";
+import { errorFromText, structureEnvelope, summaryLine } from "../result.js";
+import type { ToolOutput } from "../result.js";
+import { RESULT_CHAR_BUDGET } from "../constants.js";
+import { shapeEnvelope } from "../format/shape.js";
+import { resultsStore, resultUri, scopeOf } from "../results-store.js";
+import { randomUUID } from "node:crypto";
+import { checkGuard, quoteCall } from "../cost-guard.js";
+import { recordSpend } from "../session-spend.js";
+import { suggestEndpoints, suggestPlatforms } from "../search/catalog.js";
 
 interface RequestParams {
   platform: string;
@@ -16,9 +28,40 @@ interface RequestParams {
    * a `body` selects the POST variant when one exists, otherwise GET.
    */
   method?: "GET" | "POST" | "PATCH" | "DELETE";
-  params?: Record<string, string>;
+  params?: Record<string, ParamValue>;
   body?: Record<string, unknown>;
   idempotencyKey?: string;
+  /** Comma-separated field paths; sent as `fields=` and applied locally if unprojected. */
+  fields?: string;
+  max_items?: number;
+  format?: "json" | "csv" | "summary";
+  /** Refuse locally when the quoted hold exceeds this many credits. */
+  max_credits?: number;
+  /** Proceed past the confirmation threshold (SOCIALCRAWL_CONFIRM_ABOVE) without asking. */
+  confirm?: boolean;
+  /** Called once per streamed chunk (the server wires it to MCP progress notifications). */
+  onProgress?: (tick: ProgressTick) => void;
+}
+
+/** Internal switches for a caller that walks pages itself (`socialcrawl_collect`). */
+export interface PageOptions {
+  /** The caller already ran the cost guard for the whole walk. */
+  skipGuard?: boolean;
+  /** Do not shape, truncate or store the body; hand back the whole envelope. */
+  walk?: boolean;
+  /** Quoted hold of this page, counted as the charge when the response does not report one. */
+  hold?: number;
+}
+type ParamScalar = string | number | boolean;
+type ParamValue = ParamScalar | ParamScalar[];
+
+/** Query values travel as strings; arrays become CSV (`label=a,b`). */
+export function stringifyParams(params: Record<string, ParamValue> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(params ?? {})) {
+    out[k] = Array.isArray(v) ? v.map(String).join(",") : String(v);
+  }
+  return out;
 }
 
 /**
@@ -26,7 +69,7 @@ interface RequestParams {
  * (`jobs/{job_id}` with `job_id` in params) and a concrete path
  * (`jobs/job_abc123`). Returns the path-param values a concrete path carried.
  */
-function resolveEndpoint(
+export function resolveEndpoint(
   platform: string,
   resource: string,
   method: string | undefined,
@@ -186,17 +229,57 @@ function unknownParams(
   return Object.keys(provided).filter((name) => !known.has(name));
 }
 
+/** What the success path learned, for the structured twin of the text. */
+interface Captured {
+  structured?: Record<string, unknown>;
+  links?: ToolOutput["links"];
+  /** The parsed API envelope, whole (set on a JSON success). */
+  envelope?: Record<string, unknown>;
+}
+
 export async function request(ctx: ApiContext, input: RequestParams): Promise<string> {
+  return (await requestStructured(ctx, input)).text;
+}
+
+/** Text for older clients plus the `structuredContent` object (success or error shape). */
+export async function requestStructured(ctx: ApiContext, input: RequestParams): Promise<ToolOutput> {
+  return (await requestPage(ctx, input)).output;
+}
+
+/** One call, plus the whole parsed envelope for a caller that walks pages. */
+export async function requestPage(
+  ctx: ApiContext,
+  input: RequestParams,
+  opts: PageOptions = {},
+): Promise<{ output: ToolOutput; envelope?: Record<string, unknown> }> {
+  const captured: Captured = {};
+  const text = await runRequest(ctx, input, captured, opts);
+  return {
+    output: { text, structured: captured.structured ?? errorFromText(text), links: captured.links },
+    envelope: captured.envelope,
+  };
+}
+
+async function runRequest(
+  ctx: ApiContext,
+  input: RequestParams,
+  captured: Captured,
+  opts: PageOptions,
+): Promise<string> {
   const platform = findPlatform(input.platform);
   if (!platform) {
-    return `Error: Unknown platform "${input.platform}". Use socialcrawl_list_platforms to see available platforms.`;
+    const near = suggestPlatforms(input.platform);
+    return [
+      `Error: Unknown platform "${input.platform}". Use socialcrawl_find to see the platforms.`,
+      ...(near.length > 0 ? ["", "Did you mean:", ...near.map((p) => `- \`${p}\``)] : []),
+    ].join("\n");
   }
 
   // The stateful web-scraping platform (jobs, monitors, sessions, async
-  // crawl/batch/agent — POST/PATCH/DELETE with path params) is served by the
-  // dedicated socialcrawl_web tool, not this registry-driven request tool.
+  // crawl/batch/agent — POST/PATCH/DELETE with path params) is served by
+  // socialcrawl_manage (area web), not this registry-driven request tool.
   if (input.platform === "web") {
-    return `Error: The "web" platform is served by the \`socialcrawl_web\` tool (scrape, search, map, extract, crawl, batch_scrape, agent, jobs, monitors, sessions), not \`socialcrawl_request\`. Call socialcrawl_web with the matching action.`;
+    return `Error: The "web" platform is served by \`socialcrawl_manage\` with area "web" (scrape, search, map, extract, crawl, batch_scrape, agent, jobs, monitors, sessions), not \`socialcrawl_request\`. Call socialcrawl_manage with area "web" and the matching action.`;
   }
 
   // A resource served by several methods (prism/jobs: GET lists, POST
@@ -208,25 +291,26 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
   const resolved = resolveEndpoint(input.platform, input.resource, method);
   const endpoint = resolved?.endpoint;
   if (!endpoint || !resolved) {
-    const near = getEndpointsByPlatform(input.platform)
-      .filter(
-        (e) =>
-          e.resource.includes(input.resource) || input.resource.includes(e.resource),
-      )
-      .slice(0, 5);
+    // Substring neighbours first (the old behaviour), then the ranker's picks.
+    const near = [
+      ...getEndpointsByPlatform(input.platform)
+        .filter((e) => e.resource.includes(input.resource) || input.resource.includes(e.resource))
+        .map((e) => e.resource),
+      ...suggestEndpoints(input.platform, input.resource).map((id) => id.slice(input.platform.length + 1)),
+    ].filter((r, i, all) => all.indexOf(r) === i).slice(0, 5);
     return [
       `Error: Unknown resource "${input.resource}" for platform "${input.platform}".`,
       ...(near.length > 0
-        ? [`Closest matches: ${near.map((e) => `\`${e.resource}\``).join(", ")}.`]
+        ? [`Closest matches: ${near.map((r) => `\`${r}\``).join(", ")}.`]
         : []),
-      `Use socialcrawl_list_endpoints with platform "${input.platform}" to see available endpoints.`,
+      `Use socialcrawl_find with platform "${input.platform}" to see its endpoints.`,
     ].join(" ");
   }
 
   const isPost = endpoint.method === "POST";
   const providedParams: Record<string, string> = {
     ...resolved.pathValues,
-    ...(input.params ?? {}),
+    ...stringifyParams(input.params),
   };
   const providedBody = input.body ?? {};
   // A required param may arrive via `params` or `body`; POST batch params
@@ -252,7 +336,7 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
     }
   }
   if (missingParts.length > 0) {
-    return `Error: Missing required parameter(s): ${missingParts.join(", ")}. Use socialcrawl_list_endpoints with platform "${input.platform}" for full parameter details. No credits were charged.`;
+    return `Error: Missing required parameter(s): ${missingParts.join(", ")}. Use socialcrawl_endpoint with id "${input.platform}/${endpoint.resource}" for full parameter details. No credits were charged.`;
   }
 
   const valueErrors = validateValues(endpoint, merged);
@@ -261,11 +345,37 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
       "Error: Invalid parameter value(s) — the API would reject this with a 400 before billing:",
       ...valueErrors.map((e) => `- ${e}`),
       "",
-      `Use socialcrawl_list_endpoints with platform "${input.platform}" for the full parameter contract. No credits were charged.`,
+      `Use socialcrawl_endpoint with id "${input.platform}/${endpoint.resource}" for the full parameter contract. No credits were charged.`,
     ].join("\n");
   }
 
+  // What to count as spent when a success does not say (the quoted hold).
+  let holdCharge = opts.hold;
+  // Cost guard: quote the call, refuse over max_credits, ask above the threshold.
+  if (!opts.skipGuard) {
+    const quote = await quoteCall(ctx, endpoint, merged, input.max_credits);
+    holdCharge = quote.hold;
+    const stop = await checkGuard(ctx, {
+      hold: quote.hold,
+      exposure: quote.hold,
+      maxCredits: input.max_credits,
+      confirm: input.confirm,
+      subject: "This call",
+    });
+    if (stop) {
+      captured.structured = stop.structured;
+      return stop.text;
+    }
+  }
+
   let response: string;
+  const callMeta: ResponseMeta = {};
+  const longCall = {
+    timeoutMs: timeoutSecondsFor(endpoint) * 1000,
+    stream: wantsStream(endpoint, merged),
+    onProgress: input.onProgress,
+    meta: callMeta,
+  };
 
   const pathNames = pathParamNames(endpoint.resource);
   const resourcePath = fillPath(endpoint.resource, merged);
@@ -277,11 +387,14 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
     for (const [k, v] of Object.entries(providedParams)) {
       if (!pathNames.has(k)) query[k] = v;
     }
+    if (input.fields) query.fields = input.fields;
     response = await makeRequest(ctx, {
+      raw: true,
       platform: input.platform,
       resource: resourcePath,
       params: Object.keys(query).length > 0 ? query : undefined,
       idempotencyKey: input.idempotencyKey,
+      ...longCall,
     });
   } else {
     // POST batch endpoint — split provided values into a JSON body and a
@@ -299,13 +412,16 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
       if (isQueryParam(endpoint, k)) query[k] = String(v);
       else bodyOut[k] = coerceJson(v);
     }
+    if (input.fields) query.fields = input.fields;
     response = await apiRequest(ctx, {
+      raw: true,
       method: "POST",
       path: `/v1/${input.platform}/${resourcePath}`,
       query,
       body: bodyOut,
       idempotencyKey: input.idempotencyKey,
       errorPlatform: input.platform,
+      ...longCall,
     });
   }
 
@@ -411,15 +527,146 @@ export async function request(ctx: ApiContext, input: RequestParams): Promise<st
   }
   const header = `${headerLines.join("\n")}\n\n`;
 
-  if (response.startsWith("Error:")) {
+  if (/^Error(?::| \(\d+\):)/.test(response)) {
     return `${header}${response}`;
   }
 
+  const quotedMax = worstCaseCost(endpoint.pricing);
+  const endpointName = `${input.platform}/${endpoint.resource}`;
   try {
     const parsed = JSON.parse(response) as Record<string, unknown>;
-    const formatted = JSON.stringify(parsed, null, 2);
-    return `${header}\`\`\`json\n${formatted}\n\`\`\``;
+    // Cut only at row boundaries so the result is always valid JSON; the full
+    // body goes to the results store behind a resource link.
+    const format = input.format ?? "json";
+    const budget = RESULT_CHAR_BUDGET - header.length - 1500;
+    const shaped = shapeEnvelope(parsed, {
+      fields: input.fields,
+      maxItems: input.max_items,
+      format,
+      budget,
+    });
+    const structured: Record<string, unknown> = {
+      ok: true,
+      endpoint: endpointName,
+      ...structureEnvelope(shaped.envelope, quotedMax),
+    };
+    const credits = (structured.credits ?? {}) as Record<string, unknown>;
+    if (typeof credits.used !== "number" || !Number.isFinite(credits.used)) {
+      credits.estimated = true;
+      credits.used = holdCharge ?? quotedMax;
+    }
+    credits.session_total = recordSpend(ctx.apiKey, credits.used);
+    structured.credits = credits;
+    captured.envelope = parsed;
+    const notes: string[] = [];
+    if (shaped.warnings && shaped.warnings.length > 0) {
+      structured.warnings = [...((structured.warnings as string[] | undefined) ?? []), ...shaped.warnings];
+      notes.push(...shaped.warnings);
+    }
+    const linkWorthy = !opts.walk && (shaped.cut || shaped.projected || format !== "json");
+    let uri: string | undefined;
+    if (linkWorthy) {
+      const id = typeof parsed.request_id === "string" && parsed.request_id ? parsed.request_id : randomUUID();
+      if (resultsStore.put(scopeOf(ctx.apiKey), id, response)) uri = resultUri(id);
+      else notes.push(`full body (${Buffer.byteLength(response).toLocaleString()} bytes) is too large to store; narrow the request (limit, fields) instead`);
+    }
+    if (shaped.cut && uri) {
+      const trunc: Record<string, unknown> = { resource: uri };
+      if (shaped.total !== undefined) {
+        trunc.shown = shaped.shown;
+        trunc.total = shaped.total;
+        notes.push(
+          shaped.shown
+            ? `rows 1–${shaped.shown} of ${shaped.total} shown; full page stored as resource ${uri}`
+            : `no row fit; ${shaped.total} rows stored as resource ${uri}`,
+        );
+      } else {
+        trunc.omitted_keys = shaped.omittedKeys;
+        notes.push(
+          `${shaped.omittedKeys?.length ?? 0} large field(s) omitted (${(shaped.omittedKeys ?? []).join(", ")}); full body stored as resource ${uri}`,
+        );
+      }
+      structured.truncated = trunc;
+    } else if (uri) {
+      notes.push(`full body stored as resource ${uri}`);
+    }
+    // The table lives once, in the text; structuredContent carries only its row count
+    // (a client reading both would otherwise pay for the CSV twice).
+    if (shaped.csv !== undefined) structured.csv_rows = Math.max(0, shaped.csv.split("\n").length - 1);
+    if (shaped.csv !== undefined || shaped.summary !== undefined) delete structured.rows;
+    if (shaped.summary !== undefined) structured.summary = shaped.summary;
+    // A stream that broke after delivering data: a failure, with the data attached.
+    if (parsed.partial === true) {
+      const se = (parsed.stream_error ?? {}) as { code?: string; message?: string };
+      const code = se.code ?? "STREAM_ERROR";
+      structured.ok = false;
+      structured.partial = true;
+      structured.code = code;
+      structured.reason = se.message || "The stream failed after returning some data.";
+      structured.retryable = /UPSTREAM|TIMEOUT|UNAVAILABLE|INTERNAL/.test(code);
+      notes.push(
+        `Partial result: the stream failed (${code}${se.message ? `: ${se.message}` : ""}) after delivering the data below. credits.used is what was charged; do not assume the missing parts exist.`,
+      );
+    }
+    // A submit that returned a job handle: say how to poll it, structurally.
+    const job = endpoint.execution === "async" && endpoint.method === "POST"
+      ? requestJobHandle(input.platform, parsed, callMeta.retryAfterS)
+      : undefined;
+    if (job) {
+      structured.job = job;
+      notes.push(pollLine(job));
+    }
+    captured.structured = structured;
+    captured.links = uri
+      ? [{ uri, name: `result ${uri.slice(uri.lastIndexOf("/") + 1)}`, description: "Full response body", mimeType: "application/json" }]
+      : undefined;
+
+    // Summary line, then the envelope as compact JSON (no indent: indentation is
+    // a quarter of a pretty-printed page and carries nothing an agent reads).
+    let line = summaryLine(structured);
+    if (shaped.csv !== undefined || shaped.summary !== undefined) {
+      line += ` · ${shaped.total ?? (shaped.summary?.rows as number | undefined) ?? 1} rows total`;
+    }
+    const noteBlock = notes.length > 0 ? `\n${notes.join("\n")}` : "";
+    let payload: string;
+    if (shaped.csv !== undefined) payload = `\`\`\`csv\n${shaped.csv}\n\`\`\``;
+    else if (shaped.summary !== undefined) {
+      const env: Record<string, unknown> = { ...shaped.envelope };
+      const d = env.data as Record<string, unknown> | undefined;
+      if (d && typeof d === "object") {
+        const { items: _items, ...restData } = d;
+        env.data = restData;
+      }
+      payload = `\`\`\`json\n${JSON.stringify({ ...env, summary: shaped.summary })}\n\`\`\``;
+    }
+    else payload = `\`\`\`json\n${JSON.stringify(shaped.envelope)}\n\`\`\``;
+    return `${header}**Result:** ${line}${noteBlock}\n\n${payload}`;
   } catch {
-    return `${header}${response}`;
+    // A body cut at the character limit is not JSON: report it, do not fail it.
+    captured.structured = {
+      ok: true,
+      endpoint: endpointName,
+      credits: {
+        used: holdCharge ?? quotedMax,
+        estimated: true,
+        quoted_max: quotedMax,
+        session_total: recordSpend(ctx.apiKey, holdCharge ?? quotedMax),
+      },
+      warnings: ["Response text was truncated or not JSON; credits.used is unknown and counted at the quoted hold. Check the ledger by request_id."],
+    };
+    // Not JSON, so there is no row boundary: slice to the budget, keep the rest behind a link.
+    const room = RESULT_CHAR_BUDGET - header.length - 400;
+    if (response.length <= room) return `${header}${response}`;
+    const id = randomUUID();
+    const stored = resultsStore.put(scopeOf(ctx.apiKey), id, response);
+    const uri = resultUri(id);
+    const note = stored
+      ? `[Body is not JSON; first ${room.toLocaleString()} of ${response.length.toLocaleString()} characters shown. Full body stored as resource ${uri}]`
+      : `[Body is not JSON; first ${room.toLocaleString()} of ${response.length.toLocaleString()} characters shown. Too large to store.]`;
+    if (stored) {
+      (captured.structured as Record<string, unknown>).truncated = { resource: uri };
+      captured.links = [{ uri, name: `result ${id}`, description: "Full response body", mimeType: "text/plain" }];
+    }
+    return `${header}${response.slice(0, room)}\n\n${note}`;
   }
 }

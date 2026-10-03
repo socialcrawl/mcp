@@ -1,0 +1,297 @@
+{
+  "success": true,
+  "platform": "tiktok",
+  "endpoint": "/v1/tiktok/post/comments",
+  "data": {
+    "items": [
+      {
+        "comment": {
+          "id": "7623828115408274207",
+          "url": null,
+          "parent_id": null,
+          "post_id": "7623818255903329566",
+          "text": "Sample comment text (redacted).",
+          "author": {
+            "username": "user_da42e5",
+            "display_name": "user_a15de0",
+            "avatar_url": "https://example.com/avatars/user_27816d.png",
+            "verified": false
+          },
+          "engagement": {
+            "likes": 17771,
+            "replies": 55
+          },
+          "flags": {
+            "pinned": false,
+            "deleted": false
+          },
+          "published_at": "2026-04-01T16:27:52.000Z",
+          "ext": {
+            "published_at_epoch": 1775060872
+          }
+        },
+        "computed": {
+          "language": "en",
+          "labels": {
+            "sentiment": {
+              "level": 3,
+              "score_0_1": 0.76,
+              "confidence": 0.78
+            },
+            "question": {
+              "p": 0.03
+            },
+            "purchase_intent": {
+              "p": 0.03
+            },
+            "complaint": {
+              "p": 0.01
+            }
+          }
+        }
+      },
+      {
+        "comment": {
+          "id": "7623869779602457374",
+          "url": null,
+          "parent_id": null,
+          "post_id": "7623818255903329566",
+          "text": "Sample comment text (redacted).",
+          "author": {
+            "username": "user_d39d34",
+            "display_name": "user_bea79b",
+            "avatar_url": "https://example.com/avatars/user_0c528a.png",
+            "verified": false
+          },
+          "engagement": {
+            "likes": 13666,
+            "replies": 25
+          },
+          "flags": {
+            "pinned": false,
+            "deleted": false
+          },
+          "published_at": "2026-04-01T19:08:53.000Z",
+          "ext": {
+            "published_at_epoch": 1775070533
+          }
+        },
+        "computed": {
+          "language": "en",
+          "labels": {
+            "sentiment": {
+              "level": 2,
+              "score_0_1": 0.43,
+              "confidence": 0.39
+            },
+            "question": {
+              "p": 0.05
+            },
+            "purchase_intent": {
+              "p": 0.03
+            },
+            "complaint": {
+              "p": 0.02
+            }
+          }
+        }
+      }
+    ],
+    "next_cursor": "sc2.eyJzIjoiaCIsImMiOiJzYzEuZXlKaklqb2lOVEFpTENKeklqcGJJamMyTWpNNE1qZ3hNVFUwTURneU56UXlNRGNpTENJM05qSXpPRFk1TnpjNU5qQXlORFUzTXpjMElpd2lOell5TXpnM05qVTNPVEUyT1RJM01qWXdOeUlzSWpjMk1qTTRNelE1T0RNMk9UVXdOVGMyTnpnaUxDSTNOakl6T0RnMU9ERTRORFE1TXpFME5UYzBJaXdpTnpZeU5ESTFNekV3TkRFM05UYzBNemMzTlNJc0lqYzJNak00TWpJeE5EWXpOalV3TkRjMU9ETWlMQ0kzTmpJek9ERTVOVEkxT1RVeE9UazJOamcxSWl3aU56WXlNemszTURJeE9ERXlOalU1TURjMU1DSXNJamMyTWpNNU16VXdNakF6TVRrME9UQTRORGNpTENJM05qSXpPREk0TURFd01UUXdNREkxTmpNeElpd2lOell5TXpnME9UYzRNekl4TVRjM01EWXpPQ0lzSWpjMk1qTTRNamswTmpZM09UVTVPRE0yTWpraUxDSTNOakl6T0RJM09EQTRNVEkxTnpZME16WTFJaXdpTnpZeU5EQXhNVEF4TVRrek5EVTJPVEkwTmlJc0lqYzJNak00TmpVNU16a3pNekl3TnpJeU1EVWlMQ0kzTmpJNU5URTRNamt4TXpVeE1ERXlNVEV3SWl3aU56WXlPRGN4TnpNMU56azVOamMxTXpZM09DSXNJamMyTWpNNE1qTXhOVFEwT1RBME1qWXhNallpTENJM05qSXpPREU1TkRjeE9EWTFOVEk1TVRFNElpd2lOell5TXprME9UTXlOalV4TVRJMk1EUXpNQ0lzSWpjMk1qTTVNalUyTVRJeU1ERTBNamMzTWpVaUxDSTNOakl6T0RJeU9EazJPREUzTmpZNE9EazBJaXdpTnpZeU5ERTVNVGt6TmpVMU5qRTFOVFkzT1NJc0lqYzJNak00TWpnNU56VTJOekk0T0RZd05EY2lMQ0kzTmpJek9ETTVNVFV4TnpBME1EUTRNems0SWl3aU56WXlNemc0TXpjek9ERTNPRGN3TURBMk15SXNJamMyTWpRek5EYzJPVGd6TURreE1qQTNPVGdpTENJM05qSTBOekk0TVRZM05UZzRNalkyTnpneklpd2lOell5TkRVeE56SXpNelF5TkRBM016VXdNeUlzSWpjMk1qTTRNakEyTWpFd05qYzRORFkwTXpFaUxDSTNOakl6T0RRNU5UQTJNVGd5T1RBMk5qTTRJaXdpTnpZeU16azBNek13T1RJNE56VTRPRFl6T1NJc0lqYzJNak00TXpNMk16QXdOVEF4TkRBNU5ERWlMQ0kzTmpJek9UQXlOamcwTnpZNE5UWTRNRGM0SWl3aU56WXlNemd5Tmpnek9UQTVNRE00TVRVNE1pSXNJamMyTWpRek5qQTBNalUxTlRFMk5UazRNRGNpTENJM05qSTBNREF3TXpJMk56WXhNems1TURjeElpd2lOell5TkRNeU1EUXdOemszTXpNMk5EUTVOQ0lzSWpjMk1qUXpPRGs1TXpnNE1UUXhOVGMxT1RraUxDSTNOakl6T0RNd01EQTFNalkxTXpZM09ESXhJaXdpTnpZeU16ZzNPREkzTkRBd056QTRPVGsxTUNJc0lqYzJNalV6TmpneU5UUXlNelU1TlRFNU1ESWlMQ0kzTmpJek9UZ3lOVE0wTmpjNE56STFOREEzSWl3aU56WXlOREEwTXpJMU5UVXlPVEU1TkRJMU15SXNJamMyTWpNNE56UXlNVEl3T0RneU9ETTVNVGNpTENJM05qSXpPREkyTlRNMU5EQXhNVEV5TXpVeElpd2lOell5TXpnME1EQTVORFk0TlRBNE5qUTNPQ0lzSWpjMk1qTTRPRGN4TlRJME9UTTBPVFV3TlRNaVhYMCJ9",
+    "total": 2196,
+    "labels": {
+      "presets": [
+        "sentiment",
+        "question"
+      ],
+      "rows": 49,
+      "labelled": 49,
+      "cached": 48,
+      "skipped": 0,
+      "unjudged": 0,
+      "dropped": 0,
+      "dropped_ids": [],
+      "extra_credits": 0,
+      "methodology_version": "labels/1",
+      "mode": "default",
+      "status": "complete",
+      "pending": 0,
+      "pending_ids": []
+    },
+    "label_share": {
+      "policy_version": "share/1",
+      "presets": {
+        "question": {
+          "n": 49,
+          "counted": 4,
+          "abstained": 5,
+          "share": 0.0909,
+          "low": 0.0415,
+          "high": 0.1877,
+          "receipts": [
+            {
+              "id": "7624253104175743775",
+              "text": "Why’s your hat so big?"
+            },
+            {
+              "id": "7623828010140025631",
+              "text": "Where’s Miss Peaches"
+            }
+          ],
+          "policy_version": "share/1",
+          "too_few": false,
+          "at_cut": 8,
+          "nulls": 0,
+          "low_confidence": 5
+        },
+        "purchase_intent": {
+          "n": 49,
+          "counted": 0,
+          "abstained": 1,
+          "share": 0,
+          "low": 0,
+          "high": 0.0534,
+          "receipts": [],
+          "policy_version": "share/1",
+          "too_few": false,
+          "at_cut": 0,
+          "nulls": 0,
+          "low_confidence": 1
+        },
+        "complaint": {
+          "n": 49,
+          "counted": 0,
+          "abstained": 0,
+          "share": 0,
+          "low": 0,
+          "high": 0.0523,
+          "receipts": [],
+          "policy_version": "share/1",
+          "too_few": false,
+          "at_cut": 0,
+          "nulls": 0,
+          "low_confidence": 0
+        },
+        "sentiment": {
+          "positive": {
+            "n": 49,
+            "counted": 36,
+            "abstained": 6,
+            "share": 0.8372,
+            "low": 0.7252,
+            "high": 0.9093,
+            "receipts": [
+              {
+                "id": "7623828115408274207",
+                "text": "Tea by the Sea 🌊 🫖"
+              },
+              {
+                "id": "7623876579169272607",
+                "text": "I think you and Bethany Frankel might be related…. or soulmates. one or the other"
+              }
+            ],
+            "policy_version": "share/1",
+            "too_few": false,
+            "at_cut": 36,
+            "nulls": 0,
+            "low_confidence": 6
+          },
+          "neutral": {
+            "n": 49,
+            "counted": 7,
+            "abstained": 6,
+            "share": 0.1628,
+            "low": 0.0907,
+            "high": 0.2748,
+            "receipts": [
+              {
+                "id": "7624253104175743775",
+                "text": "Why’s your hat so big?"
+              },
+              {
+                "id": "7623935020319490847",
+                "text": "Dave running to the gossip"
+              }
+            ],
+            "policy_version": "share/1",
+            "too_few": false,
+            "at_cut": 7,
+            "nulls": 0,
+            "low_confidence": 6
+          },
+          "negative": {
+            "n": 49,
+            "counted": 0,
+            "abstained": 6,
+            "share": 0,
+            "low": 0,
+            "high": 0.0592,
+            "receipts": [],
+            "policy_version": "share/1",
+            "too_few": false,
+            "at_cut": 0,
+            "nulls": 0,
+            "low_confidence": 6
+          }
+        }
+      }
+    },
+    "comment_language": {
+      "policy_version": "share/1",
+      "n": 49,
+      "abstained": 0,
+      "judged_by": {
+        "script": 0,
+        "choice": 49
+      },
+      "shares": {
+        "en": {
+          "n": 49,
+          "counted": 49,
+          "abstained": 0,
+          "share": 1,
+          "low": 0.9477,
+          "high": 1,
+          "receipts": [
+            {
+              "id": "7623828115408274207",
+              "text": "Tea by the Sea 🌊 🫖"
+            },
+            {
+              "id": "7623869779602457374",
+              "text": "Beach gossip in 3 months time"
+            }
+          ],
+          "policy_version": "share/1",
+          "too_few": false
+        }
+      }
+    },
+    "comment_recency": {
+      "policy_version": "d09-1",
+      "n": 49,
+      "counted": 49,
+      "abstained": 0,
+      "share_last_24h": 0,
+      "share_later_half": null,
+      "too_few": false,
+      "stage": "unknown",
+      "order": "default",
+      "recent_share_is_floor": true,
+      "receipts": []
+    },
+    "dropped": 0
+  },
+  "credits_used": 1,
+  "request_id": "req_example000000",
+  "cached": false,
+  "pagination": {
+    "next_cursor": "sc.eyJ2IjoyLCJjIjoic2MyLmV5SnpJam9pYUNJc0ltTWlPaUp6WXpFdVpYbEtha2xxYjJsT1ZFRnBURU5LZWtscWNHSkphbU15VFdwTk5FMXFaM2hOVkZVd1RVUm5lVTU2VVhsTlJHTnBURU5KTTA1cVNYcFBSRmsxVG5wak5VNXFRWGxPUkZVelRYcGpNRWxwZDJsT2VsbDVUWHBuTTA1cVZUTlBWRVV5VDFSSk0wMXFXWGRPZVVselNXcGpNazFxVFRSTmVsRTFUMFJOTWs5VVZYZE9WR015VG5wbmFVeERTVE5PYWtsNlQwUm5NVTlFUlRST1JGRTFUWHBGTUU1VVl6QkphWGRwVG5wWmVVNUVTVEZOZWtWM1RrUkZNMDVVWXpCTmVtTXpUbE5KYzBscVl6Sk5hazAwVFdwSmVFNUVXWHBPYWxWM1RrUmpNVTlFVFdsTVEwa3pUbXBKZWs5RVJUVk9WRWt4VDFSVmVFOVVhekpPYW1jeFNXbDNhVTU2V1hsTmVtc3pUVVJKZUU5RVJYbE9hbFUxVFVSak1VMURTWE5KYW1NeVRXcE5OVTE2VlhkTmFrRjZUVlJyTUU5VVFUUk9SR05wVEVOSk0wNXFTWHBQUkVrMFRVUkZkMDFVVVhkTlJFa3hUbXBOZUVscGQybE9lbGw1VFhwbk1FOVVZelJOZWtsNFRWUmpNMDFFV1hwUFEwbHpTV3BqTWsxcVRUUk5hbXN3VG1wWk0wOVVWVFZQUkUweVRXcHJhVXhEU1ROT2FrbDZUMFJKTTA5RVFUUk5WRWt4VG5wWk1FMTZXVEZKYVhkcFRucFplVTVFUVhoTlZFRjRUVlJyZWs1RVZUSlBWRWt3VG1sSmMwbHFZekpOYWswMFRtcFZOVTE2YTNwTmVrbDNUbnBKZVUxRVZXbE1RMGt6VG1wSk5VNVVSVFJOYW10NFRYcFZlRTFFUlhsTlZFVjNTV2wzYVU1NldYbFBSR040VG5wTk1VNTZhelZPYW1NeFRYcFpNMDlEU1hOSmFtTXlUV3BOTkUxcVRYaE9WRkV3VDFSQk1FMXFXWGhOYWxscFRFTkpNMDVxU1hwUFJFVTFUa1JqZUU5RVdURk9WRWsxVFZSRk5FbHBkMmxPZWxsNVRYcHJNRTlVVFhsT2FsVjRUVlJKTWsxRVVYcE5RMGx6U1dwak1rMXFUVFZOYWxVeVRWUkplVTFFUlRCTmFtTXpUV3BWYVV4RFNUTk9ha2w2VDBSSmVVOUVhekpQUkVVelRtcFpORTlFYXpCSmFYZHBUbnBaZVU1RVJUVk5WR3Q2VG1wVk1VNXFSVEZPVkZrelQxTkpjMGxxWXpKTmFrMDBUV3BuTlU1NlZUSk9la2swVDBSWmQwNUVZMmxNUTBrelRtcEplazlFVFRWTlZGVjRUbnBCTUUxRVVUUk5lbXMwU1dsM2FVNTZXWGxOZW1jMFRYcGplazlFUlROUFJHTjNUVVJCTWsxNVNYTkphbU15VFdwUmVrNUVZekpQVkdkNlRVUnJlRTFxUVROUFZHZHBURU5KTTA1cVNUQk9la2swVFZSWk0wNVVaelJOYWxreVRucG5la2xwZDJsT2VsbDVUa1JWZUU1NlNYcE5lbEY1VGtSQk0wMTZWWGROZVVselNXcGpNazFxVFRSTmFrRXlUV3BGZDA1cVl6Uk9SRmt3VFhwRmFVeERTVE5PYWtsNlQwUlJOVTVVUVRKTlZHZDVUMVJCTWs1cVRUUkphWGRwVG5wWmVVMTZhekJOZWsxM1QxUkpORTU2VlRSUFJGbDZUMU5KYzBscVl6Sk5hazAwVFhwTk1rMTZRWGRPVkVGNFRrUkJOVTVFUldsTVEwa3pUbXBKZWs5VVFYbE9hbWN3VG5wWk5FNVVXVFJOUkdNMFNXbDNhVTU2V1hsTmVtZDVUbXBuZWs5VVFUVk5SRTAwVFZSVk5FMXBTWE5KYW1NeVRXcFJlazVxUVRCTmFsVXhUbFJGTWs1VWF6Uk5SR05wVEVOSk0wNXFTVEJOUkVGM1RYcEpNazU2V1hoTmVtczFUVVJqZUVscGQybE9lbGw1VGtSTmVVMUVVWGRPZW1zelRYcE5NazVFVVRWT1EwbHpTV3BqTWsxcVVYcFBSR3MxVFhwbk5FMVVVWGhPVkdNeFQxUnJhVXhEU1ROT2FrbDZUMFJOZDAxRVFURk5hbGt4VFhwWk0wOUVTWGhKYVhkcFRucFplVTE2WnpOUFJFa3pUa1JCZDA1NlFUUlBWR3N4VFVOSmMwbHFZekpOYWxWNlRtcG5lVTVVVVhsTmVsVTFUbFJGTlUxRVNXbE1RMGt6VG1wSmVrOVVaM2xPVkUwd1RtcGpORTU2U1RGT1JFRXpTV2wzYVU1NldYbE9SRUV3VFhwSk1VNVVWWGxQVkVVMVRrUkpNVTE1U1hOSmFtTXlUV3BOTkU1NlVYbE5WRWwzVDBSbmVVOUVUVFZOVkdOcFRFTkpNMDVxU1hwUFJFa3lUbFJOTVU1RVFYaE5WRVY1VFhwVmVFbHBkMmxPZWxsNVRYcG5NRTFFUVRWT1JGazBUbFJCTkU1cVVUTlBRMGx6U1dwak1rMXFUVFJQUkdONFRsUkpNRTlVVFRCUFZGVjNUbFJOYVZoWU1DSjkiLCJlIjoidGlrdG9rL3Bvc3QvY29tbWVudHMiLCJwIjoiY3Vyc29yIn0",
+    "has_more": true,
+    "page_size": 49
+  },
+  "credits_remaining": 9999,
+  "source": "captured",
+  "captured_at": "2026-10-02T07:22:31.183Z",
+  "redacted": true
+}

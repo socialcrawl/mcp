@@ -58,7 +58,7 @@ export function listPlatforms(): string {
       `${REGISTRY_STATS.socialPlatforms} are social platforms; the rest are commerce and marketplaces, app stores, places and local, business and software reputation, jobs and salaries, markets and finance, congressional trading disclosures, news, web research and scraping, on-page SEO, prediction markets, Korean search, content analysis, and cross-platform composites.`,
     "",
     `Credit tiers: standard ${REGISTRY_STATS.standardEndpoints} · advanced ${REGISTRY_STATS.advancedEndpoints} · premium ${REGISTRY_STATS.premiumEndpoints} endpoints. ` +
-      "The `Credits/call` column is the full range across a platform's endpoints, with metered endpoints shown at their ceiling — use `socialcrawl_pricing` for exact per-endpoint costs.",
+      "The `Credits/call` column is the full range across a platform's endpoints, with metered endpoints shown at their ceiling — use `socialcrawl_estimate` for exact per-endpoint costs.",
     "",
   ];
 
@@ -80,7 +80,7 @@ export function listPlatforms(): string {
   }
 
   lines.push(
-    "Next: `socialcrawl_list_endpoints` with a platform slug (or a `search` term to look across all platforms) for endpoints and parameters; `socialcrawl_pricing` for costs; `socialcrawl_get_docs` with a platform slug for full platform docs.",
+    "Next: `socialcrawl_find` with a task (or a platform for its endpoints); `socialcrawl_endpoint` with an endpoint id for its params and response fields; `socialcrawl_estimate` for costs.",
   );
 
   return lines.join("\n");

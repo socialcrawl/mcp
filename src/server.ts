@@ -1,262 +1,322 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
+import { RESULT_URI_PREFIX, resultsStore, scopeOf } from "./results-store.js";
 import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
 import type { ApiContext } from "./context.js";
+import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
+import type { ProgressTick } from "./client.js";
 import {
-  ListPlatformsInputSchema,
-  ListEndpointsInputSchema,
+  FindInputSchema,
+  EndpointInputSchema,
+  EstimateInputSchema,
   RequestInputSchema,
-  CheckBalanceInputSchema,
-  MonitorsInputSchema,
-  WebInputSchema,
-  CohortsInputSchema,
-  GetDocsInputSchema,
-  PricingInputSchema,
-  DiscoverInputSchema,
+  CollectInputSchema,
+  AccountInputSchema,
+  ManageInputSchema,
 } from "./schemas/tools.js";
-import { listPlatforms } from "./tools/list-platforms.js";
-import { listEndpoints } from "./tools/list-endpoints.js";
-import { request } from "./tools/request.js";
-import { checkBalance } from "./tools/check-balance.js";
-import { monitors } from "./tools/monitors.js";
-import { web } from "./tools/web.js";
-import { cohorts } from "./tools/cohorts.js";
-import { getDocs } from "./tools/get-docs.js";
-import { pricing } from "./tools/pricing.js";
-import { discover } from "./tools/discover.js";
-import type { MonitorsParams } from "./tools/monitors.js";
-import type { WebParams } from "./tools/web.js";
-import type { CohortsParams } from "./tools/cohorts.js";
-import type { PricingParams } from "./tools/pricing.js";
-import type { DiscoverParams } from "./tools/discover.js";
+import { findStructured } from "./tools/find.js";
+import { endpointStructured } from "./tools/endpoint.js";
+import { estimateStructured } from "./tools/estimate.js";
+import { requestStructured } from "./tools/request.js";
+import { collectStructured } from "./tools/collect.js";
+import { accountStructured } from "./tools/account.js";
+import { manage } from "./tools/manage.js";
+import { legacyToolsFromEnv, registerLegacyTools } from "./tools/legacy.js";
 import { PLATFORMS } from "./data/platforms.js";
 import { ENDPOINTS } from "./data/endpoints.js";
-import { REGISTRY_STATS } from "./data/registry-meta.js";
-import { meteredEndpoints } from "./pricing.js";
+import { toResult } from "./result.js";
+import {
+  RequestOutputShape,
+  CollectOutputShape,
+  FindOutputShape,
+  EndpointOutputShape,
+  EstimateOutputShape,
+  AccountOutputShape,
+} from "./schemas/outputs.js";
+import { INSTRUCTIONS } from "./instructions.js";
+import { registerResources } from "./resources/index.js";
+import { registerPrompts } from "./prompts/index.js";
+import { addStaleNotice, startFreshnessCheck } from "./freshness.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+
+/**
+ * MCP progress notifications for a call, or undefined when the client sent no
+ * `progressToken` (it did not ask for progress). A failed send never fails the call.
+ */
+function progressReporter(
+  extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+): ((tick: ProgressTick) => void) | undefined {
+  const progressToken = extra._meta?.progressToken;
+  if (progressToken === undefined) return undefined;
+  return ({ progress, message }) => {
+    extra
+      .sendNotification({
+        method: "notifications/progress",
+        params: { progressToken, progress, ...(message ? { message } : {}) },
+      })
+      .catch(() => undefined);
+  };
+}
+
+export interface ServerOptions {
+  /**
+   * Also register the 1.x tool names (thin wrappers, for one major version).
+   * Defaults to `SOCIALCRAWL_LEGACY_TOOLS=1`.
+   */
+  legacyTools?: boolean;
+}
 
 /**
  * Build a fully-wired McpServer bound to one caller's credentials.
  * stdio calls this once per process; the HTTP transport calls it once per
  * request (stateless mode), so construction must stay I/O-free and cheap.
+ *
+ * Seven tools (MCP-04): find, endpoint, estimate, request, collect, account,
+ * manage. The 1.x names come back with `legacyTools` (see `tools/legacy.ts`).
  */
-export function createServer(ctx: ApiContext): McpServer {
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: SERVER_VERSION,
-  });
+export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): McpServer {
+  const server = new McpServer(
+    { name: SERVER_NAME, version: SERVER_VERSION },
+    { instructions: INSTRUCTIONS },
+  );
+  // Spend approvals go through MCP elicitation when the client offers it.
+  const ctx: ApiContext = { ...baseCtx, confirm: (message) => askToSpend(server, message) };
+
+  // Freshness: one background check per process (memoised); a stale answer is
+  // appended once to the next tool result of this server instance. Never waits
+  // more than a moment, so a slow network cannot delay a call.
+  const freshness = startFreshnessCheck(baseCtx);
+  let staleNoticeSent = false;
+  const withFreshness = async (result: CallToolResult): Promise<CallToolResult> => {
+    if (staleNoticeSent) return result;
+    const stale = await Promise.race([freshness, new Promise<boolean>((r) => setTimeout(() => r(false), 250).unref())]);
+    if (!stale) return result;
+    staleNoticeSent = true;
+    return addStaleNotice(result);
+  };
+  const registerTool = server.registerTool.bind(server) as (...a: unknown[]) => unknown;
+  (server as { registerTool: unknown }).registerTool = (name: unknown, config: unknown, cb: (...a: unknown[]) => unknown) =>
+    registerTool(name, config, async (...args: unknown[]) => withFreshness((await cb(...args)) as CallToolResult));
 
   server.registerTool(
-    "socialcrawl_list_platforms",
+    "socialcrawl_find",
     {
-      title: "List SocialCrawl Platforms",
-      description: `List all ${PLATFORMS.length} platforms available through SocialCrawl (${ENDPOINTS.length} endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading, news, web research and full scraping/browser automation, on-page SEO audits, prediction markets, search trends, Korean search (Naver), Chinese social (Douyin, Xiaohongshu), Product Hunt, content analysis, and cross-platform Prism composites). Grouped by category, with each platform's endpoint count, credit range, and available data. No API key required.`,
-      inputSchema: ListPlatformsInputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      title: "Find the Endpoint for a Task",
+      description:
+        `Start here: a task in plain words -> the best endpoints (3 by default) of ${ENDPOINTS.length}, each with the params the task supplies (URLs and @handles resolved), the params still missing, the credit cost and the exact call. With no task it lists platforms, or one platform's endpoints. Free; no key needed.`,
+      inputSchema: FindInputSchema,
+      outputSchema: FindOutputShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
-    async () => {
-      const output = listPlatforms();
-      return { content: [{ type: "text", text: output }] };
+    async (params) => {
+      const output = await findStructured(ctx, { task: params.task, platform: params.platform, limit: params.limit });
+      return toResult(output.text, output.structured);
     },
   );
 
   server.registerTool(
-    "socialcrawl_list_endpoints",
+    "socialcrawl_endpoint",
     {
-      title: "List Endpoints for a Platform",
-      description: `List endpoints with their full parameter contract — required + optional params, types, integer ranges, enum values, parameter couplings, CSV limits, pagination style, cache TTL, and per-endpoint pricing (including metered bands). Pass a \`platform\` for that platform's reference, or a \`search\` term to find an endpoint across all ${PLATFORMS.length} platforms / ${ENDPOINTS.length} endpoints. Filter with \`method\`, \`maxCost\`, and \`hydrating\` (endpoints that can fill their own rows in one call via \`include=\`). Each endpoint also shows its featured params, its free and metered judgments (\`label=\` / \`relevance=\`), its cost levers (\`max_pages\`, \`seen\`, \`since\`, \`stop_at_id\`) and its related endpoints. Search also matches parameter names and label presets. No API key required.`,
-      inputSchema: ListEndpointsInputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      title: "Endpoint Contract",
+      description:
+        "Read before calling: one endpoint's purpose, params, where the rows are and up to 25 response fields, cost rule, paging, latency, timeout, next endpoints and a sample link. Also takes a platform slug (its endpoints) or a guide topic (errors, pricing, pagination, judgments). Free.",
+      inputSchema: EndpointInputSchema,
+      outputSchema: EndpointOutputShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async (params) => {
-      const output = listEndpoints({
-        platform: params.platform,
-        search: params.search,
+      const output = await endpointStructured(ctx, { id: params.id, method: params.method, page: params.page });
+      return toResult(output.text, output.structured);
+    },
+  );
+
+  server.registerTool(
+    "socialcrawl_estimate",
+    {
+      title: "Estimate Credit Cost",
+      description:
+        "Exact credits before you spend: one call (id plus the params you will send; calls for a job total; items for a walk) or a plan of several calls. Uses the API's estimator when available, else the bundled pricing. A platform slug gives its price table; no id gives the pricing overview. Free.",
+      inputSchema: EstimateInputSchema,
+      outputSchema: EstimateOutputShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (params) => {
+      const output = await estimateStructured(ctx, {
+        id: params.id,
         method: params.method,
-        maxCost: params.maxCost,
-        detail: params.detail,
-        page: params.page,
+        params: params.params,
+        body: params.body,
+        calls: params.calls,
+        items: params.items,
+        plan: params.plan,
       });
-      return { content: [{ type: "text", text: output }] };
+      return toResult(output.text, output.structured);
     },
   );
 
   server.registerTool(
     "socialcrawl_request",
     {
-      title: "Make a SocialCrawl API Request",
-      description: `Make an API request to any of the ${ENDPOINTS.length} SocialCrawl endpoints. Fetches real-time data (profiles, posts, comments, transcripts, search results, products, offers and price history, reviews, apps, places and stores, jobs and salary ranges, news, market quotes and financial statements, congressional trade disclosures, SEO audits, trends, analytics, and cross-platform Prism composites) from ${PLATFORMS.length} platforms. Most endpoints are GET (pass query params in \`params\`); batch endpoints (e.g. youtube/videos, prism/profiles, prism/post-stats) and background jobs (prism/jobs, up to 5,000 items) are POST — pass the array/object body in \`body\`. Path-param endpoints take the template plus the value in \`params\` (resource 'jobs/{job_id}', params { job_id }) or the concrete path. For web scraping/crawling/browser automation use the \`socialcrawl_web\` tool instead. Requires a valid SOCIALCRAWL_API_KEY. Validates the platform, resource, required params, oneOf groups, enum values, integer ranges, parameter couplings, and CSV limits locally first, so a malformed call fails free instead of burning credits. Reports the endpoint's price (and metered rule) with every response, on an endpoint that supports row joins it either quotes the exact hold for the \`include=\` you sent or tells you the join is available and what it costs, and on a judged list it quotes the hold for any metered \`label=\` / \`relevant_to=\` you sent (default judgments are free). Pass an optional idempotencyKey to make the request retry-safe (replays return the original response and deduct 0 credits).`,
+      title: "Call an Endpoint",
+      description:
+        "Call one endpoint. structuredContent: rows, credits (used, remaining), paging (has_more, next_cursor). Validated locally first (a bad call is free), quoted, refused above max_credits and confirmed above the threshold. A large page is cut at row boundaries with a link to the full body. Spends credits; needs SOCIALCRAWL_API_KEY.",
       inputSchema: RequestInputSchema,
+      outputSchema: RequestOutputShape,
       annotations: {
-        readOnlyHint: true,
+        // Billable and not repeatable: each call can spend credits, and a repeat
+        // spends again unless an idempotencyKey is sent. It never destroys data.
+        readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: true,
+        idempotentHint: false,
         openWorldHint: true,
       },
     },
-    async (params) => {
-      const output = await request(ctx, {
+    async (params, extra) => {
+      const output = await requestStructured(ctx, {
         platform: params.platform,
         resource: params.resource,
         method: params.method,
         params: params.params,
         body: params.body,
         idempotencyKey: params.idempotencyKey,
+        fields: params.fields,
+        max_items: params.max_items,
+        format: params.format,
+        max_credits: params.max_credits,
+        confirm: params.confirm,
+        onProgress: progressReporter(extra),
       });
-      return { content: [{ type: "text", text: output }] };
+      return toResult(output.text, output.structured, output.links);
     },
   );
 
   server.registerTool(
-    "socialcrawl_check_balance",
+    "socialcrawl_collect",
     {
-      title: "Check SocialCrawl Credit Balance",
+      title: "Collect Rows Across Pages",
       description:
-        "Check the credit balance and the credit ledger for the authenticated SocialCrawl account. Default view calls GET /v1/credits/balance (balance + recent-deduction summary); `view: \"transactions\"` calls GET /v1/credits/transactions for dispute-grade itemised receipts — every deduction and refund with its amount, balance_after, endpoint, and request_id, which is how you confirm what a metered endpoint actually charged after its upfront hold was refunded down. Both cost 0 credits. Requires a valid SOCIALCRAWL_API_KEY.",
-      inputSchema: CheckBalanceInputSchema,
+        "Walk a paged endpoint to `items` unique rows, the last page or max_credits in one call: cursors supplied, duplicates dropped, stops on a 402, refused free when one page exceeds max_credits. Returns a summary and a link to every row (JSONL, JSON or CSV). Spends credits.",
+      inputSchema: CollectInputSchema,
+      outputSchema: CollectOutputShape,
       annotations: {
-        readOnlyHint: true,
+        // Spends credits page after page; a repeat spends again (cached pages are free).
+        readOnlyHint: false,
         destructiveHint: false,
-        idempotentHint: true,
+        idempotentHint: false,
         openWorldHint: true,
       },
     },
     async (params) => {
-      const output = await checkBalance(ctx, {
+      const output = await collectStructured(ctx, {
+        id: params.id,
+        params: params.params,
+        items: params.items,
+        max_credits: params.max_credits,
+        format: params.format,
+        fields: params.fields,
+        confirm: params.confirm,
+      });
+      return toResult(output.text, output.structured, output.links);
+    },
+  );
+
+  server.registerTool(
+    "socialcrawl_account",
+    {
+      title: "Account and Service Status",
+      description:
+        "Free checks: balance (with this session's spend), transactions (itemised ledger; the receipts for one request_id), status (platform health; read it before retrying a 502/503) and freshness (whether this server's bundled catalogue is behind the API).",
+      inputSchema: AccountInputSchema,
+      outputSchema: AccountOutputShape,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async (params) => {
+      const output = await accountStructured(ctx, {
         view: params.view,
         limit: params.limit,
         cursor: params.cursor,
-        requestId: params.requestId,
+        request_id: params.request_id,
       });
-      return { content: [{ type: "text", text: output }] };
+      return toResult(output.text, output.structured);
     },
   );
 
   server.registerTool(
-    "socialcrawl_monitors",
+    "socialcrawl_manage",
     {
-      title: "Manage SocialCrawl Monitors",
+      title: "Manage Monitors, Cohorts, Web and Jobs",
       description:
-        "Create and manage stateful monitors that re-run any SocialCrawl recipe (a registry endpoint or a Prism composite) on a cadence (hourly/daily/weekly/cron), deliver each result to a signed webhook, raise alerts on metric thresholds/changes, and accumulate a per-run time-series. 'Prism answers once; monitors watch it for you.' Actions: create, list, get, runs, timeseries, pause, resume, delete. Managing monitors costs 0 credits; each scheduled run bills the underlying recipe's normal cost plus a 1-credit scheduling premium. Requires a valid SOCIALCRAWL_API_KEY.",
-      inputSchema: MonitorsInputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.",
+      inputSchema: ManageInputSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
     async (params) => {
-      const output = await monitors(ctx, params as MonitorsParams);
-      return { content: [{ type: "text", text: output }] };
+      const output = await manage(ctx, {
+        area: params.area,
+        action: params.action,
+        id: params.id,
+        input: params.input,
+        idempotencyKey: params.idempotencyKey,
+      });
+      return toResult(output.text, output.structured, output.links);
     },
   );
 
-  server.registerTool(
-    "socialcrawl_web",
+  if (options.legacyTools ?? legacyToolsFromEnv()) registerLegacyTools(server, ctx);
+
+  // Reference material (MCP-05): static resources, templates, prompts from recipes.
+  registerResources(server, ctx);
+  registerPrompts(server);
+
+  // Full bodies of results that were cut to fit. Scoped to the caller's key.
+  server.registerResource(
+    "results",
+    new ResourceTemplate(`${RESULT_URI_PREFIX}{request_id}`, { list: undefined }),
     {
-      title: "SocialCrawl Web Scraping & Browser Automation",
+      title: "Full result body",
       description:
-        "Full web scraping, search, and browser automation (Firecrawl-backed). Sync reads: 'scrape' (URL → markdown/HTML/screenshot/links), 'search' (web search with page content), 'map' (discover a site's URLs), 'extract' (LLM structured data from a page). Async jobs (submit, then poll with job_get/job_list, stop with job_cancel): 'crawl' a whole site, 'batch_scrape' many URLs, 'agent' (autonomous multi-step web task). Change detection: monitor_create/list/get/update/delete/checks (re-check a URL on a cadence → webhook). Interactive browser: session_create/get/list, session_execute (run code in the live page), session_close. Pricing varies by action (scrape 1cr, search 2cr, extract/session_create 5cr, agent 25cr; jobs/monitors/sessions management 0cr) — see the 'web' get_docs topic. Requires a valid SOCIALCRAWL_API_KEY.",
-      inputSchema: WebInputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
+        "The complete, unshaped response of a recent socialcrawl_request whose rows were cut to fit. Held in memory for 30 minutes; read it before it expires.",
+      mimeType: "application/json",
     },
-    async (params) => {
-      const output = await web(ctx, params as WebParams);
-      return { content: [{ type: "text", text: output }] };
-    },
-  );
-
-  server.registerTool(
-    "socialcrawl_cohorts",
-    {
-      title: "SocialCrawl Cohorts — Audience-Filtered Mention Search",
-      description:
-        "Answer 'which of THESE specific public identities is talking about my keywords?' — the opposite of open social listening. You upload a panel of up to 10,000 platform-qualified public handles (instagram, tiktok, youtube, twitter, threads, bluesky, truth-social, kwai, twitch, linkedin), submit a keyword query bounded to a recent window, and read back the matching posts per member PLUS a coverage record for every member, including the ones that matched nothing — so a partial crawl can never read as 'nobody talked about you'. Actions: create, add_members (1,000 per call, upsert on external_id so a nightly re-push is safe), estimate_cost (local, no API call — sizes the reservation before you commit), query (async, returns 202), query_status, query_results (paged, carries `items` + `coverage`), query_cancel, get, delete. Matching is deterministic: literal, whole-word, Unicode-normalized — no stemming, fuzzy matching, or alias inference. Every lifecycle call costs 0 credits; only the query is metered — it reserves a worst-case ceiling at submission and refunds down to the pages that actually succeeded. SocialCrawl only ever receives platform + handle + your opaque external_id, encrypted at rest. Requires a valid SOCIALCRAWL_API_KEY.",
-      inputSchema: CohortsInputSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: false,
-        openWorldHint: true,
-      },
-    },
-    async (params) => {
-      const output = await cohorts(ctx, params as CohortsParams);
-      return { content: [{ type: "text", text: output }] };
-    },
-  );
-
-  server.registerTool(
-    "socialcrawl_pricing",
-    {
-      title: "SocialCrawl Pricing & Credit Costs",
-      description: `Exact credit pricing for every one of the ${ENDPOINTS.length} SocialCrawl endpoints. 'overview' returns the tier ladder (${REGISTRY_STATS.standardEndpoints} standard / ${REGISTRY_STATS.advancedEndpoints} advanced / ${REGISTRY_STATS.premiumEndpoints} premium), every free endpoint, every flat override, all ${meteredEndpoints().length} metered endpoints with their min-max band and exact charging rule, cache TTLs, and the full refund matrix. 'endpoint' gives one endpoint's price, metered rule, price-driving parameters, paging cost, and worst case. 'platform' gives a platform's whole cost table. 'list' ranks and filters endpoints by cost (maxCost/minCost/model/search/sort) — e.g. "everything I can call for 1 credit" or "the most expensive endpoints". 'hydration' catalogues every opt-in \`include=\` row join — what each fills, its per-row rate, its row cap, and what a fully-joined page holds. 'judgments' lists every endpoint with free default labels/relevance, which presets are metered, and the hold each opt-in takes. On 'endpoint', pass \`params\` (the exact query you will send — include, label, relevant_to, max_pages, …) and optionally \`calls\`, and the band becomes an itemised hold per page, per call and for the whole job. Use this before spending credits. No API key required.`,
-      inputSchema: PricingInputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async (params) => {
-      const output = pricing(params as PricingParams);
-      return { content: [{ type: "text", text: output }] };
-    },
-  );
-
-  server.registerTool(
-    "socialcrawl_discover",
-    {
-      title: "SocialCrawl API Self-Discovery (utility endpoints)",
-      description:
-        "The API describing itself, live, at 0 credits — the `/v1/utility/*` family. 'quickstart': everything needed for a first successful call (auth, base URL, response envelope, billing model, the full error taxonomy, rate limits, paging). 'catalog': every endpoint with its live metered-aware price, params, and paging flag — filter by platform/search/method. 'capabilities': every cross-cutting parameter (label presets, relevance, judgments, include, since/stop_at_id, seen, max_pages, row filters, trim, fit) with what it does, its price, and every endpoint that supports it. 'plan': a job in plain words ('track mentions of Acme on TikTok and Reddit') turned into the exact priced calls to make, in order (needs a key). 'endpoint': one endpoint's complete usage guide — every parameter with type and example, the exact pricing rule, cache TTL, paging recipe, an example response, a copy-paste curl, and related endpoints. 'llms': the agent context corpus for the whole API or one platform. 'freshness': compare the live registry against this server's bundled catalogue to check whether this MCP version has fallen behind the API. 'status': every platform's live circuit-breaker state from the public `GET /v1/status` meta route — read it before retrying a persistent 502/503, since a degraded platform is the breaker holding traffic off a failing upstream. These answer from the live registry at request time, so unlike bundled data they can never drift from what is actually callable — use them when correctness matters more than latency, or when an endpoint looks unknown. Without an API key everything except 'llms' and 'plan' still answers from bundled data ('status' needs no key at all).",
-      inputSchema: DiscoverInputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-    },
-    async (params) => {
-      const output = await discover(ctx, params as DiscoverParams);
-      return { content: [{ type: "text", text: output }] };
-    },
-  );
-
-  server.registerTool(
-    "socialcrawl_get_docs",
-    {
-      title: "Get SocialCrawl Documentation",
-      description: `Retrieve SocialCrawl API documentation. Topics: 'overview' (compact intro), 'full' (comprehensive reference for all ${ENDPOINTS.length} endpoints), 'authentication', 'credits', 'pricing' (per-endpoint cost for every endpoint), 'errors', 'idempotency', 'pagination' (universal cursor contract), 'caching' (TTLs and free hits), 'hydration' (the opt-in \`include=\` row joins, what each fills and what it costs), 'judgments' (free default labels and relevance, the metered presets, and every control), 'batch-jobs' (batch endpoints and async background jobs of up to 5,000 items), 'response-schema' (the canonical envelope and unified objects), 'limits' (rate, concurrency, timeouts), 'monitors' (scheduled-recipe wrapper), 'cohorts' (audience-filtered mention search over a panel you supply), 'discovery' (the free self-describing utility endpoints), or any platform slug (e.g., 'tiktok', or 'web' for the web-scraping/browser-automation surface). No API key required.`,
-      inputSchema: GetDocsInputSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-    },
-    async (params) => {
-      const output = getDocs(params.topic ?? "overview", params.page ?? 1);
-      return { content: [{ type: "text", text: output }] };
+    async (uri, vars) => {
+      const id = String(Array.isArray(vars.request_id) ? vars.request_id[0] : vars.request_id);
+      let decoded = id;
+      try {
+        decoded = decodeURIComponent(id);
+      } catch {
+        throw new McpError(ErrorCode.InvalidParams, `Malformed result id "${id}".`);
+      }
+      const body = resultsStore.get(scopeOf(ctx.apiKey), decoded);
+      if (body === undefined) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `No stored result for ${id}. Stored bodies expire after 30 minutes; repeat the request (a cached repeat is free).`,
+        );
+      }
+      return { contents: [{ uri: uri.href, mimeType: "application/json", text: body }] };
     },
   );
 
   return server;
+}
+
+/** Ask the user to approve a spend; "unsupported" when the client cannot be asked. */
+async function askToSpend(server: McpServer, message: string): Promise<"accepted" | "declined" | "unsupported"> {
+  const elicitation = server.server.getClientCapabilities()?.elicitation;
+  // An empty capability object means form mode; a URL-only client cannot show a form.
+  if (!elicitation || (Object.keys(elicitation).length > 0 && !elicitation.form)) return "unsupported";
+  try {
+    const answer = await server.server.elicitInput({
+      message,
+      requestedSchema: {
+        type: "object",
+        properties: { confirm: { type: "boolean", title: "Spend these credits?", description: message } },
+        required: ["confirm"],
+      },
+    });
+    return answer.action === "accept" && answer.content?.confirm === true ? "accepted" : "declined";
+  } catch {
+    return "unsupported";
+  }
 }

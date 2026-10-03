@@ -137,7 +137,7 @@ describe("socialcrawl_request local validation", () => {
   it("keeps refusing the web platform", async () => {
     forbidFetch();
     const out = await request(ctx, { platform: "web", resource: "scrape", params: { url: "https://x.com" } });
-    expect(out).toContain("socialcrawl_web");
+    expect(out).toContain("socialcrawl_manage");
   });
 });
 

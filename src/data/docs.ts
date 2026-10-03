@@ -189,7 +189,7 @@ function buildEndpointBlock(e: Endpoint): string {
   }
   if (e.upstream.fallbackKinds && e.upstream.fallbackKinds.length > 0) {
     notes.push(
-      `Sources: \`${e.upstream.kind}\` primary, falling back to ${e.upstream.fallbackKinds.map((k) => `\`${k}\``).join(", ")}.`,
+      "Reliability: multi-source with automatic fallback; charged once.",
     );
   }
   if (e.contractDetails && e.contractDetails.length > 0) {
@@ -260,7 +260,7 @@ function buildPricingDoc(): string {
     // The band and the knobs that move it, not the full authored rule: at 67
     // metered endpoints the rules alone are ~40k characters and would push
     // every later section off page 1. They are kept in full further down, and
-    // `socialcrawl_pricing action:"endpoint"` quotes one on demand.
+    // `socialcrawl_estimate` with an id quotes one on demand.
     "| Endpoint | Band | What moves the bill |",
     "|----------|------|---------------------|",
     ...metered.map((e) => {
@@ -304,7 +304,7 @@ function buildPricingDoc(): string {
     "",
     `## Metered rules in full (${metered.length})`,
     "",
-    "The exact authored rule for every metered endpoint. `socialcrawl_pricing` with `action: \"endpoint\"` returns one of these on its own (with the shared clauses expanded), plus the worst case and an exact quote for the `params` you intend to send.",
+    "The exact authored rule for every metered endpoint. `socialcrawl_estimate` with an `id` returns one of these on its own (with the shared clauses expanded), plus the worst case and an exact quote for the `params` you intend to send.",
     "",
     ...(shared.length > 0
       ? [
@@ -319,7 +319,7 @@ function buildPricingDoc(): string {
       abbreviateRule(rules[i], shared),
       "",
     ]),
-    "For one endpoint's exact price, metered rule, price-driving parameters, row joins, and worst case, use the `socialcrawl_pricing` tool.",
+    "For one endpoint's exact price, metered rule, price-driving parameters, row joins, and worst case, use the `socialcrawl_estimate` tool.",
   );
 
   return lines.join("\n");
@@ -381,7 +381,7 @@ function hydrationSection(): string[] {
         `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | ${(e.hydration ?? []).map((l) => `\`${l.token}\``).join(", ")} | ${e.pricing.cost}cr | ${e.pricing.cost + hydrationCeiling(e)}cr |`,
     ),
     "",
-    "Full detail — what each join fills, its per-row rate and its row cap — is in the `hydration` docs topic and `socialcrawl_pricing` with `action: \"hydration\"`.",
+    "Full detail — what each join fills, its per-row rate and its row cap — is in the `hydration` docs topic (`socialcrawl_endpoint` with id `hydration`).",
     "",
   ];
 }
@@ -447,7 +447,7 @@ function buildJudgmentsDoc(): string {
     );
   }
   lines.push(
-    'Quote one call exactly with `socialcrawl_pricing` (`action: "endpoint"`, `params: { label: "mention", brand: "Acme" }`), or list every judged lane with `action: "judgments"`.',
+    'Quote one call exactly with `socialcrawl_estimate` (`id` plus `params: { label: "mention", brand: "Acme" }`), or list every judged lane with `action: "judgments"`.',
   );
   return lines.join("\n");
 }
@@ -495,7 +495,7 @@ function buildHydrationDoc(): string {
     "- a row that already had every declared leaf is **never looked up**;",
     "- a page that joined **in full is cached whole**, so an immediate repeat of the same call is 0 credits.",
     "",
-    "Where a lane offers a row cap (`limit` on most), sending it caps the rows joined **and** the credits held together — quote it with `socialcrawl_pricing action:\"endpoint\"` before you spend it.",
+    "Where a lane offers a row cap (`limit` on most), sending it caps the rows joined **and** the credits held together — quote it with `socialcrawl_estimate` before you spend it.",
     "",
     "## Reading the result",
     "",
@@ -560,17 +560,17 @@ function buildHydrationDoc(): string {
   }
 
   lines.push(
-    "Use `socialcrawl_pricing` with `action: \"hydration\"` for the same catalogue priced, or `action: \"endpoint\"` with `include` and `rows` for an exact quote of one call.",
+    "Use `socialcrawl_estimate` with an endpoint `id` and `params: { include, limit }` for an exact quote of one call.",
   );
 
   return lines.join("\n");
 }
 
 /**
- * Preamble for the stateful `web` platform, explaining that it is driven by the
- * dedicated `socialcrawl_web` tool rather than `socialcrawl_request`.
+ * Preamble for the stateful `web` platform, explaining that it is driven by
+ * `socialcrawl_manage` (area web) rather than `socialcrawl_request`.
  */
-const WEB_DOC_PREAMBLE = `The web platform is driven by the dedicated \`socialcrawl_web\` tool (not \`socialcrawl_request\`), which maps each endpoint to an action:
+const WEB_DOC_PREAMBLE = `The web platform is driven by \`socialcrawl_manage\` with \`area: "web"\` (not \`socialcrawl_request\`), which maps each endpoint to an action:
 
 - Sync reads: \`scrape\`, \`search\`, \`map\`, \`extract\` — return data immediately.
 - Async jobs: \`crawl\`, \`batch_scrape\`, \`agent\` submit a job (202); poll it with \`job_get\` / \`job_list\`, read per-page failures with \`job_errors\`, and stop it with \`job_cancel\`. \`crawl_preview\` dry-runs a crawl's parameters for free before you pay for it.

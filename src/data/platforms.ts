@@ -13,7 +13,7 @@ export const PLATFORMS: Platform[] = [
     endpointCount: 22,
     social: false,
     description:
-      "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
+      "Full web scraping, search, and browser automation. Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through `socialcrawl_manage` with area web, which also serves the sync scrape/search/map/extract endpoints.",
   },
   {
     slug: "tiktok",
@@ -153,7 +153,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "tiktokshop",
     name: "TikTok Shop",
-    endpointCount: 5,
+    endpointCount: 6,
     social: true,
     category: "commerce",
     description:
@@ -171,7 +171,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "google",
     name: "Google",
-    endpointCount: 10,
+    endpointCount: 11,
     social: true,
     category: "utility",
     description:
@@ -201,12 +201,12 @@ export const PLATFORMS: Platform[] = [
     social: false,
     category: "utility",
     description:
-      "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by a primary news upstream with a DataForSEO Google News fallback and bidirectional query-derived source pinning.",
+      "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Multi-source with automatic fallback.",
   },
   {
     slug: "finance",
     name: "Finance",
-    endpointCount: 7,
+    endpointCount: 8,
     social: false,
     category: "utility",
     description:
@@ -218,7 +218,7 @@ export const PLATFORMS: Platform[] = [
     endpointCount: 3,
     social: false,
     description:
-      "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Backed by DataForSEO Google Trends.",
+      "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Multi-source with automatic fallback.",
   },
   {
     slug: "trustpilot",
@@ -383,7 +383,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "utility",
     name: "Utility",
-    endpointCount: 6,
+    endpointCount: 12,
     social: true,
     category: "utility",
     description:
@@ -547,7 +547,7 @@ export const PLATFORMS: Platform[] = [
     endpointCount: 46,
     social: false,
     description:
-      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
+      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
   },
   {
     slug: "content_analysis",
@@ -601,6 +601,15 @@ export const PLATFORMS: Platform[] = [
     category: "additional",
     description:
       "Xiaohongshu (RED / Little Red Book) — note search, the hot-search trending board, creator profiles and their note lists, full note detail, and top-level note comments. Metered at 5 credits per returned row, so cap `limit` before you call.",
+  },
+  {
+    slug: "economy",
+    name: "Economy",
+    endpointCount: 5,
+    social: false,
+    category: "utility",
+    description:
+      "Economic and trade data — household spending and travel spending by country and category, US federal spending by state, county or country, US federal contract award search, and a US importer's suppliers and shipments.",
   },
 ];
 

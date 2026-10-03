@@ -31,6 +31,8 @@ import {
   LEVERS,
 } from "../judgments.js";
 import type { Endpoint } from "../types.js";
+import { errorFromText, isErrorText } from "../result.js";
+import type { ToolOutput } from "../result.js";
 
 /**
  * The pricing tool. Everything a caller needs to answer "what will this cost
@@ -174,7 +176,7 @@ function buildOverview(): string {
     "",
     ...free.map((e) => `- \`${endpointPath(e)}\`${e.summary ? ` — ${e.summary}` : ""}`),
     "",
-    "Plus the meta endpoints `GET /v1/credits/balance` and `GET /v1/credits/transactions` (`socialcrawl_check_balance`), and all monitor management (`socialcrawl_monitors`).",
+    "Plus the meta endpoints `GET /v1/credits/balance` and `GET /v1/credits/transactions` (`socialcrawl_account`), and all monitor management (`socialcrawl_manage`, area monitors).",
     "",
     `## Flat overrides (${flat.filter((e) => e.pricing.cost > 0).length} priced)`,
     "",
@@ -229,7 +231,7 @@ function buildEndpointDetail(params: PricingParams): string {
         ? ["", "Did you mean:", ...alternatives.map((e) => `- \`${endpointLabel(e)}\``)]
         : []),
       "",
-      `Use socialcrawl_list_endpoints with platform "${platform}" to see every resource.`,
+      `Use socialcrawl_find with platform "${platform}" to see every resource.`,
     ].join("\n");
   }
 
@@ -445,7 +447,7 @@ function callQuote(endpoint: Endpoint, params: PricingParams): string[] {
     );
   }
   if (notes.length > 0) out.push("", ...notes.map((n) => `- ${n}`));
-  out.push("", "The settled charge is always `credits_used` on the response; `socialcrawl_check_balance` with `view: \"transactions\"` shows each hold and refund.");
+  out.push("", "The settled charge is always `credits_used` on the response; `socialcrawl_account` with `view: \"transactions\"` shows each hold and refund.");
   return out;
 }
 
@@ -495,7 +497,7 @@ function buildJudgmentsCatalogue(params: PricingParams): string {
 function buildPlatformTable(slug: string): string {
   const platform = findPlatform(slug);
   if (!platform) {
-    return `Error: Unknown platform "${slug}". Use socialcrawl_list_platforms to see available platforms.`;
+    return `Error: Unknown platform "${slug}". Use socialcrawl_find to see the platforms.`;
   }
   const endpoints = getEndpointsByPlatform(slug);
   const metered = endpoints.filter((e) => e.pricing.model === "metered");
@@ -673,4 +675,32 @@ export function pricing(params: PricingParams): string {
     default:
       return `Error: Unknown action "${String(action)}". Valid actions: overview, endpoint, platform, list, hydration, judgments.`;
   }
+}
+
+/**
+ * Text plus the `structuredContent` object. `action: "endpoint"` carries the
+ * per-call quote as numbers (the band and its worst case); the catalogue
+ * actions are prose tables, so they report `ok` and the action only.
+ */
+export function pricingStructured(params: PricingParams): ToolOutput {
+  const text = pricing(params);
+  if (isErrorText(text)) return { text, structured: errorFromText(text) };
+  const action = params.action ?? "overview";
+  const structured: Record<string, unknown> = { ok: true, action };
+  if (action === "endpoint" && params.platform && params.resource) {
+    const e = findEndpoint(params.platform, params.resource, params.method?.toUpperCase());
+    if (e) {
+      structured.quote = {
+        endpoint: `${e.platform}/${e.resource}`,
+        method: e.method,
+        model: e.pricing.model,
+        tier: e.pricing.tier,
+        label: formatCost(e.pricing),
+        min_credits: bestCaseCost(e.pricing),
+        max_credits: worstCaseCost(e.pricing),
+        ...(e.pricing.model === "metered" && e.pricing.description ? { rule: e.pricing.description } : {}),
+      };
+    }
+  }
+  return { text, structured };
 }

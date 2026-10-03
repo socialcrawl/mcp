@@ -127,11 +127,11 @@ describe("socialcrawl_web tool", () => {
 });
 
 describe("method-aware socialcrawl_request", () => {
-  it("routes the web platform to the socialcrawl_web tool", async () => {
+  it("routes the web platform to socialcrawl_manage (area web)", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
     const result = await request(ctx, { platform: "web", resource: "scrape", params: { url: "https://x.com" } });
-    expect(result).toContain("socialcrawl_web");
+    expect(result).toContain("socialcrawl_manage");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -159,6 +159,8 @@ describe("method-aware socialcrawl_request", () => {
       platform: "prism",
       resource: "profiles",
       body: { items: '[{"platform":"tiktok","handle":"@scout2015"}]' },
+      // This batch's price ceiling is above the confirmation threshold; the test is about body coercion.
+      confirm: true,
     });
     const body = JSON.parse(get().body!);
     expect(Array.isArray(body.items)).toBe(true);

@@ -67,7 +67,7 @@ describe("API client", () => {
 
     const result = await makeRequest(ctx, { platform: "tiktok", resource: "fake", params: {} });
     expect(result).toContain("not found");
-    expect(result).toContain("socialcrawl_list_endpoints");
+    expect(result).toContain("socialcrawl_find");
   });
 
   it("maps 503 to platform unavailable message", async () => {

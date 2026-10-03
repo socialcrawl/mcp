@@ -1,0 +1,252 @@
+[
+  {
+    "query": "tiktok comments",
+    "expected_top": "tiktok/post/comments",
+    "top_k": 1
+  },
+  {
+    "query": "youtube video transcript",
+    "expected_top": "youtube/video/transcript",
+    "top_k": 1
+  },
+  {
+    "query": "search tiktok videos by keyword",
+    "expected_top": "tiktok/search",
+    "top_k": 1
+  },
+  {
+    "query": "reddit post comments",
+    "expected_top": "reddit/post/comments",
+    "top_k": 1
+  },
+  {
+    "query": "twitter user tweets",
+    "expected_top": "twitter/user/tweets",
+    "top_k": 1
+  },
+  {
+    "query": "amazon product reviews",
+    "expected_top": "amazon/reviews",
+    "top_k": 1
+  },
+  {
+    "query": "google play app reviews",
+    "expected_top": "google_play/app-reviews",
+    "top_k": 1
+  },
+  {
+    "query": "app store app reviews",
+    "expected_top": "app_store/app-reviews",
+    "top_k": 1
+  },
+  {
+    "query": "trustpilot reviews for a business",
+    "expected_top": "trustpilot/reviews",
+    "top_k": 1
+  },
+  {
+    "query": "stock quote for a ticker",
+    "expected_top": "finance/quote",
+    "top_k": 1
+  },
+  {
+    "query": "hacker news story comments",
+    "expected_top": "hackernews/story/comments",
+    "top_k": 1
+  },
+  {
+    "query": "github repo issues",
+    "expected_top": "github/repo/issues",
+    "top_k": 1
+  },
+  {
+    "query": "instagram reels of a user",
+    "expected_top": "instagram/profile/reels",
+    "top_k": 1
+  },
+  {
+    "query": "youtube channel videos",
+    "expected_top": "youtube/channel/videos",
+    "top_k": 1
+  },
+  {
+    "query": "scrape a web page to markdown",
+    "expected_top": "web/scrape",
+    "top_k": 1
+  },
+  {
+    "query": "yelp business reviews",
+    "expected_top": "yelp/business/reviews",
+    "top_k": 1
+  },
+  {
+    "query": "instagram post likers",
+    "expected_top": "instagram/post/likers",
+    "top_k": 1
+  },
+  {
+    "query": "replies to a tweet",
+    "expected_top": "twitter/tweet/replies",
+    "top_k": 1
+  },
+  {
+    "query": "youtube comment replies",
+    "expected_top": "youtube/video/comment/replies",
+    "top_k": 1
+  },
+  {
+    "query": "tiktok video transcript",
+    "expected_top": "tiktok/post/transcript",
+    "top_k": 1
+  },
+  {
+    "query": "threads profile",
+    "expected_top": "threads/profile",
+    "top_k": 1
+  },
+  {
+    "query": "pinterest pin details",
+    "expected_top": "pinterest/pin",
+    "top_k": 1
+  },
+  {
+    "query": "spotify artist",
+    "expected_top": "spotify/artist",
+    "top_k": 1
+  },
+  {
+    "query": "amazon best sellers",
+    "expected_top": "amazon/best-sellers",
+    "top_k": 1
+  },
+  {
+    "query": "douyin video comments",
+    "expected_top": "douyin/post/comments",
+    "top_k": 1
+  },
+  {
+    "query": "tiktok shop product reviews",
+    "expected_top": "tiktokshop/product/reviews",
+    "top_k": 1
+  },
+  {
+    "query": "google news search",
+    "expected_top": "google_news/search",
+    "top_k": 1
+  },
+  {
+    "query": "tiktok/post/comments",
+    "expected_top": "tiktok/post/comments",
+    "top_k": 1
+  },
+  {
+    "query": "instagram profile follower count",
+    "expected_top": "instagram/profile",
+    "top_k": 3
+  },
+  {
+    "query": "linkedin company employees",
+    "expected_top": "linkedin/company/people",
+    "top_k": 3
+  },
+  {
+    "query": "tiktok trending hashtags",
+    "expected_top": "tiktok/hashtags/popular",
+    "top_k": 3
+  },
+  {
+    "query": "who follows a tiktok account",
+    "expected_top": "tiktok/user/followers",
+    "top_k": 3
+  },
+  {
+    "query": "facebook ad library search",
+    "expected_top": "facebook/adlibrary/search/ads",
+    "top_k": 3
+  },
+  {
+    "query": "brand mentions across platforms",
+    "expected_top": "prism/brand-mentions",
+    "top_k": 3
+  },
+  {
+    "query": "search everywhere across all platforms at once",
+    "expected_top": "search/everywhere",
+    "top_k": 3
+  },
+  {
+    "query": "walmart product price",
+    "expected_top": "walmart/product",
+    "top_k": 3
+  },
+  {
+    "query": "tripadvisor hotel reviews",
+    "expected_top": "tripadvisor/reviews",
+    "top_k": 3
+  },
+  {
+    "query": "google trends interest for a keyword",
+    "expected_top": "google_trends/explore",
+    "top_k": 3
+  },
+  {
+    "query": "linkedin job search",
+    "expected_top": "linkedin/search/jobs",
+    "top_k": 3
+  },
+  {
+    "query": "congress stock trades by politician",
+    "expected_top": "us_congress_trades/politician/trades",
+    "top_k": 3
+  },
+  {
+    "query": "salary for a job title",
+    "expected_top": "jobs/salary",
+    "top_k": 3
+  },
+  {
+    "query": "search x for tweets",
+    "expected_top": "twitter/search/tweets",
+    "top_k": 3
+  },
+  {
+    "query": "ig hashtag posts",
+    "expected_top": "instagram/search/hashtag",
+    "top_k": 3
+  },
+  {
+    "query": "posts in a subreddit",
+    "expected_top": "reddit/subreddit",
+    "top_k": 3
+  },
+  {
+    "query": "search reddit comments",
+    "expected_top": "reddit/search/comments",
+    "top_k": 3
+  },
+  {
+    "query": "reddit user posts",
+    "expected_top": "reddit/profile/posts",
+    "top_k": 1
+  },
+  {
+    "query": "tiktok profile",
+    "expected_top": "tiktok/profile",
+    "top_k": 1
+  },
+  {
+    "query": "instagram comments",
+    "expected_top": "instagram/post/comments",
+    "top_k": 1
+  },
+  {
+    "query": "crawl a whole website",
+    "expected_top": "web/crawl",
+    "top_k": 1
+  },
+  {
+    "query": "youtube video details",
+    "expected_top": "youtube/video",
+    "top_k": 1
+  }
+]

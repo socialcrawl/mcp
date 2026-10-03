@@ -1,16 +1,19 @@
 import { apiRequest } from "../client.js";
+import type { ResponseMeta } from "../client.js";
+import { timeoutSecondsFor } from "../timeouts.js";
+import { pollLine, webJobHandle } from "../jobs.js";
 import { findEndpoint } from "../data/endpoints.js";
 import { formatCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
 import type { HttpMethod } from "../types.js";
 
 /**
- * The stateful `web` platform (Firecrawl-backed) — full web scraping, search,
+ * The stateful `web` platform — full web scraping, search,
  * and browser automation. Unlike the registry-driven `socialcrawl_request`
  * tool (GET, one request → one response), the web surface mixes sync reads,
  * async jobs with a poll/cancel lifecycle, stateful monitors, and interactive
  * browser sessions across GET/POST/PATCH/DELETE and `{id}` path params — so it
- * lives in this dedicated tool, mirroring `socialcrawl_monitors`. Auth is the
+ * lives in its own module, served by `socialcrawl_manage` (area web). Auth is the
  * same x-api-key.
  *
  * `web/parse` (document upload) is a multipart/form-data endpoint and is not
@@ -131,7 +134,7 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
     (name) => input[name] === undefined || input[name] === "",
   );
   if (missing.length > 0) {
-    return `Error: The "${params.action}" action requires \`input.${missing.join("`, `input.")}\`. Use socialcrawl_list_endpoints with platform "web" for the full parameter list.`;
+    return `Error: The "${params.action}" action requires \`input.${missing.join("`, `input.")}\`. Use socialcrawl_endpoint with id "web" for the endpoints, and "web/<resource>" for one contract.`;
   }
   if (params.action === "extract" && input.schema === undefined && input.prompt === undefined) {
     return `Error: The "extract" action requires one of \`input.schema\` or \`input.prompt\`.`;
@@ -141,7 +144,11 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
   const path = spec.path(id);
 
   const isBodyMethod = spec.method === "POST" || spec.method === "PATCH";
+  const priced = findEndpoint("web", spec.resource, spec.method);
+  const callMeta: ResponseMeta = {};
   const response = await apiRequest(ctx, {
+    timeoutMs: timeoutSecondsFor(priced) * 1000,
+    meta: callMeta,
     method: spec.method === "PATCH" ? "PATCH" : spec.method,
     path,
     query: isBodyMethod ? undefined : toQuery(input),
@@ -150,7 +157,6 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
     errorPlatform: "web",
   });
 
-  const priced = findEndpoint("web", spec.resource, spec.method);
   const headerLines = [
     "## SocialCrawl Web",
     `**Operation:** \`${spec.method} ${path}\``,
@@ -174,7 +180,9 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
   }
   try {
     const parsed = JSON.parse(response) as Record<string, unknown>;
-    return `${header}\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\``;
+    const job = priced?.execution === "async" && spec.method === "POST" ? webJobHandle(parsed, callMeta.retryAfterS) : undefined;
+    const poll = job ? `\n\n${pollLine(job)}` : "";
+    return `${header}\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\`${poll}`;
   } catch {
     return `${header}${response}`;
   }

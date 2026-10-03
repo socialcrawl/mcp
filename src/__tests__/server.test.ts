@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createServer } from "../server.js";
@@ -19,39 +19,41 @@ function firstText(result: Record<string, unknown>): string {
 }
 
 describe("createServer factory", () => {
+  // The default surface, whatever the shell exports; the legacy surface is covered in surface.test.ts.
+  beforeEach(() => {
+    vi.stubEnv("SOCIALCRAWL_LEGACY_TOOLS", "");
+  });
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
-  it("registers all ten tools", async () => {
+  it("registers the seven 2.0 tools", async () => {
     const client = await connect({ apiKey: "", baseUrl: "https://www.socialcrawl.dev" });
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name).sort();
     expect(names).toEqual([
-      "socialcrawl_check_balance",
-      "socialcrawl_cohorts",
-      "socialcrawl_discover",
-      "socialcrawl_get_docs",
-      "socialcrawl_list_endpoints",
-      "socialcrawl_list_platforms",
-      "socialcrawl_monitors",
-      "socialcrawl_pricing",
+      "socialcrawl_account",
+      "socialcrawl_collect",
+      "socialcrawl_endpoint",
+      "socialcrawl_estimate",
+      "socialcrawl_find",
+      "socialcrawl_manage",
       "socialcrawl_request",
-      "socialcrawl_web",
     ]);
     await client.close();
   });
 
   it("serves discovery tools anonymously", async () => {
     const client = await connect({ apiKey: "", baseUrl: "https://www.socialcrawl.dev" });
-    const result = await client.callTool({ name: "socialcrawl_list_platforms", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_find", arguments: {} });
     expect(firstText(result)).toContain("tiktok");
     await client.close();
   });
 
   it("returns the friendly no-key error from keyed tools when anonymous", async () => {
     const client = await connect({ apiKey: "", baseUrl: "https://www.socialcrawl.dev" });
-    const result = await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_account", arguments: {} });
     expect(firstText(result)).toContain("No API key configured");
     await client.close();
   });
@@ -63,7 +65,7 @@ describe("createServer factory", () => {
       return new Response(JSON.stringify({ success: true, data: { balance: 5 } }), { status: 200 });
     });
     const client = await connect({ apiKey: "sc_ctx_key", baseUrl: "https://www.socialcrawl.dev" });
-    const result = await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_account", arguments: {} });
     expect(capturedKey).toBe("sc_ctx_key");
     expect(firstText(result)).toContain("5");
     await client.close();

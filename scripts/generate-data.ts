@@ -8,6 +8,11 @@
  *      → writes registry-dump.json at this repo's root.
  *   2. Here:                 npm run generate:data
  *
+ * Accepts dump schema v3 and v4. v4 adds, per endpoint, `purpose` (summary,
+ * returns, use_when, not_for — what the ranker in src/search/rank.ts reads),
+ * `taxonomy`, `latency_ms` and `outputs` (the response-field contract, written
+ * to src/data/outputs.ts; an absent `meaning` / `fill` / `live` means null).
+ *
  * Platform display names, endpoint counts, params (with their bounds and
  * couplings), credit tiers, the full pricing model (ladder / flat / metered
  * band + the exact metered wording), pagination descriptors, cache TTLs,
@@ -17,8 +22,10 @@
  * loudly when the dump contains a platform without a description so new
  * platforms can't ship undocumented.
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { findSampleIssues, prepareSample } from "../src/resources/sample-gate.js";
 
 interface DumpParam {
   name: string;
@@ -67,6 +74,8 @@ interface DumpEndpoint {
   description: string;
   execution?: string;
   streaming?: string;
+  recommended_timeout_s?: number | null;
+  budget_ms?: number | null;
   pagination?: {
     style: string;
     nativeParam: string;
@@ -90,6 +99,49 @@ interface DumpEndpoint {
   judgments?: DumpJudgments;
   featuredParams?: { name: string; benefit: string; example: string }[];
   related?: { id: string; why: string }[];
+  // ── schema v4 ──
+  purpose?: { summary: string; returns?: string | null; use_when?: string | null; not_for?: string | null };
+  taxonomy?: { purpose: string; job_family: string; takes_item_id_from_another_endpoint?: boolean };
+  latency_ms?: { p50: number; p95: number; p99: number; n: number; provisional?: boolean; low_sample?: boolean } | null;
+  outputs?: DumpOutputs;
+  /** The contract's paging facts; absent on an endpoint that does not page. */
+  paging?: DumpPaging;
+}
+
+/** `pagingOf(entry)` in the backend: every null means unknown, never "none". */
+interface DumpPaging {
+  style: string;
+  page_size: number | null;
+  page_size_source?: string | null;
+  observed_n?: number | null;
+  page_size_max?: number | null;
+  max_pages: number | null;
+  max_pages_when?: string | null;
+  per_n_items: string | null;
+  price_basis: string | null;
+  credits_per_page?: { min: number; max: number | null } | null;
+  credits_per_row?: number | null;
+}
+
+interface DumpOutputField {
+  path: string;
+  type: string;
+  nullable: boolean;
+  meaning?: string | null;
+  fill?: number | null;
+  live?: boolean | null;
+  opt_in?: string;
+  source_hint?: string;
+}
+
+interface DumpOutputs {
+  archetype: string;
+  rows_at?: string | null;
+  fields: DumpOutputField[];
+  never_filled?: string[];
+  page_level?: string[];
+  source: string;
+  inferred_from?: Record<string, string>;
 }
 
 interface DumpJudgments {
@@ -152,7 +204,7 @@ interface Dump {
 
 const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   web:
-    "Full web scraping, search, and browser automation (Firecrawl-backed). Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through the dedicated `socialcrawl_web` tool; the sync scrape/search/map/extract endpoints are also available there.",
+    "Full web scraping, search, and browser automation. Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through `socialcrawl_manage` with area web, which also serves the sync scrape/search/map/extract endpoints.",
   tiktok:
     "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   instagram:
@@ -192,11 +244,13 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   google_shopping:
     "Google Shopping product search, full product details, price history for a product, reviews aggregated across retailers, and per-seller offers with itemised pricing.",
   google_news:
-    "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Backed by a primary news upstream with a DataForSEO Google News fallback and bidirectional query-derived source pinning.",
+    "Real-time Google News SERP search — ranked headlines with source, snippet, and timestamp for any query. Multi-source with automatic fallback.",
+  economy:
+    "Economic and trade data — household spending and travel spending by country and category, US federal spending by state, county or country, US federal contract award search, and a US importer's suppliers and shipments.",
   finance:
     "Financial-instrument data — full quotes, ticker search by name, a markets overview (indices + top movers), instrument news, daily price-history bars, company financial statements, and options chains.",
   google_trends:
-    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Backed by DataForSEO Google Trends.",
+    "Google Trends interest data — `explore` returns interest-over-time (and optional geo/related breakdowns) for one or more terms; `rising` returns breakout/rising related queries for a term; `trending` returns Trending Now for a location, filtered by hour window, category, status and sort. Multi-source with automatic fallback.",
   trustpilot:
     "Trustpilot business search and company reviews — brand-reputation data keyed by company domain (shipping, refunds, support sentiment). For product reviews use amazon/reviews or google_shopping/reviews.",
   g2:
@@ -274,7 +328,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   search:
     "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   prism:
-    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_pricing tool).",
+    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
   content_analysis:
     "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
   on_page:
@@ -290,10 +344,11 @@ const dump: Dump = JSON.parse(
   readFileSync(resolve(root, "registry-dump.json"), "utf8"),
 );
 
-// ── Guard: dump must be the v3 schema (judgments, featured params, related) ──
-if (dump.schemaVersion !== 3 || !dump.registryFingerprint) {
+// ── Guard: dump must be schema v3 (judgments, featured params, related) or v4 (+ purpose, outputs) ──
+const schemaVersion = dump.schemaVersion ?? 1;
+if ((schemaVersion !== 3 && schemaVersion !== 4) || !dump.registryFingerprint) {
   console.error(
-    `registry-dump.json is schema v${dump.schemaVersion ?? 1}; this generator needs v3 with a registryFingerprint. ` +
+    `registry-dump.json is schema v${schemaVersion}; this generator needs v3 or v4 with a registryFingerprint. ` +
       `Re-run the backend extractor: cd codebase/packages/social-api && pnpm dlx tsx scripts/extract-mcp-data.ts`,
   );
   process.exit(1);
@@ -463,6 +518,11 @@ function renderEndpoint(e: DumpEndpoint): string {
 
   if (e.execution) lines.push(`    execution: ${str(e.execution)},`);
   if (e.streaming) lines.push(`    streaming: ${str(e.streaming)},`);
+  // Latency contract (dump v4). Absent until the codebase carries it; then it flows through.
+  if (typeof e.recommended_timeout_s === "number") {
+    lines.push(`    recommended_timeout_s: ${e.recommended_timeout_s},`);
+  }
+  if (typeof e.budget_ms === "number") lines.push(`    budget_ms: ${e.budget_ms},`);
   if (e.pagination) {
     const parts = [
       `style: ${str(e.pagination.style)}`,
@@ -590,6 +650,27 @@ function renderEndpoint(e: DumpEndpoint): string {
     }
     lines.push(`    responseShape: { ${shapeParts.join(", ")} },`);
   }
+  if (e.purpose) {
+    const p = e.purpose;
+    lines.push("    purpose: {");
+    lines.push(`      summary: ${str(p.summary)},`);
+    for (const k of ["returns", "use_when", "not_for"] as const) {
+      lines.push(`      ${k}: ${p[k] ? str(p[k] as string) : "null"},`);
+    }
+    lines.push("    },");
+  }
+  if (e.taxonomy) {
+    lines.push(
+      `    taxonomy: { purpose: ${str(e.taxonomy.purpose)}, job_family: ${str(e.taxonomy.job_family)}, takes_item_id_from_another_endpoint: ${e.taxonomy.takes_item_id_from_another_endpoint === true} },`,
+    );
+  }
+  if (e.latency_ms) {
+    const l = e.latency_ms;
+    const parts = [`p50: ${l.p50}`, `p95: ${l.p95}`, `p99: ${l.p99}`, `n: ${l.n}`];
+    if (l.provisional) parts.push("provisional: true");
+    if (l.low_sample) parts.push("low_sample: true");
+    lines.push(`    latency_ms: { ${parts.join(", ")} },`);
+  }
 
   lines.push("  },");
   return lines.join("\n");
@@ -640,6 +721,89 @@ export function getEndpointsByPlatform(platform: string): Endpoint[] {
 }
 `;
 
+// ── outputs.ts (dump v4) ────────────────────────────────────────────────
+// One compact JSON line per endpoint, keyed "METHOD platform/resource". An
+// absent meaning / fill / live becomes an explicit null.
+const outputKey = (e: DumpEndpoint): string => `${e.method} ${e.platform}/${e.resource}`;
+const outputLines = dump.endpoints
+  .filter((e) => e.outputs)
+  .map((e) => {
+    const o = e.outputs!;
+    const compact = {
+      archetype: o.archetype,
+      rows_at: o.rows_at ?? null,
+      fields: o.fields.map((f) => ({
+        path: f.path,
+        type: f.type,
+        nullable: f.nullable,
+        meaning: f.meaning ?? null,
+        fill: f.fill ?? null,
+        live: f.live ?? null,
+        ...(f.opt_in ? { opt_in: f.opt_in } : {}),
+        ...(f.source_hint ? { source_hint: f.source_hint } : {}),
+      })),
+      never_filled: o.never_filled ?? [],
+      page_level: o.page_level ?? [],
+      source: o.source,
+      ...(o.inferred_from ? { inferred_from: o.inferred_from } : {}),
+    };
+    return `  ${str(outputKey(e))}: ${JSON.stringify(compact)},`;
+  });
+
+// The contract's paging block per endpoint, same key and nulls as the dump.
+const pagingLines = dump.endpoints
+  .filter((e) => e.paging)
+  .map((e) => {
+    const p = e.paging!;
+    const compact = {
+      style: p.style,
+      page_size: p.page_size ?? null,
+      page_size_source: p.page_size_source ?? null,
+      observed_n: p.observed_n ?? null,
+      page_size_max: p.page_size_max ?? null,
+      max_pages: p.max_pages ?? null,
+      max_pages_when: p.max_pages_when ?? null,
+      per_n_items: p.per_n_items ?? null,
+      price_basis: p.price_basis ?? null,
+      credits_per_page: p.credits_per_page ?? null,
+      credits_per_row: p.credits_per_row ?? null,
+    };
+    return `  ${str(outputKey(e))}: ${JSON.stringify(compact)},`;
+  });
+
+const outputsTs = `import type { Endpoint, EndpointOutputs, EndpointPaging } from "../types.js";
+
+/**
+ * What each endpoint returns: the response-field contract from registry dump
+ * schema v4 (outputs), keyed "METHOD platform/resource". Generated by
+ * scripts/generate-data.ts — do not hand-edit. Empty when the dump is v3.
+ * Source: ${dump.generatedFrom}
+ */
+export const OUTPUTS: Record<string, EndpointOutputs> = {
+${outputLines.join("\n")}
+};
+
+/** The output contract for an endpoint, or undefined when the dump had none. */
+export function outputsFor(e: Pick<Endpoint, "method" | "platform" | "resource">): EndpointOutputs | undefined {
+  return OUTPUTS[\`\${e.method} \${e.platform}/\${e.resource}\`];
+}
+
+/**
+ * The contract's paging block (registry dump \`paging\`), keyed the same way:
+ * page size and where it came from, agreeing captures, depth cap, and the
+ * price of N items. Every null means unknown, never "none".
+ */
+export const PAGING: Record<string, EndpointPaging> = {
+${pagingLines.join("\n")}
+};
+
+/** The paging facts for an endpoint, or undefined when it does not page. */
+export function pagingFor(e: Pick<Endpoint, "method" | "platform" | "resource">): EndpointPaging | undefined {
+  return PAGING[\`\${e.method} \${e.platform}/\${e.resource}\`];
+}
+`;
+
+writeFileSync(resolve(root, "src/data/outputs.ts"), outputsTs);
 writeFileSync(resolve(root, "src/data/platforms.ts"), platformsTs);
 writeFileSync(resolve(root, "src/data/endpoints.ts"), endpointsTs);
 writeFileSync(resolve(root, "src/data/registry-meta.ts"), metaTs);
@@ -650,5 +814,102 @@ console.log(
   `wrote src/data/platforms.ts (${dump.platforms.length} platforms), ` +
     `src/data/endpoints.ts (${dump.endpoints.length} endpoints — ` +
     `${metered.length} metered, ${flat.length} flat-override) and ` +
-    `src/data/registry-meta.ts`,
+    `src/data/registry-meta.ts and src/data/outputs.ts (${outputLines.length} output contracts, ${pagingLines.length} paging blocks, schema v${schemaVersion})`,
 );
+
+// ── T28 / MCP-05: reference material for resources and prompts ──────────
+//
+// Read from the sibling codebase repo (override with SOCIALCRAWL_CODEBASE).
+// Each piece is optional: when the codebase is not next to this repo, the
+// committed src/data/{recipes,guide,examples}.ts are left as they are.
+
+const excludeFlagged = process.argv.includes("--exclude-flagged");
+const codebase = resolve(process.env.SOCIALCRAWL_CODEBASE ?? resolve(root, "../codebase"));
+const socialApi = resolve(codebase, "packages/social-api");
+const skillDir = resolve(codebase, ".claude/skills/socialcrawl");
+const GENERATED_NOTE = "Generated by scripts/generate-data.ts (T28) - do not hand-edit.";
+
+// Recipes (data, with computed cost): packages/social-api/scripts/export-recipes.ts.
+const exportRecipes = resolve(socialApi, "scripts/export-recipes.ts");
+if (existsSync(exportRecipes)) {
+  const out = execFileSync(resolve(root, "node_modules/.bin/tsx"), ["scripts/export-recipes.ts"], {
+    cwd: socialApi,
+    env: { ...process.env, SKIP_ENV_VALIDATION: "1" },
+    maxBuffer: 64 * 1024 * 1024,
+  }).toString();
+  const { recipes } = JSON.parse(out) as { recipes: unknown[] };
+  writeFileSync(
+    resolve(root, "src/data/recipes.ts"),
+    `import type { RecipeData } from "../resources/recipe-types.js";\n\n/** Task recipes with computed cost lines. ${GENERATED_NOTE} */\nexport const RECIPES_DATA: RecipeData[] = ${JSON.stringify(recipes)};\n`,
+  );
+  console.log(`wrote src/data/recipes.ts (${recipes.length} recipes)`);
+}
+
+// Guide (the skill's SKILL.md without frontmatter) and the errors reference.
+if (existsSync(resolve(skillDir, "SKILL.md"))) {
+  const body = readFileSync(resolve(skillDir, "SKILL.md"), "utf8").replace(/^---\n[\s\S]*?\n---\n/, "").trim();
+  const errors = readFileSync(resolve(skillDir, "references/errors.md"), "utf8").trim();
+  writeFileSync(
+    resolve(root, "src/data/guide.ts"),
+    `/** The skill's SKILL.md body and errors reference. ${GENERATED_NOTE} */\nexport const GUIDE = ${JSON.stringify(body)};\n\nexport const ERRORS_GUIDE = ${JSON.stringify(errors)};\n`,
+  );
+  console.log("wrote src/data/guide.ts");
+}
+
+// Redacted samples (own captures only, two rows each) and per-archetype samples.
+const examplesDir = resolve(socialApi, "src/docs/examples");
+if (existsSync(resolve(examplesDir, "endpoints"))) {
+  const samples: Record<string, string> = {};
+  const failures: string[] = [];
+  let neutralised = 0;
+  let dropped = 0;
+  for (const f of readdirSync(resolve(examplesDir, "endpoints")).sort()) {
+    if (!f.endsWith(".json")) continue;
+    const j = JSON.parse(readFileSync(resolve(examplesDir, "endpoints", f), "utf8")) as Record<string, unknown>;
+    if (j.redacted !== true || typeof j.endpoint !== "string") continue;
+    const key = j.endpoint.replace(/^\/v1\//, "");
+    const { sample, notes } = prepareSample({ endpoint: j.endpoint, data: j.data, pagination: j.pagination, credits_used: j.credits_used, redacted: true });
+    if (!sample) {
+      dropped++;
+      continue;
+    }
+    neutralised += notes.length;
+    const json = JSON.stringify(sample);
+    const issues = findSampleIssues(json, key);
+    if (issues.length > 0) {
+      failures.push(`${key}: ${issues.join("; ")}`);
+      // Never rewritten here. With --exclude-flagged the sample is left out of the bundle (an interim, not a fix).
+      if (excludeFlagged) continue;
+    }
+    samples[key] = json;
+  }
+  console.log(`samples: ${neutralised} messages neutralised, ${dropped} dropped`);
+  if (failures.length > 0 && !excludeFlagged) {
+    // The codebase redactor is the only redactor: nothing is rewritten here and nothing is written.
+    throw new Error(
+      `sample gate: ${failures.length} unsafe sample(s) would ship (rule and path shown, values never). Fix them in the codebase corpus and run again (or --exclude-flagged to leave them out):\n${failures.join("\n")}`,
+    );
+  }
+  if (failures.length > 0) console.log(`sample gate: ${failures.length} flagged sample(s) EXCLUDED from the bundle:\n${failures.map((f) => f.split(":")[0]).join("\n")}`);
+  const archetypes: Record<string, string> = {};
+  for (const f of readdirSync(examplesDir).sort()) {
+    if (!f.endsWith(".json")) continue;
+    const { sample } = prepareSample(JSON.parse(readFileSync(resolve(examplesDir, f), "utf8")) as Record<string, unknown>);
+    if (!sample) continue;
+    const json = JSON.stringify(sample);
+    const issues = findSampleIssues(json);
+    if (issues.length > 0) {
+      failures.push(`archetype ${f}: ${issues.join("; ")}`);
+      if (excludeFlagged) continue;
+    }
+    archetypes[f.replace(/\.json$/, "")] = json;
+  }
+  if (failures.length > 0 && !excludeFlagged) {
+    throw new Error(`sample gate: ${failures.length} unsafe sample(s) would ship (rule and path shown, values never). Fix them in the codebase corpus and run again (or --exclude-flagged):\n${failures.join("\n")}`);
+  }
+  writeFileSync(
+    resolve(root, "src/data/examples.ts"),
+    `/** Redacted sample responses by "platform/resource", as minified JSON, and one per archetype. ${GENERATED_NOTE} */\nexport const EXAMPLES: Record<string, string> = ${JSON.stringify(samples)};\n\nexport const ARCHETYPE_EXAMPLES: Record<string, string> = ${JSON.stringify(archetypes)};\n`,
+  );
+  console.log(`wrote src/data/examples.ts (${Object.keys(samples).length} samples, ${Object.keys(archetypes).length} archetype samples)`);
+}

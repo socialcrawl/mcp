@@ -11,8 +11,8 @@ import { paginate } from "../paginate.js";
  * fail loudly when the backend registry moves, which is the signal to re-run
  * the two-step regeneration pipeline (see scripts/generate-data.ts).
  */
-const EXPECTED_PLATFORMS = 67;
-const EXPECTED_ENDPOINTS = 631;
+const EXPECTED_PLATFORMS = 68;
+const EXPECTED_ENDPOINTS = 645;
 
 describe("Platform data integrity", () => {
   it(`has exactly ${EXPECTED_PLATFORMS} platforms`, () => {

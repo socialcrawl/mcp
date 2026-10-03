@@ -102,7 +102,7 @@ export function normalizeEndpointId(raw: string): string {
 
 // ── quickstart ─────────────────────────────────────────────────────────
 
-function localQuickstart(platformSlug?: string): string {
+export function localQuickstart(platformSlug?: string): string {
   const platform = platformSlug ? findPlatform(platformSlug) : undefined;
   const example =
     (platform ? getEndpointsByPlatform(platform.slug)[0] : undefined) ??
@@ -161,14 +161,13 @@ function localQuickstart(platformSlug?: string): string {
     "",
     "| Want to… | Do this |",
     "|----------|---------|",
-    "| See what exists | `socialcrawl_list_platforms`, or `socialcrawl_discover` with `action: \"catalog\"` |",
-    "| Find an endpoint | `socialcrawl_list_endpoints` with a `search` term |",
-    "| Know what it costs | `socialcrawl_pricing` (add `params` for an exact, itemised quote) |",
-    "| Find which endpoints can do X | `socialcrawl_discover` with `action: \"capabilities\"` |",
-    "| Turn a job into calls | `socialcrawl_discover` with `action: \"plan\"` and a `query` |",
-    "| Learn one endpoint fully | `socialcrawl_discover` with `action: \"endpoint\"` and an `id` |",
-    "| Understand a contract | `socialcrawl_get_docs` — credits, errors, pagination, caching, limits |",
-    "| Check this server is current | `socialcrawl_discover` with `action: \"freshness\"` |",
+    "| See what exists | `socialcrawl_find` with no task |",
+    "| Find an endpoint | `socialcrawl_find` with the task in plain words |",
+    "| Know what it costs | `socialcrawl_estimate` with the exact params |",
+    "| Turn a job into calls | `socialcrawl_find` for each step, `socialcrawl_estimate` with a `plan` to total it |",
+    "| Learn one endpoint fully | `socialcrawl_endpoint` with its `id` |",
+    "| Understand a contract | `socialcrawl_endpoint` with a topic id — credits, errors, pagination, caching, limits |",
+    "| Check this server is current | `socialcrawl_account` with `view: \"freshness\"` |",
   ].join("\n");
 }
 
@@ -215,7 +214,7 @@ function renderQuickstart(data: Record<string, unknown>): string {
     }
     if (d.billing.rules) lines.push(...d.billing.rules.map((r) => `- ${r}`), "");
     lines.push(
-      "Use `socialcrawl_pricing` for any endpoint's exact cost — including the metered bands, where the base cost understates the real charge.",
+      "Use `socialcrawl_estimate` for any endpoint's exact cost — including the metered bands, where the base cost understates the real charge.",
       "",
     );
   }
@@ -295,7 +294,7 @@ function localCatalog(params: DiscoverParams): string {
   let matches = ENDPOINTS;
   if (params.platform) {
     if (!findPlatform(params.platform)) {
-      return `Error: Unknown platform "${params.platform}". Use socialcrawl_list_platforms to see the ${PLATFORMS.length} available platforms.`;
+      return `Error: Unknown platform "${params.platform}". Use socialcrawl_find to see the ${PLATFORMS.length} available platforms.`;
     }
     matches = matches.filter((e) => e.platform === params.platform);
   }
@@ -498,7 +497,7 @@ function guideBody(e: Endpoint): string[] {
   lines.push("## Call it", "");
   lines.push(
     e.platform === "web"
-      ? "Use `socialcrawl_web` — the `web` platform is action-based, not registry-driven."
+      ? "Use `socialcrawl_manage` with area web — the `web` platform is action-based, not registry-driven."
       : `\`socialcrawl_request\` with platform \`${e.platform}\`, resource \`${e.resource}\`${e.method !== "GET" ? ` (${e.method} — array/object params go in \`body\`)` : ""}.`,
   );
   if (e.related && e.related.length > 0) {
@@ -680,7 +679,7 @@ function capabilityLines(c: CapabilityRow): string[] {
   return lines;
 }
 
-function localCapabilities(param?: string): string {
+export function localCapabilities(param?: string): string {
   const all: CapabilityRow[] = capabilityIndex().map((c) => ({
     param: c.param,
     family: c.family,
@@ -749,7 +748,7 @@ function renderPlan(data: Record<string, unknown>, query: string): string {
   const lines: string[] = [`# Call plan — "${query}"`, "", LIVE_NOTE, ""];
   if (d.uncertain || steps.length === 0) {
     lines.push(
-      `**No confident plan** (reason: \`${d.reason ?? "unknown"}\`). The planner never guesses a chain. Try \`socialcrawl_list_endpoints\` with a \`search\` term, or rephrase the job more concretely.`,
+      `**No confident plan** (reason: \`${d.reason ?? "unknown"}\`). The planner never guesses a chain. Try \`socialcrawl_find\` with the job in plain words, or rephrase the job more concretely.`,
       "",
     );
   } else {
@@ -787,7 +786,7 @@ function renderPlan(data: Record<string, unknown>, query: string): string {
   if (d.deeper) lines.push(`**Deeper:** ${d.deeper}`);
   lines.push(
     "",
-    "Run each step with `socialcrawl_request`, and quote any step exactly with `socialcrawl_pricing` (`action: \"endpoint\"` plus `params`).",
+    "Run each step with `socialcrawl_request`, and quote any step exactly with `socialcrawl_estimate` (`id` plus `params`).",
   );
   return lines.join("\n");
 }
@@ -835,7 +834,7 @@ function renderFreshness(live: { platforms?: number; endpoints?: number } | null
       "",
       "**What to do:**",
       "- Upgrade the package: `npx -y socialcrawl-mcp@latest` (or bump the pinned version in your MCP client config).",
-      "- Until then, use `socialcrawl_discover` with `action: \"catalog\"` / `\"endpoint\"` — those read the live registry and are always correct.",
+      "- Until then, use `socialcrawl_endpoint` with a key — it reads the live registry and is always correct.",
     );
   }
 
@@ -938,7 +937,7 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
           "",
           LOCAL_NOTE,
           "",
-          "`utility/plan` runs the planner server-side and has no bundled equivalent (it is free, but needs an API key). Without one: search with `socialcrawl_list_endpoints` (`search`), then quote each candidate with `socialcrawl_pricing` (`action: \"endpoint\"` plus `params`).",
+          "`utility/plan` runs the planner server-side and has no bundled equivalent (it is free, but needs an API key). Without one: rank candidates with `socialcrawl_find`, then quote each with `socialcrawl_estimate` (`id` plus `params`).",
         ].join("\n");
       }
       const response = await makeRequest(ctx, {
@@ -964,7 +963,7 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
           "- https://www.socialcrawl.dev/llms-full.txt — every endpoint",
           `- https://www.socialcrawl.dev/llms-${params.platform ?? "{platform}"}.txt — one platform`,
           "",
-          "Or use `socialcrawl_get_docs` with `topic: \"full\"` for the same ground truth from this server's bundled catalogue.",
+          "Or use `socialcrawl_endpoint` with `id: \"full\"` for the same ground truth from this server's bundled catalogue.",
         ].join("\n");
       }
       const query: Record<string, string> = {};

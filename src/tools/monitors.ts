@@ -110,7 +110,7 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
         const platform = input.recipe!.slice(0, slash);
         const resource = input.recipe!.slice(slash + 1);
         if (!findEndpoint(platform, resource)) {
-          return `Error: Unknown recipe "${input.recipe}". It must be a registered endpoint (use socialcrawl_list_endpoints) or a Prism composite (e.g., "prism/reputation").`;
+          return `Error: Unknown recipe "${input.recipe}". It must be a registered endpoint (use socialcrawl_find) or a Prism composite (e.g., "prism/reputation").`;
         }
       }
       const body: Record<string, unknown> = {

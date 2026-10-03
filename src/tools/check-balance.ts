@@ -1,5 +1,8 @@
 import { makeRequest } from "../client.js";
 import type { ApiContext } from "../context.js";
+import { sessionTotal } from "../session-spend.js";
+import { errorFromText, structureEnvelope, summaryLine } from "../result.js";
+import type { ToolOutput } from "../result.js";
 
 export interface CheckBalanceParams {
   /** `balance` (default) or `transactions` for the dispute-grade credit ledger. */
@@ -27,6 +30,14 @@ export async function checkBalance(
   ctx: ApiContext,
   params: CheckBalanceParams = {},
 ): Promise<string> {
+  return (await checkBalanceStructured(ctx, params)).text;
+}
+
+/** Text for older clients plus the `structuredContent` object. */
+export async function checkBalanceStructured(
+  ctx: ApiContext,
+  params: CheckBalanceParams = {},
+): Promise<ToolOutput> {
   const view = params.view ?? "balance";
 
   if (view === "transactions") {
@@ -48,7 +59,7 @@ export async function checkBalance(
       "Deductions are negative and refunds positive, so a page of `amount` values sums to the balance delta. Newest first; page with `cursor` until `next_cursor` is null.",
       "",
     ].join("\n");
-    return format(header, response);
+    return format(header, response, view, ctx);
   }
 
   const response = await makeRequest(ctx, {
@@ -63,17 +74,24 @@ export async function checkBalance(
     'Pass `view: "transactions"` for the itemised ledger behind these numbers.',
     "",
   ].join("\n");
-  return format(header, response);
+  return format(header, response, view, ctx);
 }
 
-function format(header: string, response: string): string {
-  if (response.startsWith("Error:")) {
-    return `${header}${response}`;
+function format(header: string, response: string, view: "balance" | "transactions", ctx: ApiContext): ToolOutput {
+  if (/^Error(?::| \(\d+\):)/.test(response)) {
+    const text = `${header}${response}`;
+    return { text, structured: errorFromText(text) };
   }
   try {
     const parsed = JSON.parse(response) as Record<string, unknown>;
-    return `${header}\`\`\`json\n${JSON.stringify(parsed, null, 2)}\n\`\`\``;
+    const env = structureEnvelope(parsed);
+    const spent = sessionTotal(ctx.apiKey);
+    const structured = { ok: true, view, ...env, credits: { ...(env.credits as Record<string, unknown>), session_total: spent } };
+    return {
+      text: `${header}**Session spend:** ${spent} credits through this server since it started.\n**Result:** ${summaryLine(structured)}\n\n\`\`\`json\n${JSON.stringify(parsed)}\n\`\`\``,
+      structured,
+    };
   } catch {
-    return `${header}${response}`;
+    return { text: `${header}${response}`, structured: { ok: true, view, warnings: ["Response was not JSON."] } };
   }
 }

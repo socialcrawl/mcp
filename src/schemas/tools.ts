@@ -51,41 +51,128 @@ export const ListEndpointsInputSchema = z.object({
     ),
 }).strict();
 
+/** A query-param value as an agent naturally writes it; sent as a string. */
+const ParamScalarSchema = z.union([z.string(), z.number(), z.boolean()]);
+const ParamValueSchema = z.union([ParamScalarSchema, z.array(ParamScalarSchema)]);
+
+const MaxCreditsSchema = z
+  .number()
+  .int()
+  .min(1)
+  .optional()
+  .describe("Spend cap. Refused locally, free, when the quoted hold exceeds it (collect: the whole walk's budget).");
+
+const ConfirmSchema = z
+  .boolean()
+  .optional()
+  .describe("true only after the user approved a spend above the confirmation threshold (default 100 credits).");
+
 export const RequestInputSchema = z.object({
-  platform: z
-    .enum(platformSlugs as [string, ...string[]])
-    .describe("Platform slug (e.g., 'tiktok', 'instagram', 'youtube')"),
+  platform: z.string().min(1).describe("Platform slug, e.g. 'tiktok'. An unknown slug gets a did-you-mean."),
   resource: z
     .string()
     .min(1, "Resource path is required")
-    .describe(
-      "Resource path (e.g., 'profile', 'post/comments', 'search'). A path-param endpoint takes the template plus the value in `params` (resource 'jobs/{job_id}', params { job_id: '…' }) or the concrete path ('jobs/job_abc123').",
-    ),
+    .describe("Resource path, e.g. 'post/comments'; path params as 'jobs/{job_id}' + params.job_id, or the concrete path."),
   method: z
     .enum(["GET", "POST", "PATCH", "DELETE"])
     .optional()
-    .describe(
-      "HTTP method, only needed for a resource served by more than one (e.g. prism/jobs: GET lists your jobs, POST submits one). Inferred when omitted: sending a `body` selects the POST variant when one exists, otherwise GET.",
-    ),
+    .describe("Only for a resource served by several methods (prism/jobs). Inferred: a body selects POST."),
   params: z
-    .record(z.string())
+    .record(ParamValueSchema)
     .optional()
-    .describe(
-      "Query parameters as key-value pairs (e.g., { handle: 'charlidamelio' }). For GET endpoints these are the query string. For POST batch endpoints, put scalar query params here (e.g. { hl: 'en' }) and the array/object body in `body`. Cross-cutting params work here too where an endpoint declares them: `label` / `relevance` / `relevant_to` / `judgments` (row judgments), `include` (row joins), `max_pages` / `seen` / `since` / `stop_at_id` (walks and incremental polling), `dry_run=1` (free judgment cost preview), `fit=goal` + `goal` (trim the page to what a goal needs), `trim`.",
-    ),
+    .describe("Query params, e.g. { handle: 'x', limit: 10 }. Arrays join with commas (label). Sent as strings."),
   body: z
     .record(z.unknown())
     .optional()
-    .describe(
-      "JSON request body for POST batch endpoints (e.g. youtube/videos, prism/profiles). Put array/object params here — e.g. { ids: ['dQw4w9WgXcQ'] } or { items: [{ platform: 'tiktok', handle: '@scout2015' }] }. Ignored for GET endpoints. Use socialcrawl_list_endpoints to see which params belong in the body. For the web-scraping platform use the socialcrawl_web tool instead.",
-    ),
+    .describe("JSON body for POST batch endpoints, e.g. { ids: [...] }."),
   idempotencyKey: z
     .string()
     .min(16, "Idempotency-Key should be at least 16 characters (UUIDv4 recommended)")
     .optional()
+    .describe("Makes a retry safe: a replay returns the original response for 0 credits (24h)."),
+  fields: z.string().optional().describe("Row paths exactly as socialcrawl_endpoint lists them, e.g. 'post.id,post.content.text,post.engagement.*'. Cuts tokens."),
+  max_items: z.number().int().min(1).optional().describe("Show at most this many rows; the full page stays behind the result link."),
+  format: z.enum(["json", "csv", "summary"]).optional().describe("json (default), csv (canonical columns) or summary."),
+  max_credits: MaxCreditsSchema,
+  confirm: ConfirmSchema,
+}).strict();
+
+export const CollectInputSchema = z.object({
+  id: z.string().min(3).describe("platform/resource of a paged endpoint, e.g. 'tiktok/post/comments'."),
+  params: z.record(ParamValueSchema).optional().describe("Params for every page, as in socialcrawl_request. No cursor."),
+  items: z.number().int().min(1).max(10000).describe("Stop once this many unique rows are collected."),
+  max_credits: MaxCreditsSchema,
+  format: z.enum(["jsonl", "json", "csv"]).optional().describe("Stored format: jsonl (default), json or csv."),
+  fields: z.string().optional().describe("Row paths as socialcrawl_endpoint lists them, e.g. 'comment.text,comment.engagement.likes'."),
+  confirm: ConfirmSchema,
+}).strict();
+
+const MethodSchema = z.enum(["GET", "POST", "PATCH", "DELETE"]);
+
+export const FindInputSchema = z.object({
+  task: z
+    .string()
+    .max(500)
+    .optional()
+    .describe("The job in plain words; URLs and @handles in it are resolved and filled. Omit to list platforms."),
+  platform: z.string().optional().describe("Only this platform's endpoints (slug, e.g. 'tiktok'); alone, lists them."),
+  limit: z.number().int().min(1).max(10).optional().describe("Endpoints to return (default 3)."),
+}).strict();
+
+export const EndpointInputSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .describe("'platform/resource' for its contract; a platform slug for its endpoint table; or a guide topic (errors, pricing, pagination, judgments, hydration, overview)."),
+  method: MethodSchema.optional().describe("Only for an id served by several methods."),
+  page: z.number().int().min(1).optional().describe("Page of a long guide (default 1)."),
+}).strict();
+
+const PlanCallSchema = z.object({
+  id: z.string().min(3),
+  method: MethodSchema.optional(),
+  params: z.record(z.unknown()).optional(),
+  body: z.record(z.unknown()).optional(),
+  repeat: z.number().int().min(1).optional(),
+});
+
+export const EstimateInputSchema = z.object({
+  id: z
+    .string()
+    .optional()
+    .describe("'platform/resource'; a platform slug for its price table; none for the overview."),
+  method: MethodSchema.optional(),
+  params: z.record(ParamValueSchema).optional().describe("The exact params you will send."),
+  body: z.record(z.unknown()).optional().describe("POST body, for batch endpoints."),
+  calls: z.number().int().min(1).max(1_000_000).optional().describe("Number of such calls."),
+  items: z.number().int().min(1).optional().describe("Rows wanted (prices a walk)."),
+  plan: z.array(PlanCallSchema).max(50).optional().describe("Several calls to total, instead of id."),
+}).strict();
+
+export const AccountInputSchema = z.object({
+  view: z
+    .enum(["balance", "transactions", "status", "freshness"])
+    .optional()
+    .describe("balance (default, with this session's spend), transactions (ledger), status (platform health), freshness (catalogue vs live API)."),
+  limit: z.number().int().min(1).max(100).optional().describe("transactions: page size."),
+  cursor: z.string().optional().describe("transactions: next_cursor from the last page."),
+  request_id: z.string().optional().describe("transactions: receipts for one request."),
+}).strict();
+
+export const ManageInputSchema = z.object({
+  area: z.enum(["monitors", "cohorts", "web", "jobs"]).describe("What to manage."),
+  action: z
+    .string()
+    .min(1)
     .describe(
-      "Optional Idempotency-Key header. Lets you safely retry the same request — replays return the original response and deduct 0 credits (24h TTL).",
+      "monitors: create|list|get|runs|timeseries|pause|resume|delete. cohorts: create|add_members|estimate_cost|query|query_status|query_results|query_cancel|get|delete. web: scrape|search|map|extract|crawl|batch_scrape|agent|crawl_preview|job_get|job_list|job_cancel|job_errors|monitor_*|session_*. jobs: submit|list|get.",
     ),
+  id: z.string().optional().describe("Monitor, cohort, query, web job/monitor/session or prism job id."),
+  input: z
+    .record(z.unknown())
+    .optional()
+    .describe("The action's fields, e.g. { recipe, cadence }, { url }, { keywords }, or the job body (max_credits, confirm allowed). Monitor alert rules, incl. rows_new: socialcrawl_endpoint id=monitors."),
+  idempotencyKey: z.string().min(16).optional().describe("For web crawl/batch, cohort writes and job submit."),
 }).strict();
 
 export const CheckBalanceInputSchema = z.object({
@@ -164,7 +251,7 @@ export const MonitorsInputSchema = z.object({
     )
     .optional()
     .describe(
-      "create: optional alert rules on the recipe's computed metrics — e.g., [{ metric: 'negative_share', op: 'pct_change_gt', value: 25 }].",
+      "create: optional alert rules on the recipe's computed metrics — e.g., [{ metric: 'negative_share', op: 'pct_change_gt', value: 25 }]; rows_new (new rows since the last run, tracking monitors) takes gt/gte: { metric: 'rows_new', op: 'gt', value: 0 }.",
     ),
   suppress_webhook_unless_alert: z
     .boolean()

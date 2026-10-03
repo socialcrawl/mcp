@@ -371,7 +371,7 @@ export function capabilityIndex(): CapabilityEntry[] {
   out.push({
     param: "include",
     what: "Adds optional sections or row joins; each endpoint lists its own tokens.",
-    cost: "Per endpoint — row joins hold per row and keep only rows filled fresh (see `socialcrawl_pricing` action `hydration`).",
+    cost: "Per endpoint — row joins hold per row and keep only rows filled fresh (see `socialcrawl_endpoint` with id `hydration`).",
     endpoints: include.map(endpointId),
   });
   for (const lever of LEVERS) {

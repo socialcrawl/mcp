@@ -5,6 +5,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { extractApiKey } from "./auth.js";
 import { createServer } from "./server.js";
 import { SERVER_NAME, SERVER_VERSION } from "./constants.js";
+import { oauthConfigFromEnv, type OAuthResourceServerConfig } from "./oauth/config.js";
+import { mountProtectedResourceMetadata, oauthGate, RESOLVED_API_KEY } from "./oauth/resource-server.js";
 
 export interface AppConfig {
   /** SocialCrawl API origin the tools call, no trailing slash. */
@@ -26,9 +28,16 @@ export interface AppConfig {
    * (e.g. 1 for one load balancer) only where that is actually true.
    */
   trustProxy?: number | boolean;
+  /**
+   * OAuth 2.1 resource-server mode (preview). Omitted → read from env
+   * (`SOCIALCRAWL_OAUTH=1` + settings, see oauth/config.ts); `null` → off.
+   * Off is the default and leaves every existing behaviour unchanged.
+   */
+  oauth?: OAuthResourceServerConfig | null;
 }
 
 export function buildApp(config: AppConfig): express.Express {
+  const oauth = config.oauth === undefined ? oauthConfigFromEnv(process.env) : (config.oauth ?? undefined);
   const app = express();
   app.set("trust proxy", config.trustProxy ?? false);
   app.use(express.json({ limit: "1mb" }));
@@ -74,6 +83,10 @@ export function buildApp(config: AppConfig): express.Express {
     next();
   });
 
+  if (oauth) {
+    mountProtectedResourceMetadata(app, oauth);
+  }
+
   // The xForwardedForHeader validation would 500 any request carrying an
   // X-Forwarded-For header while `trust proxy` is off. We ignore that header
   // deliberately in that case (req.ip = socket address), so silence it.
@@ -113,9 +126,14 @@ export function buildApp(config: AppConfig): express.Express {
   // misconfigured env value doesn't produce `//v1/...` upstream URLs.
   const baseUrl = config.baseUrl.replace(/\/+$/, "");
 
-  app.post("/mcp", async (req, res) => {
+  // With OAuth on, the gate answers 401/403 or resolves the token's API key
+  // into res.locals; without it, the key comes straight from the headers.
+  const mcpGate: express.RequestHandler[] = oauth ? [oauthGate(oauth)] : [];
+
+  app.post("/mcp", ...mcpGate, async (req, res) => {
     // Stateless: fresh server + transport per request, key bound via closure.
-    const ctx = { apiKey: extractApiKey(req.headers), baseUrl };
+    const resolvedKey = res.locals[RESOLVED_API_KEY] as string | undefined;
+    const ctx = { apiKey: resolvedKey ?? extractApiKey(req.headers), baseUrl };
     const server = createServer(ctx);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,

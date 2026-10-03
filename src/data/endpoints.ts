@@ -40,11 +40,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Scrape a web page",
     description:
       "Fetches a public web page and returns clean content, metadata, and optional media in the unified WebPage schema.",
+    budget_ms: 28000,
     cache: { category: "post", ttlSeconds: 0 },
     upstream: { kind: "firecrawl", fallbackKinds: ["tavily"] },
     group: "Scrape & Extract",
     tags: ["web"],
     responseShape: { root: "data.page" },
+    purpose: {
+      summary: "Scrape a web page",
+      returns: "Returns one web page's content as clean markdown or HTML, with the resolved URL, status code, fetch metadata, and an optional screenshot.",
+      use_when: "Use it for a single known URL; for whole sites start a crawl job instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 5645, p95: 5645, p99: 5645, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "web",
@@ -82,7 +91,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
       { id: "youtube/search", why: "The same data from youtube." },
     ],
-    responseShape: { root: "data.items[]", itemKey: "web_page" },
+    responseShape: { root: "data.items[]", itemKey: "page" },
+    purpose: {
+      summary: "Search the web",
+      returns: "Returns ranked web, news, and image results for a search query as one normalized list, with a title, URL, and snippet for each.",
+      use_when: "Use it when you do not know yet which URLs you need; once you have a URL, scrape it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -116,7 +132,14 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "tavily/map", why: "The same data from tavily." },
     ],
-    responseShape: { root: "data.items[]", itemKey: "web_page" },
+    responseShape: { root: "data.items[]", itemKey: "page" },
+    purpose: {
+      summary: "Map URLs on a site",
+      returns: "Returns a list of URLs that exist on a site, without fetching the content of each page.",
+      use_when: "Use it to discover what pages a site has before choosing which ones to scrape or crawl.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -149,6 +172,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tavily/extract", why: "The same data from tavily." },
     ],
     responseShape: { root: "data.page" },
+    purpose: {
+      summary: "Extract structured data from a web page",
+      returns: "Returns structured fields pulled from one web page, shaped by the schema or plain-language prompt you supply.",
+      use_when: "Use it when you want specific values such as price or author rather than the page's full text.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -185,6 +215,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "tavily/crawl", why: "The same data from tavily." },
     ],
+    purpose: {
+      summary: "Start an async web crawl",
+      returns: "Starts an async crawl job that walks a site and scrapes every page it finds, returning a job id to poll.",
+      use_when: "Use it when you need many pages from one site; check progress with GET jobs/{job_id}.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -214,6 +251,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Start Batch Scrape",
     group: "Crawl Jobs",
     tags: ["web"],
+    purpose: {
+      summary: "Start an async batch scrape",
+      returns: "Starts a job that scrapes a list of URLs you supply, returning a job id to poll for the results.",
+      use_when: "Use it when you already know every URL you want; use crawl instead when the site should be explored for you.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -243,6 +287,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/jobs", why: "The same data from prism." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List async web jobs",
+      returns: "Returns the crawl, batch scrape, and agent jobs created with your API key, each with its id, kind, and current status.",
+      use_when: "Use it to find a job id you did not keep, or to see everything still running.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "job_lifecycle", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -269,6 +320,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "prism/jobs/{job_id}", why: "The same data from prism." },
     ],
+    purpose: {
+      summary: "Get an async web job",
+      returns: "Returns one job's current status, progress, credits charged, and its results once the job has finished.",
+      use_when: "Use it to poll a crawl, batch scrape, or agent job after starting it; add /errors to the path to list failed pages.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "job_lifecycle", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -295,6 +353,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "prism/jobs/{job_id}", why: "The same data from prism." },
     ],
+    purpose: {
+      summary: "Cancel an async web job",
+      returns: "Cancels a running crawl, batch scrape, or agent job, stops the remaining work, and refunds credits held but not yet spent.",
+      use_when: "Use it to stop a job you no longer need before it finishes and bills for more pages.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "job_lifecycle", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -321,6 +386,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Run Agent",
     group: "Crawl Jobs",
     tags: ["web"],
+    purpose: {
+      summary: "Start an async web agent job",
+      returns: "Starts a job where a browser agent follows your plain-language instruction on a site, returning a job id to poll for its answer.",
+      use_when: "Use it for tasks that need clicking and navigating to reach the data; for a page you can already name, scrape it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -356,6 +428,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Create Monitor",
     group: "Monitors",
     tags: ["web"],
+    purpose: {
+      summary: "Create a web monitor",
+      returns: "Starts a monitor that rechecks a page or search on a schedule you set, and records the result of every check.",
+      use_when: "Use it to track something for changes over time; for a single look right now, scrape the page instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -382,6 +461,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Monitors",
     tags: ["web"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List web monitors",
+      returns: "Returns the monitors created with your API key, each with its target, schedule, and current status.",
+      use_when: "Use it to review what you are currently monitoring, or to look up a monitor id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -405,6 +491,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Monitor Details",
     group: "Monitors",
     tags: ["web"],
+    purpose: {
+      summary: "Get a web monitor",
+      returns: "Returns one monitor's settings, schedule, status, and when it last ran and next runs.",
+      use_when: "Use it to confirm a monitor's configuration or see when it is due again; for what it found, read its checks.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -434,6 +527,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Pause / Resume Monitor",
     group: "Monitors",
     tags: ["web"],
+    purpose: {
+      summary: "Update a web monitor",
+      returns: "Returns the updated monitor after changing its status or how often it runs, keeping its existing check history.",
+      use_when: "Use it to pause, resume, or reschedule a monitor without losing what it has already recorded.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -457,6 +557,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Delete Monitor",
     group: "Monitors",
     tags: ["web"],
+    purpose: {
+      summary: "Delete a web monitor",
+      returns: "Deletes one monitor and stops all of its future checks, while its past check records stay available.",
+      use_when: "Use it when you no longer need a monitor at all; to stop it temporarily, pause it with PATCH instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -484,6 +591,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Monitors",
     tags: ["web"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List web monitor checks",
+      returns: "Returns the checks that have run for one monitor, with the result each check recorded.",
+      use_when: "Use it to read a monitor's results and see when the thing it watches changed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -512,6 +626,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Open Session",
     group: "Browser Sessions",
     tags: ["web"],
+    purpose: {
+      summary: "Create an interactive web session",
+      returns: "Starts a short lived browser session, opens your URL in it, and returns a session id you can send interactions to.",
+      use_when: "Use it when a page needs clicking, typing, or logging in before the content you want appears.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -537,6 +658,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Browser Sessions",
     tags: ["web"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List interactive web sessions",
+      returns: "Returns the browser sessions created with your API key, each with its status and expiry time.",
+      use_when: "Use it to find an open session id, or to check which sessions are still running.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "web",
@@ -560,6 +688,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Session Details",
     group: "Browser Sessions",
     tags: ["web"],
+    purpose: {
+      summary: "Get an interactive web session",
+      returns: "Returns one browser session's status, expiry time, and billing details.",
+      use_when: "Use it to check whether a session is still open before sending it more interactions.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -587,6 +722,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Run in Session",
     group: "Browser Sessions",
     tags: ["web"],
+    purpose: {
+      summary: "Execute an interaction in a web session",
+      returns: "Returns the result of running your code in an open browser session: success, stdout, stderr, exit code, a killed flag, and the final expression value.",
+      use_when: "Use it to drive a live page through the Playwright page, browser and chromium globals. With node the value lands in result; bash and python print to stdout.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "web_and_seo", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -610,6 +752,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Close Session",
     group: "Browser Sessions",
     tags: ["web"],
+    purpose: {
+      summary: "Close an interactive web session",
+      returns: "Closes one browser session and settles any credits still held for it.",
+      use_when: "Use it as soon as you are done with a session rather than waiting for it to expire on its own.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "account_control", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "web",
@@ -637,6 +786,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Scrape & Extract",
     tags: ["web"],
     responseShape: { root: "data.page" },
+    purpose: {
+      summary: "Parse an uploaded document",
+      returns: "Returns the text of a document you upload, such as a PDF, as clean markdown along with its page count.",
+      use_when: "Use it when you have the file itself; to read a normal web page use scrape instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   // --- tiktok (37 endpoints) ---
   {
@@ -656,6 +812,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok user profile",
     description:
       "Returns public profile information for a TikTok user: follower count, following count, total likes, bio, avatar URL, verification status, and the ISO 3166-1 alpha-2 region of the account at `author.location` (the same leaf `/v1/tiktok/profile/region` returns, included here so you do not need a second call). `author.followers` is the unrounded integer when the source exposes it. When only the public rounded figure is available, the same integer field is returned and `author.ext.followers_approximate` is true. Pass either `handle` or `user_id`. Profiles behind TikTok's 'audience controls' (a login/age wall in the browser) now return their profile record normally; their posts are readable through `/v1/tiktok/profile/videos` with the same handle. A profile with no publicly readable record still returns `404 RESOURCE_NOT_FOUND` with `error.details.reason` set to `account_private`. A handle the platform reports as unused returns the same status with `reason` set to `account_gone`; because TikTok numeric ids are permanent, re-running the lookup with `user_id` tells a renamed account from a removed one. `author.location` can be absent when the region source is unavailable; the rest of the profile is still returned.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "tokapi", fallbackKinds: ["tiktok-api23", "scrapecreators"] },
     tags: ["tiktok"],
@@ -666,6 +823,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/profile", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get TikTok user profile",
+      returns: "Returns a TikTok account's public profile: display name, bio, follower count on author.followers (or the rounded figure with author.ext.followers_approximate), likes, verification, and user id.",
+      use_when: "Use it when you have a handle and want a quick snapshot of an account before pulling its videos or followers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 9074, p95: 10258, p99: 10364, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "tiktok",
@@ -704,6 +869,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok user videos",
     description:
       "Returns a paginated list of recent public videos posted by a TikTok user. Each video includes view count, like count, comment count, share count, caption, and thumbnail URL. Profiles with TikTok 'audience controls' enabled (a login/age wall in the browser) are supported when looked up by `handle`; page-1 order on those gated accounts may follow recency rather than pinned-first.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "max_cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "tiktok-api23"] },
@@ -718,6 +884,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/videos", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List TikTok user videos",
+      returns: "Returns a page of an account's recent public videos, each with caption, view, like, comment and share counts, and a thumbnail URL. Handle lookup covers login or age-walled profiles.",
+      use_when: "Use it to list what one account has posted and page through it. Results come back in the source order, so sort_by does not reorder them. To find videos from many accounts by keyword, use search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 9519, p95: 14195, p99: 14440, n: 5, provisional: true, low_sample: true },
   },
   {
     platform: "tiktok",
@@ -739,6 +913,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok post details",
     description:
       "Returns detailed information about a specific TikTok video including view count, like count, comment count, share count, caption, music info, author details, and video metadata. When the creator added on-screen text with TikTok's built-in text tool, the overlay text is returned in `data.post.ext.on_screen_texts` (absent when the video has none: text burned in with an external editor is not detectable from post data).",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tiktok-api23", fallbackKinds: ["tokapi", "scrapecreators"] },
     tags: ["tiktok"],
@@ -750,6 +925,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/post", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get TikTok post details",
+      returns: "Returns one TikTok video in full: caption, engagement counts, author, sound, video metadata, and any on-screen text the creator typed with TikTok's text tool (post.ext.on_screen_texts).",
+      use_when: "Use it when you already have a video URL and want that single video's numbers, rather than a list from profile/videos or search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -759,7 +941,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "url", required: true, description: "Full URL of the TikTok video to fetch comments for", example: "https://www.tiktok.com/@stoolpresidente/video/7623818255903329566" },
     ],
     optionalParams: [
-      { name: "cursor", type: "integer", description: "Cursor to get more comments. Get 'cursor' from previous response." },
+      { name: "cursor", type: "string", description: "Cursor to get more comments. Get 'cursor' from previous response." },
       { name: "trim", type: "boolean", description: "Accepted for compatibility; the response is already the canonical shape, so this flag has no effect." },
       { name: "sort", type: "enum", enumValues: ["top", "recent"], description: "Optional. Without it, comments come in TikTok's own order (a relevance ranking, not newest first). `recent` returns them newest first by published_at; `top` returns them by like count. TikTok has no newest-first order of its own, so `recent` sorts the comments that were read: set scan_pages to read more of the thread. data.scan.complete is true only when the whole thread was read." },
       { name: "scan_pages", type: "integer", minimum: 1, maximum: 3, description: "Optional, 1 to 3, default 1. Reads that many pages, drops comments repeated across pages, and returns them all in the `sort` order (TikTok's own order when sort is absent). Costs 1 credit for each page that added comments; a page of repeats is not billed. data.scan reports the pages read and billed and whether the thread ended." },
@@ -781,6 +963,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok post comments",
     description:
       "Returns a list of comments on a specific TikTok video. Each comment includes the author username, comment text, like count, reply count, and creation timestamp.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "tokapi", fallbackKinds: ["tiktok-api23", "scrapecreators"] },
@@ -796,6 +979,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/post/comments", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List TikTok post comments",
+      returns: "Returns a page of comments on one TikTok video, each with the commenter's username, comment text, like count, reply count, and timestamp.",
+      use_when: "Use it to read a video's comment section; to expand one thread, take a comment's id and call video/comment/replies.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -825,6 +1015,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok comment replies",
     description:
       "Fetches replies to a specific TikTok comment by its ID. Returns an array of comment objects each with text, user info, and creation time. Paginate with the cursor from the previous response.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -838,6 +1029,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/video/comment/replies", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List TikTok comment replies",
+      returns: "Returns the replies under a single TikTok comment, with each reply's text, author, likes, and timestamps.",
+      use_when: "Use it after post/comments: pass the comment_id it returned together with the same video url to expand one thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -871,6 +1069,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/comment", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.comment" },
+    purpose: {
+      summary: "Look up one TikTok comment by URL or id",
+      returns: "Returns one TikTok comment with its current like count, reply count, pinned flag, author, and timestamp, found by link, by id, or by its text.",
+      use_when: "Use it to re-check a single known comment without paging the whole section; use post/comments when you want the section itself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1266, p95: 1266, p99: 1266, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "tiktok",
@@ -917,6 +1123,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TikTok videos by keyword",
     description:
       "Searches TikTok for videos matching a keyword query. Returns a list of matching videos with view counts, like counts, captions, author info, and thumbnails. Every row carries post.ext.region, the ISO 3166-1 alpha-2 country TikTok registered the video to (normally the creator's account country when they posted). The region= request parameter only sets the proxy; it does not filter. Keep one country by filtering on post.ext.region. Every row also carries the creator on it: post.author.username, post.ext.author_id (the creator's numeric user id) and post.ext.author_followers, the creator's follower count as the search source reported it, so a page filtered on post.ext.region is already a creator list for that country. For the creator's current exact follower count, bio and links, pass the username or id to /v1/tiktok/profile (?handle= or ?user_id=) at 1 credit, or batch up to 50 usernames per call through POST /v1/prism/profiles at 1 credit per resolved profile. Deduplicate creators across the whole crawl first; the same creators recur across keywords.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "apify-tiktok-search-labeled"] },
@@ -933,6 +1140,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search TikTok videos by keyword",
+      returns: "Returns TikTok videos matching a keyword, each with caption, view and like counts, author details, a thumbnail, and post.ext.region (the country the video is registered to).",
+      use_when: "Use it for a video keyword search you can page and sort. region= only sets the proxy; filter on post.ext.region for one country. limit=120 returns one page of up to 120. search/top is the Top tab.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -966,6 +1180,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/trending", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get TikTok trending feed",
+      returns: "Returns a page of popular TikTok videos with caption, view and like counts, author and thumbnail. Every row carries post.ext.region, the country the video is registered to.",
+      use_when: "Use it with feed=local for videos mostly from one country (57% measured). The default feed is largely worldwide whatever region you pass, so filter on post.ext.region.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1004,6 +1225,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TikTok by hashtag",
     description:
       "Searches TikTok for videos under a specific hashtag. Returns matching videos with engagement metrics and author info.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "tiktok-api23"] },
@@ -1018,6 +1240,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/search/hashtag", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search TikTok by hashtag",
+      returns: "Returns TikTok videos posted under a given hashtag, each with caption, view, like, comment and share counts, author details, and a thumbnail.",
+      use_when: "Use it to track one tag such as a campaign or challenge; use search when you want a free text keyword rather than a tag.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1047,11 +1276,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "TikTok top search results",
     description:
       "Returns the top-ranked videos for a keyword query on TikTok. Rows are posts only: account search lives at `/v1/tiktok/search/users` and sound search at `/v1/tiktok/search/music`. Filter by `publish_time` (also accepted as `date_posted`, the spelling `/v1/tiktok/search` uses) and `sort_by`. Every row carries `post.ext.region`, the country the video is registered to. The `region` request parameter only sets the proxy; filter on `post.ext.region` when you need one country.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "tiktok-api23"] },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "TikTok top search results",
+      returns: "Returns the videos TikTok ranks highest for a keyword on its Top tab, each with caption, author, engagement counts, a music id, and post.ext.region (the country the video is registered to).",
+      use_when: "Use it for TikTok's own relevance ranking. region= only sets the proxy; filter on post.ext.region for one country. search/users returns accounts, which this endpoint does not include.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1090,6 +1327,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "threads/search/users", why: "The same data from threads." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search TikTok users",
+      returns: "Returns TikTok accounts for a search term with username, name, avatar, followers, verification. include=profile adds bio, region, link and category. country= keeps one account region, 5 credits a row.",
+      use_when: "Use it to find accounts by name or topic. Add country=KR (or US, DE, …) when you need creators in one country. The video searches, search and search/top, give you posts rather than accounts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1107,6 +1351,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List similar TikTok accounts",
     description:
       "Returns TikTok accounts similar to a given creator: the related accounts TikTok itself suggests for that profile, typically about 30. Each account includes the username, display name, avatar, profile URL, bio, verification status, whether it is private, and its follower, following, video and like counts, so no second lookup is needed to size or qualify a lookalike. Pass `handle`. The list is specific to the seed: a chef returns other chefs and food creators, a dancer returns other dancers. To go wider, call it again with any returned username as the next `handle`. When TikTok's own list cannot be read, the list is built from the accounts Instagram suggests for the same creator, matched to their TikTok accounts and kept only when the TikTok account is verified or has at least 10,000 followers; those rows carry `author.ext.similar_source` set to `instagram` and `author.ext.instagram_username`, and TikTok's own rows do not. Cost: 5 credits a call. A creator with no suggestions returns an empty list and is refunded, and a handle TikTok does not know is a 404 at no cost. A repeat within the cache window is 0 credits. The list is a single fixed window: it is not paginated and returns no cursor. author.location is not published on this surface and is null on every row; `GET /v1/tiktok/profile` returns the region for any single account.",
+    budget_ms: 15000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-tiktok-similar", fallbackKinds: ["tiktok-similar-composed"] },
@@ -1115,6 +1360,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/similar", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List similar TikTok accounts",
+      returns: "Returns about 30 creators similar to a TikTok account, from TikTok's suggestions or, when those are unavailable, Instagram's matched to TikTok, each with bio and counts.",
+      use_when: "Use it to find lookalike creators for one you already know; it returns a single fixed list, so call it again on a result to go wider.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 12620, p95: 27918, p99: 30689, n: 6, provisional: true, low_sample: true },
   },
   {
     platform: "tiktok",
@@ -1132,9 +1385,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok user audience demographics",
     description:
       "Returns audience geography for a TikTok creator: audienceLocations ranks the top countries in the creator's audience with sampled follower counts and percentage share. The ranking is built from a sample of the creator's public followers (typically a few hundred), not the full follower base, so treat the percentages as a concentration ranking rather than a census. When the creator has a public Shop marketplace card, the same response also carries audienceAges and audienceGenders (percentage share) and audienceStates (sampled US-state counts). Age and gender are absent when no marketplace card exists; the country ranking is still returned.",
+    budget_ms: 20000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "scrapecreators" },
     tags: ["tiktok"],
+    purpose: {
+      summary: "Get TikTok user audience demographics",
+      returns: "Returns where a creator's followers are: the top countries in their audience, with sampled follower counts and each country's share.",
+      use_when: "Use it for audience geography only. Age and gender are not available publicly on TikTok or any other platform.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1155,6 +1416,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok user followers",
     description:
       "Returns a list of followers for a TikTok user. Each follower includes username, display name, avatar, and follower count.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "min_time" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "tiktok-api23"] },
@@ -1166,6 +1428,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/user/followers", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List TikTok user followers",
+      returns: "Returns a page of accounts that follow a TikTok user, each with username, display name, avatar, and its own follower count.",
+      use_when: "Use it to list who follows an account and page through them; user/following returns the reverse, the accounts they follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1186,6 +1455,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok user following",
     description:
       "Returns a list of accounts that a TikTok user is following. Each account includes username, display name, avatar, and follower count. Paginate with `min_time` from the previous response to walk the full list.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "min_time" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "tokapi", fallbackKinds: ["scrapecreators", "tiktok-api23"] },
@@ -1197,6 +1467,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/user/following", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List TikTok user following",
+      returns: "Returns a page of accounts a TikTok user follows, each with username, display name, avatar, and its own follower count.",
+      use_when: "Use it to list who an account follows and page through them; user/followers returns the reverse, the accounts that follow it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1217,6 +1494,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 60 },
     upstream: { kind: "scrapecreators" },
     tags: ["tiktok"],
+    purpose: {
+      summary: "Get TikTok user live stream",
+      returns: "Returns a TikTok account's live room in the platform's own shape: cover image, title, start time, status code, viewer and entry counts, stream ids, and the host's profile.",
+      use_when: "Use it to read a creator's live room state, but check status and start time yourself, since a room may still be returned after the broadcast has ended.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1240,6 +1524,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok video transcript",
     description:
       "Returns the transcript of a TikTok video. Supports auto-generated captions and AI-powered transcription as fallback.",
+    budget_ms: 30000,
     cache: { category: "immutable", ttlSeconds: 2592000 },
     upstream: { kind: "scrapecreators" },
     tags: ["tiktok"],
@@ -1247,6 +1532,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/post/transcript", why: "The same data from linkedin." },
       { id: "facebook/post/transcript", why: "The same data from facebook." },
     ],
+    purpose: {
+      summary: "Get TikTok video transcript",
+      returns: "Returns the spoken text of a TikTok video from its captions, with an option to fall back to AI transcription when no captions exist.",
+      use_when: "Use it when you need what was said rather than the numbers; post gives you the video's caption and metrics but no transcript.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1274,6 +1566,13 @@ export const ENDPOINTS: Endpoint[] = [
       "source": "Which layers produced data: native+ocr, native, ocr, or none.",
       "frame": "Which frame the OCR layer analysed (currently always the video's cover frame, or null when the video exposes no cover).",
     },
+    purpose: {
+      summary: "Get TikTok video on-screen text",
+      returns: "Returns the text shown on the video itself: native text stickers plus AI OCR of the cover frame, so burned-in editor captions are caught too.",
+      use_when: "Use it for the on-screen overlay text; the caption lives on post and the spoken words on post/transcript.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1295,6 +1594,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "tiktok-api23", fallbackKinds: ["scrapecreators"] },
     tags: ["tiktok"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get TikTok song details",
+      returns: "Returns one TikTok sound's details: title, artist, duration, how many videos use it, and its cover image.",
+      use_when: "Use it when you have a sound's clipId and want the sound itself; song/videos returns the videos made with it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1314,11 +1620,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok videos using a song",
     description:
       "Returns videos that use a specific TikTok sound/song. Each video includes engagement metrics, author info, and caption. `data.adoption` counts those videos by the day in `published_at`, says how many rows had no date, and sets `returning` when an old sound's first page is mostly from the last three days. The curve is global: these rows do not carry a region. `use=1` also files each caption into lip-sync, tutorial, before-and-after, greeting-card reveal, or none. No extra credits. To record how many videos use the sound every day, create a Monitor on /v1/tiktok/song that tracks `post.engagement.views`; see /docs/recipes/track-sound-growth.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tiktok-api23", fallbackKinds: ["scrapecreators"] },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List TikTok videos using a song",
+      returns: "Returns videos that use a given TikTok sound, each with caption, author details, and engagement counts.",
+      use_when: "Use it to see how a sound is being used and page through those videos; song returns only the sound's own details.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1338,11 +1652,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Read TikTok's own trending-hashtag board for a market and time window: the overall board plus 15 industry boards. Metered: 2 credits per hashtag returned, minimum 6",
     description:
       "Returns the hashtags TikTok itself ranks as trending in a market over the last 7, 30 or 90 days, from the hashtag board TikTok publishes for advertisers. Each row is one hashtag: `content.text` is the tag (no `#`), `id` is TikTok's hashtag id and `url` its TikTok page. What the board says about it is on `ext.trend`: `rank` on the board it was read from, `posts` and `views` for the window (not the tag's lifetime totals, which is why `engagement.views` is null), `industry` / `industry_id` / `industry_label` naming that board (null for the overall board), `popularity_curve` as one relative value per day (0 to 100, peak = 100), and `top_creators` with handle, name, followers and country. **Depth: TikTok shows three hashtags per board to a reader who is not logged in, and that is what this endpoint reads.** One board is therefore three rows. Pass `industry=all` to read the overall board and all 15 industry boards in one call, typically 44 to 46 unique hashtags, which is where the niche signal is (in Germany the industry boards carried #adventskalender, #kürbis and #berufsschule while the overall board was three general tags). A hashtag that ranks on more than one board appears once and is billed once: its `rank` and `industry` fields name the first board it was read from (overall first, then the industries in TikTok's order), and `ext.trend.boards` lists every board it ranks on with its rank there, so a hashtag in the top 3 overall and on an industry board shows both. **Markets:** the 27 TikTok publishes this board for. **Not available any more:** the 120-day window, a second page, the new-to-top-100 filter, rank change, and the business-services, financial-services and life-services industries; each is refused with a 400 at no charge. **Pricing is metered at 2 credits per hashtag returned, minimum 6.** One board costs 6; `industry=all` holds 96 and settles to the rows returned (about 90). A board with no rows costs nothing.",
+    budget_ms: 25000,
     singlePage: "TikTok's hashtag board is a ranked leaderboard with no second page: a logged-out reader gets the top three per board. Use industry=all to read the overall board and all 15 industry boards in one call, or change countryCode or period for a different board.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "apify-tiktok-hashtag-trends", fallbackKinds: ["apify-tiktok-hashtag-slice"] },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Read TikTok's own trending-hashtag board for a market and time window: the overall board plus 15 industry boards. Metered: 2 credits per hashtag returned, minimum 6",
+      returns: "Returns TikTok's trending-hashtag board for one of 27 markets over 7, 30 or 90 days: each hashtag's rank, window post and view counts, daily popularity curve, industry board and top creators.",
+      use_when: "Use it for seed-free trend collection by market. One board is three hashtags; pass industry=all for the overall board plus all 15 industry boards in one call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1363,11 +1685,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Read TikTok's own Top Videos board for the US, Japan, Vietnam, Thailand or Indonesia. Metered: 25 credits per board plus 1 per video returned",
     description:
       "Returns the videos TikTok itself ranks at the top of its Top Videos board for a market over the last 7 or 30 days, sorted by views, engagement or 6-second views. Each row is a video: `id`, `url`, the caption at `content.text`, the cover and a video file URL (signed, expires within hours), the creator at `author.username` / `author.display_name` with `ext.author_id` and `ext.author_followers`, the upload time at `published_at`, and lifetime views at `engagement.views`. What the board says about it is on `ext.trend`: `rank`, `period_views` (views inside the window), `organic_views`, `engagement_rate`, `six_second_view_through_rate` and TikTok's `content_tags`. **Markets: TikTok publishes this board for US, JP, VN, TH and ID only.** Any other market, Germany included, is refused with a 400 at no charge; for those markets use `/v1/tiktok/hashtags/popular`, which covers 27. **The board carries no like, comment or share counts and no duration**, so those leaves are null rather than estimated. It includes paid and branded posts; `organic_views` is the only paid-versus-organic signal TikTok gives. A logged-out reader of TikTok's page sees the top four, and ranks 1 to 4 were checked against it; deeper ranks follow TikTok's order as served. **Pricing is metered at 25 credits per board plus 1 credit per video returned** (20 videos = 45 credits), because each read of the board has a fixed cost. An empty board costs nothing.",
+    budget_ms: 35000,
     singlePage: "TikTok's Top Videos board is a ranked leaderboard with no cursor. `limit` controls how far down it you read (up to 20); change countryCode, period or orderBy for a different board.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "apify-tiktok-video-trends" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Read TikTok's own Top Videos board for the US, Japan, Vietnam, Thailand or Indonesia. Metered: 25 credits per board plus 1 per video returned",
+      returns: "Returns TikTok's Top Videos board for the US, Japan, Vietnam, Thailand or Indonesia over 7 or 30 days: each video's rank, lifetime and window views, organic views, engagement rate and creator.",
+      use_when: "Use it for the videos TikTok ranks highest in those five markets. Other markets have no board and return a free 400; use hashtags/popular there.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1385,10 +1715,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok profile region",
     description:
       "Returns the ISO 3166-1 alpha-2 region code for a public TikTok profile (e.g. `US` for United States, `MX` for Mexico), together with the account's follower, following, post and like counts, display name, avatar, bio and verified flag. Useful for routing region-locked workflows and deduplicating profiles by country. The counters are filled from a second source inside the same request, for the same one credit, so you do not need a separate profile call to get them. The region itself is the one leaf that can be absent: it comes from a single source, and if that source is unavailable the rest of the profile is still returned with `location` null.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["tokapi"] },
     tags: ["tiktok"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get TikTok profile region",
+      returns: "Returns the two letter country code for a public TikTok profile, for example US or MX.",
+      use_when: "Use it when all you need is an account's country, for routing or de-duplicating by market; profile returns the full account.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1418,6 +1756,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "ad", sibling: "tiktok/adlibrary/ad", fills: ["post.author.avatar_url", "post.ext.ad.brand_name", "post.ext.ad.landing_page", "post.ext.ad.profile_web_link", "post.ext.ad.objectives", "post.ext.ad.country_code", "post.ext.ad.source"], creditsPerItem: 1, maxItems: 12, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "ad_unavailable", partial: "ad_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search the TikTok Ad Library",
+      returns: "Returns TikTok Ad Library ads matching a keyword or advertiser name, each with creative, title, advertiser, impressions and date; include=ad adds the brand, landing page and advertiser link.",
+      use_when: "Use it to find ads by query or advertiser_name; pass an ad id from the results to adlibrary/ad for the full record.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1443,6 +1788,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/adlibrary/ad", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a TikTok Ad Library ad",
+      returns: "Returns one TikTok Ad Library ad: creative video, title, advertiser account, landing page, brand name, and first-shown date.",
+      use_when: "Use it when you already have an ad id or library URL; use adlibrary/search to find ads by keyword or advertiser name first.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1471,6 +1823,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "etsy/search/suggestions", why: "The same data from etsy." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get TikTok search suggestions",
+      returns: "Returns the autocomplete suggestions TikTok's own search box shows for a partial query, as a list of suggestion rows.",
+      use_when: "Use it for keyword research, or to expand a seed term before running search or search/top.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1495,6 +1854,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List videos in a TikTok collection",
+      returns: "Returns the public videos inside a TikTok collection, each with caption, play like comment share and save counts, author, and a playable URL.",
+      use_when: "Use it when you have a collection URL and want the videos saved there, paging with max_cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1513,11 +1879,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a TikTok account's playlists",
     description:
       "Returns the playlists a TikTok creator has published on their profile, each with its playlist id, name, and the number of videos it contains under `post.ext.video_count`. Pass the playlist id to `/v1/tiktok/playlist/videos` to read the videos themselves. The video count is the account's own figure and is accurate; view totals are not exposed for a playlist, so `post.engagement` is null on every row.",
+    budget_ms: 20000,
     singlePage: "Measured 29/08/2026 on three accounts: has_more is false at 1, 6 and 20 rows, and an offset past the last row returns an envelope with no playlist key at all.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a TikTok account's playlists",
+      returns: "Returns the playlists a TikTok creator has published on their profile, each with its playlist id, its name, and the number of videos it holds.",
+      use_when: "Use it to find a playlist id before calling playlist/videos. TikTok does not publish a view total for a playlist, so engagement stays null on every row.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1539,11 +1913,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List videos in a TikTok playlist",
     description:
       "Returns the videos inside one of a creator's profile playlists, in playlist order, ten per page. Each video carries the full set of engagement counts, the caption, the author, and a playable URL. Get the `playlist_id` from `/v1/tiktok/profile/playlists`. Page with `cursor`: the value the previous response returned must be sent back unchanged, because it is the upstream's own item index and is not always the number of rows you have already received.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List videos in a TikTok playlist",
+      returns: "Returns the videos inside one of a creator's profile playlists, in playlist order, each with engagement counts, caption, author, and a playable URL.",
+      use_when: "Use it with a playlist id from profile/playlists. Send the cursor back unchanged, because it is the upstream's item index and not a count of the rows you hold.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1563,11 +1945,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List the videos a TikTok account has liked",
     description:
       "Returns the videos a given TikTok account has liked, newest first, thirty per page. This is the account's own likes feed and it reads in one direction only: it answers what this user liked, not who liked a given video. There is no endpoint for the other direction, on this API or any other, because TikTok keeps the identity of the people who like a post private. Each row is another creator's video and carries that creator's author block, engagement counts and caption. Most accounts keep their likes list private: when they do, the response is `404 RESOURCE_NOT_FOUND` and the request is refunded. Check `author.ext` on `/v1/tiktok/profile` first if you want to know before you call. Page with `cursor`, sending back the value from the previous response unchanged.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List the videos a TikTok account has liked",
+      returns: "Returns the videos a TikTok account has liked, newest first, each carrying its own third party author, engagement counts, caption, and a playable URL.",
+      use_when: "Use it for what an account likes, not for who liked a post: that direction does not exist on TikTok. Most accounts hide the list, and a hidden list is a refunded not found.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1588,6 +1978,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok videos tagged at a place",
     description:
       "Returns public videos tagged at a TikTok place, twenty per page, with full engagement counts and author details on every row. `location_id` is TikTok's own place id, the number that appears in a place page URL. A place id TikTok does not recognise returns `404 RESOURCE_NOT_FOUND` and is refunded, which is distinct from a real place that simply has no recent posts: that returns an empty list.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
@@ -1596,6 +1987,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/location/posts", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List TikTok videos tagged at a place",
+      returns: "Returns public TikTok videos tagged at a place, each with engagement counts, caption, author, and a playable URL.",
+      use_when: "Use it with TikTok's own place id from a place page URL. An unknown place is a refunded not found, while a real place with nothing recent returns an empty list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1613,11 +2011,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok effects by id",
     description:
       "Looks up TikTok effects (the camera filters creators apply to a video) by id, up to 50 in one request for a single credit. Each row carries the effect name, its designer, the total views of videos made with it under `post.engagement.views`, and the number of such videos under `post.ext.video_count`. Match results by the returned `post.id`, never by position: repeated ids are collapsed into one row and ids TikTok does not recognise are omitted, so the response can be shorter than the list you sent. A request in which no id is recognised returns `404 RESOURCE_NOT_FOUND` and is refunded.",
+    budget_ms: 20000,
     singlePage: "Batch id lookup: the caller supplies the full set of ids and the response carries no cursor, no has_more and no total.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get TikTok effects by id",
+      returns: "Returns TikTok camera effects by id, each with its name, its designer, the views of videos made with it, and how many such videos exist.",
+      use_when: "Use it to look several effects up in one call, and match results by the returned id. Repeated ids collapse and unknown ids drop, so the response can be shorter.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1638,11 +2044,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TikTok videos made with an effect",
     description:
       "Returns public videos created with a TikTok effect, with full engagement counts and author details on every row. TikTok chooses its own page size here and it does not track the number you ask for, so send the `cursor` from the previous response back unchanged rather than adding up the rows you have received. An effect id TikTok does not recognise returns `404 RESOURCE_NOT_FOUND` and is refunded.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List TikTok videos made with an effect",
+      returns: "Returns public TikTok videos created with a camera effect, each with engagement counts, caption, author, and a playable URL.",
+      use_when: "Use it with an effect id from effects, and send the cursor back unchanged. TikTok picks its own page size here and ignores the one you ask for.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "tiktok",
@@ -1665,6 +2079,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TikTok sounds",
     description:
       "Searches TikTok's sound catalogue by keyword and returns up to thirty matching sounds per page, each with its title, artist, duration, cover art, a preview audio URL, and the number of videos using it under `post.ext.video_count`. Where TikTok knows the track on the major music stores, `post.ext.dsp_ids` carries its Apple Music, Spotify and Amazon ids, which is what makes a sound joinable to catalogue data outside TikTok. Pass `post.ext.music_id` to `/v1/tiktok/song/videos` to see the videos using a sound.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "tokapi" },
@@ -1673,6 +2088,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/search/music", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search TikTok sounds",
+      returns: "Returns TikTok sounds matching a keyword, each with title, artist, duration, cover art, a preview audio URL, and how many videos use it.",
+      use_when: "Use it to size a sound trend, or to join a TikTok sound to Apple Music, Spotify and Amazon through the store ids on ext.dsp_ids.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1691,10 +2113,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok hashtag details",
     description:
       "Returns TikTok's own record for a hashtag: its display name, its description where the platform has written one, and the two numbers that size it. `post.engagement.views` is the total views of videos under the tag and it is live, moving between calls minutes apart. `post.ext.video_count` is how many videos carry the tag. Pass either the tag name or, if you already have it, TikTok's numeric hashtag id. Use `/v1/tiktok/search/hashtag` to read the videos themselves.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tokapi" },
     tags: ["tiktok"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get TikTok hashtag details",
+      returns: "Returns TikTok's own record for a hashtag, with its display name, its description where one exists, the live total views under the tag, and how many videos carry it.",
+      use_when: "Use it to size a tag before pulling its posts. Pass the tag name and the id lookup happens for you, or pass hashtag_id when you already hold it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1720,6 +2150,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Read TikTok's Creative Center Top Ads board: the best-performing ads in a market, ranked by CTR, impressions or engagement. Metered: 1 credit per ad returned, minimum 10",
     description:
       "Returns TikTok's own leaderboard of top-performing ads for a market and time window, with the performance signals TikTok publishes and nothing else does: `ext.ad.ctr` is the click-through rate, `ext.ad.rank` is the ad's position on the board, `ext.ad.cost_score` and `ext.ad.like_tier` are TikTok's own banded cost and engagement tiers, and `engagement.likes` is the real like count. Each row carries the ad's video at `content.media_urls` (720p, with 540p and 360p renditions on `ext.ad`), the cover image, the duration, the advertiser at `author.username`, and the campaign objective and industry at `ext.ad.objective` / `ext.ad.industry`. **This is a different surface from `/v1/tiktok/adlibrary/search`.** That endpoint reads the EU Commercial Content Library, which carries who an ad was targeted at across 33 EU/EEA countries but publishes no performance data; this one reads the global Creative Center board across 24 markets including the US, Korea, Japan and Brazil, and publishes performance but no targeting. Use this one to find creative that worked, and that one to find who an advertiser bought. **There is no publish date**: TikTok does not attach one to the board, so `published_at` is null on every row rather than filled with the time you called. `brandName` is absent on roughly half of live rows because TikTok attributes some top ads to no brand, so `author.username` is null there too. **Pricing is metered at 1 credit per ad RETURNED, with a minimum of 10** — the board is served in blocks of ten, so a smaller `limit` still costs ten.",
+    budget_ms: 25000,
     singlePage: "The Creative Center board is a ranked leaderboard with no cursor. `limit` controls how far down the ranking you read; change `period`, `country` or the filters for a different board.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "apify-tiktok-ads" },
@@ -1728,6 +2159,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Read TikTok's Creative Center Top Ads board: the best-performing ads in a market, ranked by CTR, impressions or engagement. Metered: 1 credit per ad returned, minimum 10",
+      returns: "Returns TikTok's Creative Center leaderboard of top-performing ads for a market and time window, each with click-through rate, board rank, like count, industry, objective, and the ad video.",
+      use_when: "Use it to find ad creative that actually performed. It is one window with no cursor, so set limit for depth and change country, period, or order_by for a different board.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktok",
@@ -1760,6 +2198,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile/full", why: "The same data from instagram." },
       { id: "youtube/profile/full", why: "The same data from youtube." },
     ],
+    purpose: {
+      summary: "TikTok profile, recent posts, and computed analytics in one call.",
+      returns: "Returns a TikTok profile plus its latest 10 videos and computed stats: engagement rate by views and by followers, posting cadence, the top post, and the mix of formats.",
+      use_when: "Use it instead of profile when you want the account, its recent posts, and the engagement maths in one call rather than three.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- instagram (38 endpoints) ---
   {
@@ -1781,6 +2226,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Instagram user profile",
     description:
       "Returns public profile information for an Instagram user including the exact integer follower count, following count, bio, profile picture URL, and verification status. `author.posts_count` is the account's lifetime post count, for accounts of any size, in the same call and for the same 1 credit. In the rare case that count cannot be read in time the leaf is null rather than a wrong number, and a repeat call normally fills it. Age-restricted (18+) profiles are supported. When the account publishes a contact address in its bio, it is returned as `author.ext.public_email`; otherwise that leaf is null. Instagram's in-app tap-to-email button is not readable from any public surface, so the bio is the only source for it.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker", "rapidapi-prosocial"] },
     tags: ["instagram"],
@@ -1794,6 +2240,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/profile", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Instagram user profile",
+      returns: "Returns an Instagram account's public profile: bio, exact follower count, following count, lifetime post count, picture URL, verification, and author.ext.public_email from the bio.",
+      use_when: "Use it for a quick snapshot by handle; profile/full adds recent posts and computed metrics, and profile/about adds country, month joined and contact.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 3660, p95: 7235, p99: 13411, n: 94, provisional: true },
   },
   {
     platform: "instagram",
@@ -1811,6 +2265,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Instagram account transparency details",
     description:
       "Returns the data behind Instagram's \"About this account\" panel for a public account: the country the account is based in (`author.ext.country`), the month it joined (`author.ext.account_created`), and the public contact address and phone the account publishes (`author.ext.public_email`, `author.ext.public_phone`). Country is the account's own declared country, not the country you are calling from. The same call returns the profile itself: follower and following counts, bio, avatar, verification, and the account's lifetime post count as `author.posts_count`. Coverage follows what Instagram publishes: an account that shows no transparency panel returns null for those fields.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "hiker", fallbackKinds: ["apify-instagram-profile"] },
     tags: ["instagram"],
@@ -1818,6 +2273,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/about", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Instagram account transparency details",
+      returns: "Returns Instagram's \"About this account\" details for a public account (country, month joined, published contact) plus its follower count and lifetime post count.",
+      use_when: "Use it when you need an account's total post count, or to tell where a creator is based, for example to include or exclude a region.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2605, p95: 2605, p99: 2605, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -1855,6 +2318,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram user posts",
     description:
       "Returns the public posts on an Instagram profile, newest first. Paging the cursor continues through that grid until it ends. Each post includes the written caption, the post URL, the media type, the post date, the like count and the comment count. Instagram is currently returning two record widths in the same page on this surface, and the narrow one carries no like count, no comment count and no author display name, so those three leaves can be null on some rows of a page and populated on others, with a different set of rows affected on each call. Every row still carries its id, URL, caption, timestamp and picture. Every row also carries `post.ext.media_type` (`image`, `video` or `carousel`), a carousel carries its slide count at `post.ext.carousel_count`, and `post.flags.pinned` marks the posts the owner pinned to the top of the grid. `exclude_pinned=true` leaves those pinned posts out, and `recent_days=N` keeps only posts from the last N days and stops the pagination once a page reaches older posts, so walking a feed back to a date window needs no manual stop. Send `include=audio` to add the sound each video uses: `post.ext.music_id`, the id /v1/instagram/audio/reels takes, and `post.ext.music` (`{ id, track_title, artist, is_original }`), for 1 extra credit per video filled. When you need the engagement for a specific post, pass its URL to /v1/instagram/post/stats; for a whole feed with share counts merged in, use /v1/instagram/profile/posts/full. Collaborative posts (Instagram's native \"Collab\" feature) are fully resolved: `post.ext.coauthors` lists every co-author account as `{ id, username, full_name, is_verified, profile_pic_url }`. Read it whenever you list a profile: a collab post has a single producer and appears in every co-author's grid, so `post.author` is whichever account created the post and is not always the handle you queried. The complete set of accounts on a post is `post.author.username` plus every `username` in `post.ext.coauthors`. An empty array means Instagram reports the post as not a collab; on a narrow record the key is absent rather than empty, which means the question was not answered for that row, so treat absent and `[]` as different. Note: engagement.shares is null on this endpoint (the upstream carries no per-post share count); to additionally merge in per-post share counts where a second source exposes them (coverage varies by account), use /v1/instagram/profile/posts/full. With trim=true every field above is still returned, except that `post.ext.coauthors` is omitted and `post.flags.pinned` is null, because the trimmed upstream record carries neither signal. Trim does not change the two record widths described at the top: those vary per row whether or not you set it.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "next_max_id" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker", "rapidapi-flashapi", "rapidapi-prosocial"] },
@@ -1873,6 +2337,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/profile/posts", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Instagram user posts",
+      returns: "Returns the public posts on a profile, newest first, with the written caption, like and comment counts, media URL, media type, and timestamp. Paging the cursor continues through that grid until it ends. Share counts are not included. Collab posts list every co-author under ext.coauthors.",
+      use_when: "Use it for a plain feed pull; profile/posts/full adds per-post share counts. On a collab post the author is whoever created it, so read ext.coauthors for everyone on it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 4677, p95: 5050, p99: 5084, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -1894,6 +2366,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Instagram post details",
     description:
       "Returns detailed information about a specific Instagram post including view count on videos and reels, like count, comment count, caption, media URLs, media type, author info, and tagged users. The view count is served resiliently: Instagram removed per-post play counts from its public web pages in August 2026, so when the primary source omits the count on a video the API automatically fills engagement.views (and ext.ig_play_count) from a second source within the same request. One call, one credit, no extra endpoint needed. Co-author data is the one thing this endpoint cannot give you: the public web page behind it reports an empty co-author list on every post, including genuine collaborative ones, so `post.ext.coauthors` is deliberately omitted here rather than returned as a misleading empty array. For the co-author list of a single post use /v1/instagram/post/stats, and for a whole feed use /v1/instagram/profile/posts or /v1/instagram/profile/reels.",
+    budget_ms: 26000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker", "rapidapi-flashapi", "rapidapi-prosocial"] },
     tags: ["instagram"],
@@ -1905,6 +2378,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/post", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Instagram post details",
+      returns: "Returns one post's details: caption, view count on videos and reels, like and comment counts, media URLs, media type, the author, and any tagged users.",
+      use_when: "Use it for the standard single post lookup, views included on video; use post/stats only when you also need the share count.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 3529, p95: 7854, p99: 8069, n: 5, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -1936,6 +2417,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram post comments",
     description:
       "Returns a list of comments on an Instagram post, ranked by the platform's own popularity order by default (`sort=top`) so the most-liked comments come first, or newest-first with `sort=recent`. Each comment includes the author, comment text, real like count, reply count, and creation timestamp. Page through with `cursor`. Note: comment.author.display_name is usually null, because the Instagram surface that serves this endpoint withholds commenter display names. Join on comment.author.username.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["hiker", "rapidapi-prosocial", "scrapecreators"] },
@@ -1950,6 +2432,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/post/comments", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List Instagram post comments",
+      returns: "Returns a post's comments, each with its text, author, like count, reply count, and time, ranked by popularity by default or newest first.",
+      use_when: "Use it to read the comment section of one post, paging deeper with the cursor it returns; pass sort=recent for newest first.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2628, p95: 9621, p99: 21780, n: 51, provisional: true },
   },
   {
     platform: "instagram",
@@ -1982,6 +2472,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/comment", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.comment" },
+    purpose: {
+      summary: "Look up one Instagram comment by URL or id",
+      returns: "Returns one comment's current text, like count, reply count, author, and timestamp, plus the post's total comment count for context.",
+      use_when: "Use it when you already know which comment you want, so you do not have to page through post/comments to find it again.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2988, p95: 9803, p99: 11065, n: 5, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2003,6 +2501,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["instagram"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Instagram basic profile",
+      returns: "Returns a minimal Instagram profile looked up by numeric user id: username, full name, and profile picture.",
+      use_when: "Use it when all you have is a numeric user id and only need the name and avatar; use profile for bio, follower counts, and verification.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "instagram",
@@ -2040,6 +2545,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram user reels",
     description:
       "Returns a list of reels posted by an Instagram user. Each reel includes view count, like count, comment count, and thumbnail. Every row carries `post.ext.media_type` (`video`) and the remix counter Instagram shows at `post.ext.remix_count`, the number of reels made from this one. A reel that uses licensed music carries `post.ext.music_id`, the id /v1/instagram/audio/reels takes, and `post.ext.music` (`{ id, track_title, artist, is_original }`) on the plain call; send `include=audio` to add the same two leaves on reels that use an original sound, for 1 extra credit per reel filled. Send `include=stats` for the full stat line on every reel of the page, for 1 extra credit a page: `engagement.shares`, `engagement.saves` and `post.ext.repost_count` beside views, likes, comments and the remix counter, `post.ext.music_id` for every reel whatever its sound, and `post.ext.audio_cluster_id`, Instagram's audio cluster for the reel (the id Instagram uses to group different uploads of the same sound; the plain call does not carry it). `exclude_pinned=true` leaves out the reels pinned to the top of the reels tab, and `recent_days=N` keeps only reels from the last N days and stops the pagination once a page reaches older reels. Collaborative reels (Instagram's native \"Collab\" feature) carry the full co-author list under `post.ext.coauthors` as `{ id, username, full_name, is_verified, profile_pic_url }`; `post.author` stays the producing account, which on a collab is not always the handle you queried. An empty array means Instagram reports the reel as not a collab; on a narrow record the key is absent rather than empty, which means the question was not answered for that row, so treat absent and `[]` as different. Note: engagement.shares is null on this endpoint (the upstream carries no per-post share count); to additionally merge in per-reel share counts where a second source exposes them (coverage varies by account), use /v1/instagram/profile/reels/full. With trim=true you get a lighter record: the engagement, the author, the caption, the timestamp and the reel URL are all still returned, but `post.content.media_urls` is null because the trimmed record carries no video file, `post.content.duration_seconds` is null, `post.ext.coauthors` is omitted and `post.flags.pinned` is null. The cover image is returned as `post.content.thumbnail_url` either way. Leave trim unset when you need the video URL or the duration. Instagram is currently serving two record shapes on this endpoint and one of them omits the caption, so `post.content.text` can be null on a page where the reel plainly has one; re-request to get a page from the fuller shape, or read the caption from /v1/instagram/post.",
+    budget_ms: 28000,
     pagination: { style: "cursor", nativeParam: "max_id" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker", "apify-instagram-reels"] },
@@ -2057,6 +2563,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/profile/reels", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Instagram user reels",
+      returns: "Returns a user's reels with view, like and comment counts and a thumbnail; share counts are not included here. Collab reels list every co-author under ext.coauthors.",
+      use_when: "Use it for reels only rather than the whole post feed; use profile/reels/full when you also need per-reel share counts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 4550, p95: 20455, p99: 22319, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2075,11 +2589,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram story highlights",
     description:
       "Returns a list of story highlight collections for an Instagram user including highlight titles, cover images, and item counts.",
+    budget_ms: 20000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Instagram story highlights",
+      returns: "Returns a user's saved story highlight collections, each with its title, cover image, and the number of items inside.",
+      use_when: "Use it to list the highlight collections on a profile, then pass one of the ids to highlight/detail to open it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2087,7 +2609,7 @@ export const ENDPOINTS: Endpoint[] = [
     method: "GET",
     params: [],
     optionalParams: [
-      { name: "id", type: "string", description: "Instagram highlight ID: the numeric id, with or without the `highlight:` prefix. Get it from `/v1/instagram/user/highlights`.", example: "18067016518767507" },
+      { name: "id", type: "string", description: "Instagram highlight ID: the numeric id, with or without the `highlight:` prefix. Get it from `/v1/instagram/highlights`.", example: "18067016518767507" },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -2102,6 +2624,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get Instagram highlight detail",
+      returns: "Returns the individual stories saved inside one highlight, with their media URLs, timestamps, and interaction counts.",
+      use_when: "Use it after highlights: pass the id it returned to see the contents of a single collection.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "instagram",
@@ -2145,6 +2674,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Instagram reels",
     description:
       "Searches Instagram for reels matching a keyword query. Returns matching reels with view counts (engagement.views, the play count), like counts, comment counts, and author info, sourced from the Instagram surface that still carries play counts. Each row carries post.ext.author_id (the creator's numeric user id) and post.author.username. `post.ext.author_followers` is null on a plain call, because Instagram stopped sending follower counts in its search payload in August 2026; `include=creator` fills it. Three optional params add what the search itself lacks. Each works alone, and they combine; without them the call is unchanged. `region` (ES, MX, DE, BR, KR or FR) localises the results. Instagram does not rank search by country, so the market's own name is added to your query (`fitness` becomes `fitness españa`), unless the query already names the market or is already written in the market's own script (Hangul for KR), which Instagram localises by itself. The response reports what ran in `data.region`: `{ requested, method: \"localised_query\", query_sent }`. `region` favours creators from that market but does not promise that every creator is from it; `country` does. `include=creator` adds each reel's creator card, read from the creator's About this account panel: `post.ext.author_country`, `author_followers`, `author_following`, `author_posts_count`, `author_public_email` and `author_public_phone`, plus the name, avatar and verified flag where the row lacks them. It labels rows and never drops, adds or reorders them. `author_country` is the country the creator declares on that panel, not where the reel was filmed. A null means Instagram does not publish one for that creator, and nothing is guessed. `country` keeps only the reels whose creator declares that market. It adds the creator card, and when `region` is not sent it localises the query for the same market. `data.country` reports `{ requested, kept, dropped_other, dropped_unknown }`: rows from another country, and rows whose creator publishes none, are dropped and counted. Topics about a place, such as travel or eSIMs, are often made by visitors, so the localised query finds fewer local creators there. A phrasing locals use helps (`esim móvil` rather than `esim`), and `country` keeps only the market's creators. `region` and `country` mean what they mean on TikTok search. Only the mechanism of `region` differs: TikTok searches from the market, while Instagram, which ignores where a search comes from, gets a localised query. Price: `region` costs nothing extra. The creator card costs 2 credits per creator looked up. Two reels by one creator are one lookup, a creator that cannot be found is refunded, and a creator looked up in the last 15 minutes is free. Time: `region` adds nothing. The creator card typically adds about 5 to 17 seconds on a fresh page (the lookups run 12 at a time), and little when the creators were looked up in the last 15 minutes. `data.hydration` reports the rows, lookups, cache hits, credits held and kept, and the time. On a `max_pages` walk each creator is looked up once, the report sums every page, and `from_earlier_pages` counts rows filled free from a creator already looked up earlier in the walk. A walk starts another page with the creator card only while at least 30 seconds of its time remain, so a `max_pages` walk with `include=creator` or `country` often stops after its first fresh page with `stopped: \"time_budget\"`; pages whose creators are cached go further. `data._warnings` carries `creator_partial` when some creators could not be read (they are refunded) and `creator_unavailable` when none could. With `country`, a page where no creator matches is `items: []` with the warning `country_no_match`, and its lookups are still billed. A page left empty only because the creator lookups failed costs nothing. `format=raw` cannot be combined with `include=creator` or `country`; that is a free 400. Note: engagement.shares and engagement.saves are null on this endpoint; for a per-reel share count pass a result URL to /v1/instagram/post/stats, or use /v1/instagram/profile/reels/full to get a whole creator's reels with share counts merged in. Saves are platform-private. Instagram exposes no numeric save metric on any surface, and it is never fabricated. Result ordering is Instagram's own relevance ranking and is not stable between calls: the same query re-run minutes later can return a different, overlapping set. Rank on engagement.views client-side rather than relying on result order, and deduplicate by post.id across pages. Note on date_posted: filtered searches are served by the only Instagram surface that offers a date filter, and that surface no longer carries play counts, so engagement.views is null when date_posted is set. If you need both a date window and view counts, omit date_posted and filter on published_at yourself. Pagination: forward `pagination.next_cursor` back as `cursor` and keep calling while `pagination.has_more` is true. The walk ends with `has_more: false` and an empty `items` list, charged 0 credits. Two things during a walk are normal and are not the end: a page can come back empty at 0 credits, when every reel on it was already returned earlier in the same walk or when Instagram answers that page with an empty result, and page sizes vary, so keep going while `has_more` is true and do not stop on the first short or empty page. Follow `next_cursor` in preference to requesting page numbers yourself: the cursor carries the reels already delivered, so repeats are dropped and a page with nothing new is not charged, while a bare `page=3` can return reels from an earlier page. A query with no matches returns an empty list rather than an error. A short keyword query such as `esim europa` usually pages with view counts on every page. A long phrase or a question often matches only on a surface that returns one page with view counts, so its later pages come back with engagement.views null. Note that a date-filtered search draws on a much smaller pool: expect roughly 10 reels per page and a walk that ends after a handful of pages, against 30 per page and far greater depth when date_posted is omitted.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -2163,6 +2693,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "search/multi", why: "The same query on several platforms' search in one call, at the same price per platform." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Instagram reels",
+      returns: "Returns reels matching a keyword, each with its view count, like count, and author; share and save counts are not included on this endpoint.",
+      use_when: "Use it for keyword based reel discovery; search/hashtag is the better choice when you have a specific tag rather than a phrase. Pass a result URL to post/stats for a reel's share count.",
+      not_for: "Not for a specific hashtag (instagram/search/hashtag), accounts (instagram/search/profiles) or share counts (video posts) at instagram/post/stats.",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 13780, p95: 37187, p99: 45697, n: 88, provisional: true },
   },
   {
     platform: "instagram",
@@ -2180,9 +2718,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Instagram media transcript",
     description:
       "Returns an AI-generated transcript of the spoken words in an Instagram video or reel. Instagram has no caption track to read, so the audio itself is transcribed: a video with music, sound effects or on-screen text but no speech has nothing to transcribe. Videos up to 2 minutes (120 seconds) are supported. Every outcome below is deterministic for a given URL, so retrying returns the same answer, and none of them costs credits. A video with no speech returns 404 RESOURCE_NOT_FOUND with `error.details.reason: no_speech` (the video exists). A photo post, a carousel of photos, or a URL that no longer resolves returns 404 with `reason: no_video_or_gone`, because Instagram answers those identically. A video longer than 2 minutes returns 400 INVALID_REQUEST with a message giving its length.",
+    budget_ms: 20000,
     cache: { category: "immutable", ttlSeconds: 2592000 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["apify-instagram-transcript"] },
     tags: ["instagram"],
+    purpose: {
+      summary: "Get Instagram media transcript",
+      returns: "Returns the spoken words in an Instagram video or reel of up to 2 minutes as text. A video with no speech returns 404 with reason no_speech, free of charge.",
+      use_when: "Use it when you need what was said in a video rather than its metrics; pass the reel or video URL. Photo posts and videos over 2 minutes cannot be transcribed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2211,6 +2757,13 @@ export const ENDPOINTS: Endpoint[] = [
       "slide_count": "Total slides on a carousel, including any beyond the 10 that are read. Null on other posts.",
       "source": "ocr when any text was found, none otherwise.",
     },
+    purpose: {
+      summary: "Get Instagram post on-screen text",
+      returns: "Returns the text shown on an Instagram post's images, read by AI: the photo, each carousel slide up to 10, or a reel's cover frame, with results per slide.",
+      use_when: "Use it for text designed into a post, like carousel headlines; the caption lives on post and spoken words on media/transcript. Text shown later in a reel is not read.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2232,6 +2785,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["instagram"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Instagram user embed HTML",
+      returns: "Returns an embeddable HTML snippet for an Instagram profile, meant to be dropped into a page on your own site.",
+      use_when: "Use it when you want to display a profile on a web page; use profile instead when you need the follower numbers and bio as data.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2251,11 +2811,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram reels using an audio track",
     description:
       "Returns reels that use a specific audio track on Instagram. Each reel includes engagement metrics and author info. The `audio_id` is the `post.ext.music_id` a reel carries on /v1/instagram/post and /v1/instagram/profile/reels, or on /v1/instagram/profile/posts with include=audio, so reels that share a sound can be expanded into every other reel using it. On the first page `data.total` is the number of reels Instagram shows for the sound, or null when that count is not available, and later pages leave it null. On the first page `data.is_trending` is `true` when Instagram currently marks the sound as trending in Reels and `false` when it does not; it changes over time, later pages leave it null, and it is null when that signal is not available. On the first page `data.sound` describes the sound itself as `{ track_title, artist, is_original, creator_username, created_at, duration_seconds, is_explicit, spotify_track_id, first_reel_url }`: on an original sound `creator_username` is the account that created it, `created_at` is when it was created and `first_reel_url` is the reel it was first used on, while on a licensed track those three are null and `spotify_track_id` is filled when Instagram links the track to Spotify; `data.sound` is null on later pages and when the sound's details are not available. When `audio_id` is a cluster id, `data.total` counts every upload in the cluster and `data.sound` describes the one upload Instagram shows for it, so its creator is not necessarily the cluster's first user. To record `data.total` every day, create a Monitor that tracks `total`; see /docs/recipes/track-sound-growth. Each reel carries `post.ext.audio_cluster_id`, Instagram's audio cluster for that reel: the id Instagram uses to group different uploads of the same sound. It is absent on a reel when it is not available. A page carries up to about 12 reels, in the order Instagram's own audio page lists them, which is not by date. Pass `pagination.next_cursor` back as `cursor` to request the next page. A page that comes back empty is not charged.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "hiker", fallbackKinds: ["scrapecreators", "apify-instagram-audio-reels"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Instagram reels using an audio track",
+      returns: "Returns reels that use one specific audio track, each with its engagement counts and the account that posted it.",
+      use_when: "Use it after search/music or music/trending: pass the audio_id to see who is posting with that sound.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
+    latency_ms: { p50: 6886, p95: 10405, p99: 10553, n: 12, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2282,6 +2851,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Instagram posts by hashtag",
     description:
       "Returns recent public Instagram posts for a hashtag from Instagram's native hashtag feed. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass `type` to choose the ranking (`top`, `recent`, or `clips` for reels only). Only `type=recent` paginates: forward its `next_cursor` together with `type=recent` to page deeper. `top` and `clips` are one ranked page each, so they return `has_more: false` and no cursor; to cover more ground with those rankings, query more hashtags. A hashtag feed mixes photos and reels, so engagement.views is a number on the video rows and null on the photo rows. Pass `type=clips` for a reels-only page where every row carries a view count. Note: post.author.display_name is not available on this endpoint, so join on post.author.username, or pass it to /v1/instagram/profile?handle= for the name. Note: engagement.shares and engagement.saves are null on this endpoint (neither hashtag upstream carries a per-post share or save count); for a per-post share count pass a result URL to /v1/instagram/post/stats. Saves are platform-private. Instagram exposes no numeric save metric on any surface, and it is never fabricated.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["hiker", "rapidapi-prosocial", "scrapecreators"] },
@@ -2291,6 +2861,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search/hashtag", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Instagram posts by hashtag",
+      returns: "Returns public posts carrying a hashtag, each with shortcode, URL, caption, media URLs, engagement counts, and the author; share and save counts are not included.",
+      use_when: "Use it to pull a hashtag feed; set type to top, recent, or clips to pick the ranking, and page deeper with the cursor it returns. Pass a result URL to post/stats for a share count.",
+      not_for: "Not for a free text phrase (instagram/search/reels, instagram/search/popular), accounts (instagram/search/profiles) or share counts (video posts) at instagram/post/stats.",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 5403, p95: 11687, p99: 13201, n: 10, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2321,6 +2899,14 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "about", sibling: "instagram/profile/about", fills: ["author.ext.country", "author.ext.account_created", "author.ext.public_email", "author.ext.public_phone"], creditsPerItem: 2, maxItems: 12, defaultRowLimit: 8, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "about_unavailable", partial: "about_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Instagram profiles by keyword",
+      returns: "Returns public profiles matching a keyword, each with username, display name, bio, follower and following counts, post count, and profile URL.",
+      use_when: "Use it to find accounts by topic, keeping in mind it searches Google's index of Instagram rather than Instagram's own account search.",
+      not_for: "Not for posts or reels (instagram/search/hashtag, instagram/search/reels), or for accounts, hashtags and places in one payload (instagram/search).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 11947, p95: 11947, p99: 11947, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2341,6 +2927,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get trending Instagram reels",
+      returns: "Returns reels from Instagram's public trending page, each with shortcode, URL, caption, media URLs, engagement counts where shown, and the account.",
+      use_when: "Use it to sample global trends; it takes no region. Call again to see more. For one region, page location/posts after search/location.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2361,11 +2954,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram followers",
     description:
       "Returns a paginated list of the accounts that follow an Instagram user. Each follower includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`, and page through with `cursor`. A plain walk can end before the profile's count: on most accounts it ends within a few rows of that count, and on large verified accounts Instagram caps every route at about 50 rows with no cursor, so a plain walk ends there. `data.total` carries the profile's own count on every page, so compare the rows you collected against it. Send `coverage=full` with `handle` to walk a merged list instead: each page is drawn from several reads of the list and carries no account twice inside a page, until the rows reach the count or no read has more. Across consecutive pages a handful of accounts can repeat on the pages one source covered on its own; the merged walk, which never returns an account it has already given you, runs wherever that source cannot cover the list. A full-coverage page costs 10 credits instead of 5 and takes longer, and its cursor only continues a `coverage=full` walk.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "hiker", fallbackKinds: ["rapidapi-prosocial"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Instagram followers",
+      returns: "Returns the accounts that follow a user, each with username, display name, avatar URL, verification status, and profile URL.",
+      use_when: "Use it to walk an account's follower list, passing either handle or user_id and paging deeper with the cursor it returns.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2386,11 +2987,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram following",
     description:
       "Returns a paginated list of the accounts an Instagram user follows. Each account includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`, and page through with `cursor`. A plain walk can end before the profile's following count: on most accounts it ends within a few rows of that count, and on large verified accounts Instagram caps every route at about 50 rows with no cursor, so a plain walk ends there. `data.total` carries the profile's own count on every page, so compare the rows you collected against it. Send `coverage=full` with `handle` to walk a merged list instead: each page is drawn from several reads of the list and carries no account twice inside a page, until the rows reach the count or no read has more. Across consecutive pages a handful of accounts can repeat on the pages one source covered on its own; the merged walk, which never returns an account it has already given you, runs wherever that source cannot cover the list. A full-coverage page costs 10 credits instead of 5 and takes longer, and its cursor only continues a `coverage=full` walk.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "hiker", fallbackKinds: ["rapidapi-prosocial"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Instagram following",
+      returns: "Returns the accounts a user follows, each with username, display name, avatar URL, verification status, and profile URL.",
+      use_when: "Use it for the other side of the graph from followers: the accounts this user chose to follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2411,6 +3020,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List similar Instagram accounts",
     description:
       "Returns a list of Instagram accounts similar to a given user: the related accounts Instagram surfaces as suggestions. Each account includes username, display name, avatar URL, verification status, and profile URL. Pass either `handle` or `user_id`. Passing `user_id` is faster because no username lookup is needed. This is a suggestion list, so on a plain call the per-account metrics are null on every row: author.followers, author.following, author.posts_count and author.bio. Send `include=profile` and every row is joined, in the same call, to the profile lookup that carries them: exact follower and following counts plus the bio land on each row. `author.posts_count` lands only on a row the lookup's backup source answered, so it is null on most rows; `GET /v1/instagram/profile` returns the lifetime post count for any single account. Cost: 5 credits for the list plus 1 credit per row filled from a fresh lookup; rows already in cache are free, unfilled rows are refunded, and a repeat within the cache window is 0. With `include=profile` the list is its top 20 accounts unless you pass `limit` (1 to 80), so the default hydrated call is at most 25 credits (the same as `limit=20&include=profile`) and `limit=80&include=profile`, the full roster, is at most 85. Time: a plain call is 2 to 3 seconds; with `include=profile` allow 3 to 6 seconds more for 20 rows (the lookups run in parallel and the call waits for the slowest, never more than 12 seconds) and about four times that for all 80, which run as four waves of 24. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds. author.likes_count stays null: Instagram publishes no account-level like total. The list is a single fixed window: it is not paginated and returns no cursor.",
+    budget_ms: 20000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["rapidapi-prosocial", "hiker"] },
@@ -2422,6 +3032,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/similar", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List similar Instagram accounts",
+      returns: "Returns the accounts Instagram suggests as similar to a given user, each with username, display name, avatar URL, verification status, and URL.",
+      use_when: "Use it to find accounts comparable to one you already know; it returns a single fixed list and cannot be paged.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 6683, p95: 9856, p99: 10057, n: 6, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2441,11 +3059,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Instagram post likers",
     description:
       "Returns a sample of the accounts that liked an Instagram post. Each liker includes username, display name, avatar URL, verification status, and profile URL, alongside the post's total like count in `total`. Instagram exposes a ranked slice rather than the whole list, usually around a thousand accounts on a popular post: the endpoint does not paginate, and `total` reflects the full like count rather than the number of retrievable likers, so expect `items.length` to be far smaller than `total` on a post with many likes.",
+    budget_ms: 20000,
     singlePage: "Fixed ranked sample: Instagram exposes a ranked slice of a post's likers in one non-cursored body, never the whole list.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "hiker", fallbackKinds: ["rapidapi-prosocial"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Instagram post likers",
+      returns: "Returns a sample of the accounts that liked a post, each with username, display name, avatar, and verification status, plus the full like count.",
+      use_when: "Use it to see who liked a post, accepting that Instagram exposes only about the first 100 likers however many likes the post has.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2466,6 +3092,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Instagram post stats including the share count",
     description:
       "Returns full engagement stats for a single Instagram post or reel: likes, comments, the view (play) count, and the share count (`engagement.shares`), which is the number shown next to the paper-plane Share icon in the app. The share count is a strong authenticity signal: unlike likes and comments, shares are hard to inflate, so it helps separate genuine reach from bought engagement. The standard /v1/instagram/post endpoint cannot return the share count. Metric availability depends on the media type: likes and comments populate on every post, but Instagram exposes a view (play) count and a share count only on video media (reels, videos, and carousels containing a video). On photo posts and photo-only carousels, `engagement.views` and `engagement.shares` are `null`, and because `computed.estimated_reach` and `computed.engagement_rate` derive from views, they are `null` there too. When Instagram's response for a reel includes the save count and the two-arrows Repost (\"regram\") counter, the plain call returns them at `engagement.saves` and `post.ext.repost_count`; Instagram includes them on some responses and not others, so do not rely on the plain call for them. Instagram publishes no save count and no share count on photos and carousels, so `engagement.saves` is null there on every call. Every post carries `post.ext.media_type` (`image`, `video` or `carousel`), a carousel carries its slide count at `post.ext.carousel_count`, and a reel carries Instagram's remix counter at `post.ext.remix_count` (how many reels were made from it). `include=saves` is the reliable way to get them: it asks a third source for a reel's save and repost count whenever the plain call came back without them, for 4 extra credits kept only when a save count comes back; a photo or carousel is never looked up. Use this endpoint for a single post; to get the share count for every reel or post across a whole feed in one call, use /v1/instagram/profile/reels/full or /v1/instagram/profile/posts/full. This endpoint also returns the post's collaborative-post co-authors under `post.ext.coauthors` (`{ id, username, full_name, is_verified, profile_pic_url }` per account, empty array when the post is not a collab): the standard /v1/instagram/post endpoint cannot, because its web source reports every post as having no co-authors. Pass the post `url` (a /p/, /reel/, or /tv/ link; story URLs are not accepted, list a user's active stories with /v1/instagram/stories instead).",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "hiker", fallbackKinds: ["rapidapi-flashapi", "rapidapi-prosocial", "apify-instagram-post-details"] },
     tags: ["instagram"],
@@ -2473,6 +3100,14 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "saves", sibling: "instagram/post/stats", fills: ["post.engagement.saves", "post.ext.repost_count"], creditsPerItem: 4, maxItems: 1, cacheSibling: false, warnings: { unavailable: "saves_unavailable", partial: "saves_partial" } },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Instagram post stats including the share count",
+      returns: "Returns one post's engagement: likes, comments, and, on video posts only, the play count and the share count shown by the paper plane icon. Collab posts also list co-authors under ext.coauthors.",
+      use_when: "Use it when you need the share count for a single post, or the co-author list of one collab post; views also come on post itself, and photo posts return both numbers as null.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1377, p95: 7935, p99: 8400, n: 12, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2493,11 +3128,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List posts an Instagram user is tagged in",
     description:
       "Returns a paginated list of the posts that tag an Instagram user. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass either `handle` or `user_id`, and page through with `cursor`. Note: post.author.display_name is usually null on this endpoint, because the Instagram surface behind it withholds creator display names; it carries the real name on the calls a second source answers. Join on post.author.username, or pass it to /v1/instagram/profile?handle= for the name.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["rapidapi-prosocial", "hiker"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List posts an Instagram user is tagged in",
+      returns: "Returns posts that tag a given user, each with its shortcode, URL, caption, media URLs, engagement counts, and the account that posted it.",
+      use_when: "Use it to see what other people posted about an account; profile/posts returns only what the account posted itself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2726, p95: 3961, p99: 4091, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2518,6 +3162,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List recent posts at an Instagram location",
     description:
       "Returns the posts tagged at an Instagram location, newest first, about 60 per page. Each post includes shortcode, URL, caption, media URLs, engagement counts, and the author. Pass `location_id` as `location.pk` from /v1/instagram/search/location, then page back in time with `cursor` until `has_more` is false. A busy place fills a page in about a day and a quiet one covers months or years, and the grid goes back to the location's oldest posts. Instagram orders the grid by when each post was created, so a scheduled post that went live later sits among older posts while its published_at shows the real publish time (about 1 post in 75, up to 13 days apart, measured 13/09/2026). To collect a time window, keep paging until a whole page is older than the window's start and filter on published_at; do not stop at the first older post. Each page is a separate call at the listed price. A location grid mixes photos and reels, so engagement.views is a number on the video rows and null on the photo rows. This is the region-scoped Instagram route: /v1/instagram/reels/trending and /v1/instagram/music/trending take no region, because Instagram ties both to the account viewing them. Note: post.author.display_name is not available on this endpoint, because the Instagram surface behind it withholds creator display names. Join on post.author.username, or pass it to /v1/instagram/profile?handle= for the name.",
+    budget_ms: 16000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["rapidapi-prosocial"] },
@@ -2526,6 +3171,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/location/posts", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List recent posts at an Instagram location",
+      returns: "Returns posts tagged at a place, newest first, about 60 a page, each with shortcode, URL, caption, media URLs, engagement counts, and the author.",
+      use_when: "Use it after search/location for region-scoped posts. Page back in time with the cursor; for a time window, stop once a whole page is older than its start.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
+    latency_ms: { p50: 9686, p95: 22540, p99: 23682, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2546,6 +3199,14 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-prosocial" },
     tags: ["instagram"],
+    purpose: {
+      summary: "Get Instagram engagement statistics",
+      returns: "Returns a computed engagement report for an account: overall engagement rate, follower count, total likes and comments, and a per-post breakdown.",
+      use_when: "Use it when you want the engagement math done for you, including likes and comments per hour on each post, rather than raw posts to total yourself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 4592, p95: 5458, p99: 5535, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2563,6 +3224,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Instagram locations",
     description:
       "Searches Instagram locations by keyword. Returns matching places, each with location.pk, a name, and coordinates, plus a display title and subtitle. There is no location.id. Pass location.pk as location_id to the Instagram location posts endpoint. location.facebook_places_id is another identifier for the same place.",
+    budget_ms: 20000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["rapidapi-prosocial"] },
@@ -2571,6 +3233,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/search/location", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Instagram locations",
+      returns: "Returns places matching a keyword, each with location.pk, a name, and coordinates, plus a title and subtitle. There is no location.id.",
+      use_when: "Use it to pass location.pk as location_id on location/posts. location.facebook_places_id is the same place's other id.",
+      not_for: "Not for the posts at a place (instagram/location/posts); this only finds the place and its id.",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 4641, p95: 4641, p99: 4641, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2595,6 +3265,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "web/search", why: "The same data from web." },
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
+    purpose: {
+      summary: "Search Instagram accounts, hashtags, and places",
+      returns: "Returns mixed Instagram search matches for a query: accounts, hashtags, and places in one payload.",
+      use_when: "Use it when you need the same mixed results Instagram's search box shows; search/profiles, search/hashtag, and search/location split those types.",
+      not_for: "Not for posts or reels (instagram/search/hashtag, instagram/search/reels), or for only profiles (instagram/search/profiles) or only places (instagram/search/location).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2616,6 +3293,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search popular Instagram posts",
     description:
       "Returns popular Instagram posts matching a keyword. Each post includes caption, play count, permalink, thumbnail, and the owner's username. The popular surface itself does not publish like or comment counts, the post date or the duration, so on a plain call `post.engagement.likes`, `.comments`, `.shares`, `post.published_at` and `post.content.duration_seconds` are null. Send `include=engagement` and every row is joined, in the same call, to the per-post lookup that carries them: likes, comments, shares (the paper-plane send count), views, the exact publish time and the duration land on each row. Cost: 1 credit for the page plus 1 credit per row that was filled from a fresh lookup (12 rows max, so 13 credits at most); rows already in cache are filled for free, rows that could not be filled are refunded, and a repeat of the same call within the cache window is 0 credits. Time: a plain call is 2 to 3 seconds; `include=engagement` adds 2 to 9 seconds on a fresh page (the twelve lookups run in parallel and the call waits for the slowest, never more than 12 seconds) and nothing when the rows are already cached. `limit=N` caps the rows and the credits together. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds. Accounts that hide their like count keep `likes` null. `post.engagement.saves` is not available on this surface and stays null either way. Page with cursor.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["apify-instagram-search-popular"] },
@@ -2624,6 +3302,14 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "engagement", sibling: "instagram/post/stats", fills: ["post.engagement.likes", "post.engagement.comments", "post.engagement.shares", "post.engagement.views", "post.ext.ig_play_count", "post.published_at", "post.content.duration_seconds"], creditsPerItem: 1, maxItems: 12, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "engagement_unavailable", partial: "engagement_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search popular Instagram posts",
+      returns: "Returns popular Instagram posts matching a keyword, each with caption, play count, permalink, thumbnail, and the owner's username.",
+      use_when: "Use it to sample what is popular for a topic; search/reels is the choice when you want a keyword reel feed instead.",
+      not_for: "Not for a reel feed (instagram/search/reels) or one specific tag (instagram/search/hashtag).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 7894, p95: 7947, p99: 7952, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2665,6 +3351,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/post/comment/replies", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List replies under an Instagram comment",
+      returns: "Returns replies under one Instagram comment, each with text, like count, nested reply count, author, and timestamp.",
+      use_when: "Use it after post/comments: pass the post URL and the parent comment_id to expand one thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "instagram",
@@ -2687,6 +3380,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-prosocial" },
     tags: ["instagram"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Instagram username suggestions",
+      returns: "Returns suggested available Instagram usernames built from a keyword you supply.",
+      use_when: "Use it when picking a new handle; it invents name ideas and does not look up existing accounts, which is what search/profiles does.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2706,6 +3406,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Instagram music",
     description:
       "Searches Instagram's audio (music) library by keyword. Returns matching tracks, each with artist and title, audio and cover-artwork URLs, duration, and usage metadata. Page through with `cursor`. When the main source is unavailable, page 1 can come from a backup source: about 10 tracks, `song_monetization_info` null, and no `next_cursor`. That page is not cached, so calling again later returns the full page with its cursor.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 21600 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["hiker", "rapidapi-prosocial"] },
@@ -2714,6 +3415,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search/music", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Instagram music",
+      returns: "Returns audio tracks matching a keyword, each with artist, title, audio and cover artwork URLs, duration, and usage details.",
+      use_when: "Use it to find a specific sound by name; music/trending is the choice when you want whatever is popular right now.",
+      not_for: "Not for what is popular right now (instagram/music/trending).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 10817, p95: 16972, p99: 16977, n: 9, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2733,11 +3442,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List an Instagram user's active stories",
     description:
       "Returns the active stories currently in a user's story tray. Each story includes its id, media URLs (image or video), thumbnail, duration, capture time, and the author. Pass either `handle` or `user_id`. Passing `user_id` is faster because no username lookup is needed. A user with no active stories returns an empty list, not an error. Stories carry no public caption and no public like, comment, or view count: Instagram shows story engagement only to the account owner, and it is never fabricated here.",
+    budget_ms: 20000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "hiker", fallbackKinds: ["rapidapi-prosocial"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List an Instagram user's active stories",
+      returns: "Returns the stories a user has live right now, each with its id, image or video URLs, thumbnail, duration, capture time, and the author.",
+      use_when: "Use it to check an account's current story tray; an account with nothing live returns an empty list rather than an error.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "instagram",
@@ -2760,6 +3477,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-prosocial" },
     tags: ["instagram"],
+    purpose: {
+      summary: "Download a single Instagram story",
+      returns: "Returns the full resolution image or video URLs and metadata for one specific story.",
+      use_when: "Use it after stories: pass the author's user_id plus the story_id it returned to pull that one story's media.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "instagram",
@@ -2775,11 +3499,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List trending Instagram music",
     description:
       "Returns a chart of licensed audio tracks trending on Instagram. Each track includes its title, artist, audio and cover-artwork URLs, and usage metadata: useful for spotting sounds to ride for reach. Takes no parameters, and there is no region or country option: Instagram builds this chart for the account viewing it, so the chart reflects that account's market and cannot be selected. Every response carries `data.fetched_at`, the time the chart was read from Instagram, and `data.stale`: `false` when it was read on this call, `true` when Instagram showed only its royalty-free sound library on this call and the most recent chart read in the last 6 hours is returned instead (the chart moves slowly; check `fetched_at` if you need it fresher). When no chart has been read in the last 6 hours either, the call returns 503 and your credits are refunded; retry after a minute. For region-scoped Instagram data, use /v1/instagram/search/location and /v1/instagram/location/posts.",
+    budget_ms: 18000,
     singlePage: "Fixed-window feed: upstream returns a single non-cursored result set.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-flashapi", fallbackKinds: ["rapidapi-prosocial"] },
     tags: ["instagram"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List trending Instagram music",
+      returns: "Returns a chart of licensed tracks trending on Instagram, each with title, artist, audio and cover artwork URLs, and usage details.",
+      use_when: "Use it to spot sounds worth posting with. It takes no region: the chart follows the viewing account's market. A 503 is refunded, so retry.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 13639, p95: 15605, p99: 15779, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2811,6 +3544,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/full", why: "The same data from tiktok." },
       { id: "youtube/profile/full", why: "The same data from youtube." },
     ],
+    purpose: {
+      summary: "Instagram profile, recent posts, and computed analytics in one call.",
+      returns: "Returns the profile plus its latest 12 posts and computed metrics: engagement rate by views and by followers, posting cadence, the top post, and the mix of post formats.",
+      use_when: "Use it instead of calling profile and profile/posts separately; the profile still comes back if posts cannot be fetched, with post metrics null.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 3594, p95: 4002, p99: 4038, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2842,6 +3583,14 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "facebook/profile/reels/full", why: "The same data from facebook." },
     ],
+    purpose: {
+      summary: "Instagram reels with views, likes, comments, and per-reel share counts where available, in one call.",
+      returns: "Returns a user's reels with views, likes, comments, and a per-reel share count where the second source exposes one, plus a coverage figure.",
+      use_when: "Use it when share counts matter across a creator's reels; profile/reels is the lighter choice when views, likes, and comments are enough.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 12803, p95: 16073, p99: 16363, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "instagram",
@@ -2870,6 +3619,14 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["instagram", "prism"],
+    purpose: {
+      summary: "Instagram posts with views, likes, comments, and per-post share counts where available, in one call.",
+      returns: "Returns a user's recent posts with likes, comments, views, and a per-post share count where the second source exposes one, plus a coverage figure.",
+      use_when: "Use it when share counts matter across a whole feed; profile/posts is the lighter choice when likes and comments are enough.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2752, p95: 3284, p99: 3331, n: 2, provisional: true, low_sample: true },
   },
   // --- youtube (29 endpoints) ---
   {
@@ -2901,6 +3658,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/profiles", why: "Up to 50 profiles per call, at the same price per profile, with the ones not found refunded." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get YouTube channel info",
+      returns: "Returns a YouTube channel's public profile: subscriber count on author.followers (rounded above 1,000), video and view totals, description, banner and avatar URLs, and author.ext.public_email.",
+      use_when: "Use it when you have a handle, channel id, or channel URL and want an account snapshot before pulling its videos.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -2921,10 +3685,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a YouTube channel's contact email and country. Try the 1-credit youtube/channel first: it already carries the email for some channels, and you are charged here only when an address is returned. A first read of an address behind the View email address button can take up to 5 minutes, so set your HTTP timeout to at least 300s; on a 503, retry after the Retry-After seconds",
     description:
       "Returns the contact email a YouTube channel publishes, including the address behind its View email address control (`author.ext.public_email`), and the country listed on the channel (`author.ext.country`), together with the channel's id, handle, name, subscriber count and video count. CHECK THE CHEAP LANE FIRST: `GET /v1/youtube/channel` costs 1 credit and already returns `author.ext.public_email` when the channel writes an address into its public description, which covered 17% of a 12-channel sample. Call this endpoint only when that field came back null; it reads the About tab directly and found an address on a further 58% of the same sample. You are charged ONLY when an address is returned: a channel that publishes none costs 0 credits, and so does a channel that does not exist (404). An address behind the View email address button that has not been read before takes a few minutes to retrieve, and the call waits for it: allow up to 5 minutes before your HTTP client times out. If it is still not ready, the call answers `503 SERVICE_UNAVAILABLE` with `Retry-After: 300` and is not charged, and the same call made after that interval normally returns the address. Do not store `public_email` as empty on a 503.",
+    budget_ms: 250000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-youtube-contact", fallbackKinds: ["apify-youtube-email"] },
     tags: ["youtube"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a YouTube channel's contact email and country. Try the 1-credit youtube/channel first: it already carries the email for some channels, and you are charged here only when an address is returned. A first read of an address behind the View email address button can take up to 5 minutes, so set your HTTP timeout to at least 300s; on a 503, retry after the Retry-After seconds",
+      returns: "Returns the address behind a channel's View email address control on author.ext.public_email, its listed country, and the profile: id, handle, name, avatar, bio, URL, subscribers, join date, views.",
+      use_when: "Use it for outreach when GET /v1/youtube/channel returned no email: that lane reads only the public description, this one reads the About tab control. Premium priced, so shortlist first.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 7140, p95: 248390, p99: 249428, n: 22, provisional: true, low_sample: true },
   },
   {
     platform: "youtube",
@@ -2968,6 +3741,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "rumble/channel/videos", why: "The same data from rumble." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List YouTube channel videos",
+      returns: "Returns recent videos published by a channel, each with title, view count, duration, thumbnail, and publish date; pass includeExtras=true to add like and comment counts.",
+      use_when: "Use it for a channel's regular uploads; channel/shorts covers Shorts, channel/lives covers streams, channel/community-posts covers text posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -2995,6 +3775,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "rumble/video", why: "The same data from rumble." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get YouTube video details",
+      returns: "Returns full details for one video: title, view, like and comment counts, description, tags, duration, channel info, and publish date.",
+      use_when: "Use it when you have a video URL and need its complete record; the list endpoints return lighter entries without the description or tags.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3005,7 +3792,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [
       { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'ko').", in: "query" },
-      { name: "include_localizations", type: "boolean", description: "When true, includes per-language title/description localizations in each item's ext." },
+      { name: "include_localizations", type: "boolean", description: "When true, adds post.ext.localizations to each item: a map from language code to the localized { title, description }. Present only on videos whose owner localized them." },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
@@ -3014,12 +3801,20 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "Batch get YouTube video details (up to 1000)",
     description:
-      "Fetches full details for up to 1000 YouTube videos by id in a single POST request. Each item is the same unified video object as GET /v1/youtube/video. Body: { ids: string[], includeLocalizations?: boolean }. Metered per 50-id chunk; a request that resolves no videos at all returns 200 with an empty list at 0 credits.",
+      "Fetches full details for up to 1000 YouTube videos by id in a single POST request. Each item is the same unified video object as GET /v1/youtube/video. Body: { ids: string[], include_localizations?: boolean }. Metered per 50-id chunk; a request that resolves no videos at all returns 200 with an empty list at 0 credits.",
     singlePage: "Batch-by-ids: caller supplies the full id set; there is no next page.",
     cache: { category: "post", ttlSeconds: 0 },
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Batch get YouTube video details (up to 1000)",
+      returns: "Returns full details for up to 1000 videos in one request, each item the same object the single video endpoint returns, with unresolved ids simply absent from the list.",
+      use_when: "Use it when you already hold many video ids and want them in one request instead of calling the single video endpoint over and over.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
+    latency_ms: { p50: 5270, p95: 7352, p99: 7386, n: 7, provisional: true, low_sample: true },
   },
   {
     platform: "youtube",
@@ -3030,7 +3825,7 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [
       { name: "hl", type: "string", description: "Preferred response language for localized text (ISO 639-1, e.g. 'en', 'ko').", in: "query" },
-      { name: "include_localizations", type: "boolean", description: "When true, includes per-language localizations in each item's ext." },
+      { name: "include_localizations", type: "boolean", description: "When true, adds author.ext.localizations to each item: a map from language code to the localized { title, description }. Present only on channels whose owner localized them." },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
@@ -3039,12 +3834,19 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "AuthorList",
     summary: "Batch get YouTube channel details (up to 1000)",
     description:
-      "Fetches full details for up to 1000 YouTube channels by id in a single POST request. Each item is the unified channel (author) object. Body: { ids: string[], includeLocalizations?: boolean }. Metered per 50-id chunk; a request that resolves no channels at all returns 200 with an empty list at 0 credits.",
+      "Fetches full details for up to 1000 YouTube channels by id in a single POST request. Each item is the unified channel (author) object. Body: { ids: string[], include_localizations?: boolean }. Metered per 50-id chunk; a request that resolves no channels at all returns 200 with an empty list at 0 credits.",
     singlePage: "Batch-by-ids: caller supplies the full id set; there is no next page.",
     cache: { category: "profile", ttlSeconds: 0 },
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Batch get YouTube channel details (up to 1000)",
+      returns: "Returns channel details for up to 1000 channel ids in one request; each row is the same channel object the single channel endpoint returns.",
+      use_when: "Use it when you already hold a list of channel ids; the single channel endpoint is the one that accepts a handle or a channel URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "youtube",
@@ -3071,6 +3873,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["youtube"],
+    purpose: {
+      summary: "Up to 100 YouTube video ids → one transcript per row, failed ids refunded.",
+      returns: "Returns one row per video id, up to 100 per request, each with the spoken transcript, the caption language it resolved to, and an ok or not-found status.",
+      use_when: "Use it to build a transcript set from many videos at once; a video without captions comes back as not found instead of failing the whole request.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "youtube",
@@ -3093,6 +3902,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "scrapecreators" },
     tags: ["youtube"],
+    purpose: {
+      summary: "Detect sponsors of a YouTube video",
+      returns: "Returns whether a video carries a paid-promotion disclosure plus the brands likely sponsoring it, each with supporting evidence and a confidence score.",
+      use_when: "Use it to spot sponsored videos and who paid; sponsors are inferred from the description, links, promo codes, and transcript, not stated by YouTube.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3139,6 +3955,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "rumble/video/comments", why: "The same data from rumble." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List YouTube video comments",
+      returns: "Returns comments on a video, each with the author name, comment text, like count, reply count, and publish timestamp.",
+      use_when: "Use it for a video's top-level comments, then pass the reply token it returns to video/comment/replies to open a single thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3180,6 +4003,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/video/comment/replies", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List YouTube comment replies",
+      returns: "Returns the replies under one comment, each with the reply text, author details, like count, and publish date.",
+      use_when: "Use it after video/comments: pass the reply token that endpoint returned, and keep paging until no replies remain to get the whole thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "youtube",
@@ -3249,6 +4079,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search YouTube",
+      returns: "Returns YouTube search results for a keyword: videos, channels, playlists, shorts, and live streams, each with title, thumbnail, views, and channel.",
+      use_when: "Use it for a general keyword search across every content kind; search/advanced returns videos only but adds date, license, and country filters.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1937, p95: 2461, p99: 2494, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "youtube",
@@ -3283,6 +4121,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "since", benefit: "Returns only posts after this date, so a daily poll pays only for the pages with new posts.", example: "2026-09-01" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List YouTube channel shorts",
+      returns: "Returns the Shorts published by a channel, each with title, view count, like count, and thumbnail.",
+      use_when: "Use it when you want only a channel's Shorts; channel/videos returns its regular uploads instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3304,6 +4149,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["youtube"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get YouTube community post",
+      returns: "Returns one YouTube community post: its text, like count, comment count, attached images, and author info.",
+      use_when: "Use it when you have a single community post URL; channel/community-posts lists them for a whole channel.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3335,6 +4187,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "channel", sibling: "youtube/channels", siblingMethod: "POST", fills: ["post.ext.author_followers", "post.author.display_name", "post.author.avatar_url", "post.author.username"], creditsPerItem: 1, maxItems: 50, batch: { size: 50, creditCap: 5 }, cacheSibling: true, warnings: { unavailable: "channel_unavailable", partial: "channel_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get YouTube playlist",
+      returns: "Returns the videos in a playlist in playlist order: video id, title, thumbnail, channel and publish date. include=engagement adds views, likes, comments and duration.",
+      use_when: "Use it when you have a playlist id. Same rows as playlist/items from the same source; this lane has a second source behind it, so prefer it when availability matters.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "youtube",
@@ -3379,6 +4238,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search/hashtag", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search YouTube by hashtag",
+      returns: "Returns videos posted under a hashtag, each with view count, channel info, and publish date.",
+      use_when: "Use it to read a hashtag feed rather than a keyword query; set type to shorts to limit the results to Shorts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3404,6 +4270,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "channel", sibling: "youtube/channels", siblingMethod: "POST", fills: ["post.ext.author_followers", "post.author.display_name", "post.author.avatar_url", "post.author.username"], creditsPerItem: 1, maxItems: 100, batch: { size: 50, creditCap: 5 }, cacheSibling: true, warnings: { unavailable: "channel_unavailable", partial: "channel_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get trending YouTube shorts",
+      returns: "Returns the Shorts trending on YouTube right now, each with view count, like count, channel info, and thumbnail.",
+      use_when: "Use it for a snapshot of what is trending in Shorts; videos/trending covers regular videos and can be narrowed by country.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3432,6 +4305,14 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "rumble/video/transcript", why: "The same data from rumble." },
     ],
+    purpose: {
+      summary: "Get YouTube video transcript",
+      returns: "Returns the spoken transcript of a video as timestamped segments, each with text, start time and duration, plus language, word count, and speech rate.",
+      use_when: "Use it for a single video URL; when the video has no captions the reply is a 404 naming the reason, which is expected rather than a failure.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 8917, p95: 9251, p99: 9281, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "youtube",
@@ -3456,6 +4337,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a YouTube channel's playlists",
+      returns: "Returns the playlists on a channel's Playlists tab, each with playlist id, title, thumbnail, video count, channel info, and playlist URL.",
+      use_when: "Use it to discover a channel's playlists, then pass a returned playlist id to playlist or playlist/items to read the videos inside one.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3490,6 +4378,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "dates", sibling: "youtube/videos", siblingMethod: "POST", fills: ["post.published_at"], creditsPerItem: 0, maxItems: 50, batch: { size: 50, creditCap: 0 }, cacheSibling: true, warnings: { unavailable: "exact_dates_unavailable", partial: "exact_dates_partial" }, defaultOn: { unlessParam: "exact_dates", unlessValue: "false" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a YouTube channel's live streams",
+      returns: "Returns the live and past streams on a channel's Live tab, each with title, URL, thumbnail, view count, publish time, and duration.",
+      use_when: "Use it to track a channel's streaming output; channel/videos returns regular uploads and leaves the Live tab out.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3514,6 +4409,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a YouTube channel's community posts",
+      returns: "Returns the posts on a channel's Posts tab, each with post id, URL, text, images, attached video, like count, publish time, and channel info.",
+      use_when: "Use it to read a channel's text and image posts in bulk; community-post fetches one post when you already have its URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3547,6 +4449,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get trending YouTube videos",
+      returns: "Returns the trending videos for a country and category, each with title, thumbnail, duration, view, like and comment counts, channel, and publish time.",
+      use_when: "Use it to see what is popular in a given country right now; shorts/trending covers Shorts and takes no filters.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3578,6 +4487,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "channel", sibling: "youtube/channels", siblingMethod: "POST", fills: ["post.ext.author_followers", "post.author.display_name", "post.author.avatar_url", "post.author.username"], creditsPerItem: 1, maxItems: 50, batch: { size: 50, creditCap: 5 }, cacheSibling: true, warnings: { unavailable: "channel_unavailable", partial: "channel_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List the videos in a YouTube playlist",
+      returns: "Returns the videos of a playlist in playlist order, each with video id, title, thumbnail, the video's own channel, its publish date, and its position and insertion time on post.ext.",
+      use_when: "Use it when you have a playlist id; add include=engagement for counts and durations. Same rows as playlist, which has a second source behind it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "youtube",
@@ -3632,6 +4548,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "channel", sibling: "youtube/channels", siblingMethod: "POST", fills: ["post.ext.author_followers", "post.author.display_name", "post.author.avatar_url", "post.author.username"], creditsPerItem: 1, maxItems: 50, batch: { size: 50, creditCap: 5 }, cacheSibling: true, warnings: { unavailable: "channel_unavailable", partial: "channel_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Advanced YouTube video search",
+      returns: "Returns video search results with the full filter set: sort order, length, live status, license, category, country, language, and publish date window.",
+      use_when: "Use it when a plain keyword search is too blunt; results are always videos, so use search when you also want channels or playlists back.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3660,6 +4583,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "etsy/search/suggestions", why: "The same data from etsy." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get YouTube search suggestions",
+      returns: "Returns the autocomplete suggestions YouTube's own search box shows for a partial query, as a plain list of strings.",
+      use_when: "Use it for keyword research, or to expand a seed term before running search or search/advanced.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3683,6 +4613,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get a YouTube video's audio file streams",
+      returns: "Returns the downloadable audio streams for a video, each with a direct media URL, mime type, bitrate, audio quality, sample rate, channels, and duration.",
+      use_when: "Use it to grab a video's audio on its own; the URLs are time-limited, so fetch them straight away rather than storing them.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3706,6 +4643,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get a YouTube video's video file streams",
+      returns: "Returns the downloadable video streams for a video, each with a direct media URL, mime type, resolution, quality label, frame rate, bitrate, and duration.",
+      use_when: "Use it when you need the video file itself; video/audio returns audio-only streams and video/thumbnails returns still images.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3731,6 +4675,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get a YouTube video's subtitle files",
+      returns: "Returns the caption track files for a video, each with a language code and name, file format, and a direct download URL, including auto-generated tracks.",
+      use_when: "Use it when you want subtitle files to download; video/transcript gives you the words themselves, already split into timed segments.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3754,6 +4705,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "youtube-poix" },
     tags: ["youtube"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get a YouTube video's thumbnail files",
+      returns: "Returns a video's thumbnail images at every available size, each with a direct image URL, width, height, aspect ratio, and image format.",
+      use_when: "Use it when you need a video's artwork on its own, for example to pick the largest image for your own listing or preview.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "youtube",
@@ -3787,6 +4745,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/full", why: "The same data from tiktok." },
       { id: "instagram/profile/full", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "YouTube profile, recent posts, and computed analytics in one call.",
+      returns: "Returns a channel's profile, up to 30 recent videos, and computed metrics in one call: engagement rate by views and by followers, posting cadence, top post, and format mix.",
+      use_when: "Use it instead of calling channel and channel/videos yourself; if the videos cannot be fetched you still get the profile with those metrics empty.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- twitter (15 endpoints) ---
   {
@@ -3815,6 +4780,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Twitter user profile",
+      returns: "Returns an X (Twitter) account's public profile: follower count, following count, tweet count, bio, profile and banner image URLs, and verification status.",
+      use_when: "Use it when you have a handle and want a quick account snapshot before pulling its tweets.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1203, p95: 1203, p99: 1203, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "twitter",
@@ -3849,6 +4822,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Twitter user tweets",
     description:
       "Returns the most recent tweets posted by a Twitter/X user in descending chronological order, each with the full text, like count, retweet count, reply count, bookmark count, view count, media attachments, and creation timestamp. Retweets and self-threaded replies are included, matching the account's Posts tab; a pinned tweet is flagged via `post.flags.pinned` and sorts by its own publish date. A post carrying more than one photo lists every URL in `post.ext.all_media_urls`, while `post.content.media_urls` holds the first; `post.ext.quote_count` is how many times the post was quote-tweeted. Page size is set by the source, typically around 20 tweets. Deeper history is a cursor walk: send `pagination.next_cursor` back as `cursor` and repeat until `pagination.has_more` is false; each page costs 1 credit.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-xcom", fallbackKinds: ["scrapecreators"] },
@@ -3860,6 +4834,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Twitter user tweets",
+      returns: "Returns an account's most recent tweets in descending order, with full text, like, retweet, reply, bookmark and view counts, media, and creation time. Around 20 tweets per page.",
+      use_when: "Use it to read a timeline: pages come newest first, retweets and self-threads included, and you can page deeper by sending pagination.next_cursor back as cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -3886,6 +4867,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Twitter tweet details",
+      returns: "Returns one tweet in full: its text, like, retweet, reply and quote counts, media attachments, author info, and creation timestamp.",
+      use_when: "Use it when you have a tweet URL and need its complete record, including the quote count that the user timeline does not carry.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -3907,6 +4895,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["twitter"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Twitter community details",
+      returns: "Returns an X (Twitter) community's details: name, description, member count, rules, and creation date.",
+      use_when: "Use it when you have a community URL and want the group itself; community/tweets returns what has been posted inside it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -3929,6 +4924,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["twitter"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Twitter community tweets",
+      returns: "Returns recent tweets posted inside an X (Twitter) community, each with its text, engagement counts, and author info.",
+      use_when: "Use it to read a community's activity; it returns a single page, while community returns the group's own details.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -3949,6 +4951,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "immutable", ttlSeconds: 2592000 },
     upstream: { kind: "scrapecreators" },
     tags: ["twitter"],
+    purpose: {
+      summary: "Get Twitter video transcript",
+      returns: "Returns the transcript of a video attached to a tweet, including auto-generated captions.",
+      use_when: "Use it when a tweet carries video and you need the spoken words; tweet returns the media attachment but not its speech.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -3979,6 +4988,13 @@ export const ENDPOINTS: Endpoint[] = [
       "sources": "Array of X (Twitter) source citations the model used to build the answer. Each entry is { url, title? }.",
       "tool_calls_count": "Number of times Grok invoked the x_search tool during reasoning. Higher counts indicate the model did more digging: useful as a cost / depth signal.",
     },
+    purpose: {
+      summary: "AI-powered X (Twitter) search via xAI Grok",
+      returns: "Returns a written answer to a plain-English question about X (Twitter), the X posts cited as sources, and how many searches the model ran.",
+      use_when: "Use it for open questions such as what an account has said about a topic this week. A thin answer means thin retrieval, not an empty corpus, so confirm coverage with search/tweets.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4020,6 +5036,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Twitter tweets",
     description:
       "Searches X (Twitter) for tweets matching a keyword or phrase, each result with the full text, like count, retweet count, reply count, bookmark count, view count, media attachments, author info, and creation timestamp. Long-form posts return their complete body, not the 280-character clamp. t.co links in the text are resolved to their destinations. A post carrying more than one photo lists every URL in `post.ext.all_media_urls`, while `post.content.media_urls` holds the first; `post.ext.quote_count` is how many times the post was quote-tweeted. There are NO date parameters on this endpoint: the whole filter surface is X search operators inside `query`, which is where `since:`/`until:` (YYYY-MM-DD) belong, alongside `from:handle`, quoted exact phrases, `filter:images`, and `filter:videos`. `sort` picks the ranking: `latest` (the default) returns the newest matches first, `top` returns the most POPULAR ones, which on an unquoted multi-term query means engagement-ranked rather than relevance-ranked, so `meltwater expensive contract` can return high-engagement posts about none of those things. Quote the phrase, or pin the topic with an operator such as `min_faves:20`, when you need precision from `top`. Page size is set by the source, typically around 20 tweets. To go deeper, send `pagination.next_cursor` back as `cursor` and repeat until `pagination.has_more` is false; each page costs 1 credit.",
+    budget_ms: 9000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-xcom", fallbackKinds: ["apify-twitter-search"] },
@@ -4033,6 +5050,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "search/multi", why: "The same query on several platforms' search in one call, at the same price per platform." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Twitter tweets",
+      returns: "Returns tweets matching a keyword or phrase, each with the full text, like, retweet, reply, bookmark and view counts, media attachments, author info, and creation time.",
+      use_when: "Use it to track a topic or brand across X. Operators like from:, quoted phrases, filter:images, and since:/until: work inside query; sort picks latest (default) or top, the cursor pages deeper.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 2373, p95: 8669, p99: 12265, n: 15, provisional: true, low_sample: true },
   },
   {
     platform: "twitter",
@@ -4070,6 +5095,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Marks each comment that shows buying intent, at no extra credits; sentiment, question and complaint are free too.", example: "purchase_intent" },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List Twitter tweet replies",
+      returns: "Returns the replies to a tweet, each with the reply text, author info, like and reply counts, and creation time. The tweet itself is not in the list.",
+      use_when: "Use it with a tweet URL to read the conversation under it; the cursor walks deeper threads, and a tweet with no replies returns an empty list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4094,6 +5126,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-xcom" },
     tags: ["twitter"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Twitter user media tweets",
+      returns: "Returns the tweets on an account's Media tab, only those carrying a photo or video, with media URLs, engagement counts, and creation time. View and bookmark counts are null here.",
+      use_when: "Use it to pull an account's visual output without the text-only tweets user/tweets includes; the cursor pages deeper into the media grid.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4121,6 +5160,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/user/followers", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Twitter user followers",
+      returns: "Returns the accounts following an X (Twitter) user, each with the handle, display name, bio, follower and tweet counts, privacy flag, and join date.",
+      use_when: "Use it to sample an account's audience. Page size is set by the source, around 70 accounts, and the cursor pages deeper; verification status is not readable here and returns null.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4148,6 +5194,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/user/following", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Twitter user following",
+      returns: "Returns the accounts an X (Twitter) user follows, each with the handle, display name, bio, follower and tweet counts, privacy flag, and join date.",
+      use_when: "Use it to map who an account pays attention to. Page size is set by the source and the cursor pages deeper; verification status is not readable here and returns null.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4172,6 +5225,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-xcom" },
     tags: ["twitter"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List Twitter tweet retweeters",
+      returns: "Returns the accounts that retweeted a tweet, each with the handle, display name, bio, follower and tweet counts, privacy flag, and join date.",
+      use_when: "Use it with a tweet URL to see who amplified it. Page size is set by the source and the cursor pages deeper; verification status is not readable here and returns null.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitter",
@@ -4191,6 +5251,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Twitter users",
     description:
       "Searches X (Twitter) for user accounts matching a name, handle, or keyword. Each match includes the username, display name, bio, avatar, follower and following counts, tweet count, location, verification status, join date, and whether the account is private. Matching covers handle and display-name tokens with no spelling correction, so a misspelled handle surfaces lookalike and parody accounts rather than the real one; verify the returned handle before relying on it. Page size is set by the source, typically around 20 accounts. To go deeper, send `pagination.next_cursor` back as `cursor` and repeat until `pagination.has_more` is false; each page costs 1 credit.",
+    budget_ms: 9000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-xcom", fallbackKinds: ["apify-twitter-search"] },
@@ -4200,6 +5261,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "threads/search/users", why: "The same data from threads." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Twitter users",
+      returns: "Returns X (Twitter) accounts matching a name, handle or keyword, with handle, display name, bio, avatar, follower, following and tweet counts, location, verification, join date, and a private flag.",
+      use_when: "Use it to resolve a handle you half know before calling profile or user/tweets. There is no spelling correction, so verify the returned handle. About 20 accounts a page, and the cursor pages deeper.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 7598, p95: 7936, p99: 7966, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "twitter",
@@ -4231,6 +5300,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/full", why: "The same data from tiktok." },
       { id: "instagram/profile/full", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "X (Twitter) profile, recent posts, and computed analytics in one call.",
+      returns: "Returns an X account's profile, its recent tweets, and computed metrics in one call: engagement rate by views and by followers, posting cadence, top post, and format mix.",
+      use_when: "Use it instead of calling profile and user/tweets yourself. The metrics are computed from one fetch of the account tweets, so check _warnings before reading cadence as a true rate.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- linkedin (68 endpoints) ---
   {
@@ -4249,6 +5325,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get LinkedIn user profile",
     description:
       "Returns a LinkedIn member's public profile as a canonical Author: `display_name`, `username` (the vanity slug), `bio` (the headline), `location`, `avatar_url`, `url`, exact `followers` and `following` (connections), and `joined_at` (the account creation date). `author.ext` carries the member `urn` (the join key for every `/v1/linkedin/profile/*` sub-resource), `member_id`, `website`, `country`, the cover image, and the status flags (`is_premium`, `is_top_voice`, `is_creator`, `is_influencer`, `is_open_to_work`, `is_hiring`). The About summary, experience, education and skills are NOT on this lane: LinkedIn serves them as separate sub-resources, so use `/v1/linkedin/profile/experiences`, `/educations` and `/skills` (5 credits each). `verified` is null: the source does not expose it.",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-entity"] },
     tags: ["linkedin"],
@@ -4258,6 +5335,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get LinkedIn user profile",
+      returns: "Returns a LinkedIn member's public profile: full name, headline, location, follower and connection counts, profile picture, and profile URL.",
+      use_when: "Use it as the starting point for any person lookup, then call the profile sub-endpoints for their experiences, skills, or posts.",
+      not_for: "Not for a member's full background in one call (linkedin/profile/all), their posts (linkedin/profile/posts) or a company page (linkedin/company).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4275,10 +5359,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get LinkedIn company page with its full About tab",
     description:
       "Returns public information about a LinkedIn company page. Canonical fields carry the identity and reach: `author.id` (the numeric company_id the other `/company/*` endpoints take), `username`, `display_name`, `bio` (the company description), `avatar_url` (logo), `followers`, `location` (flattened HQ), and `verified`. The complete **About tab** rides in `author.ext`: `website`, `employee_count` and `employee_count_range`, `founded_year`, `specialities[]`, `industries[]`, `headquarters` (structured `{country, city, geographic_area, line1, line2, postal_code}`), `locations[]` (every office LinkedIn lists, with lat/long), `hashtags[]`, `cover_url`, and `page_active`. Fields a page has not filled in come back null rather than omitted, so `founded_year` is null on a company that never set a founding date. `funding` is mapped too, but LinkedIn returned an empty funding block for every company measured on 2026-08-11, so do not depend on it.",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-entity"] },
     tags: ["linkedin"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get LinkedIn company page with its full About tab",
+      returns: "Returns a LinkedIn company page: company name, description, follower count, headquarters location, website, and logo.",
+      use_when: "Use it to look up a company by its page URL, and to get the numeric company_id that the other company endpoints need.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4296,10 +5388,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Look up a LinkedIn company page from its website domain",
     description:
       "Returns the LinkedIn company page that owns a public website domain, as the same canonical Author `/v1/linkedin/company` returns from a page URL: `author.id` (the numeric company_id the other `/company/*` endpoints take), `username`, `display_name`, `bio`, `avatar_url`, `followers`, `location`, `verified`, and the About tab in `author.ext` (`website`, `employee_count`, `headquarters`, `locations[]`, `industries[]`, `specialities[]`). Pass `microsoft.com` or `https://www.microsoft.com/en-us/`: the registrable domain is extracted before the lookup. Not every domain resolves: a domain the source cannot match to a company page answers 502 with your credits refunded, and that includes some well-known brands, so treat a 502 here as 'not found by domain' and fall back to `/v1/linkedin/search/companies` or `/v1/linkedin/company` with the page URL.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Look up a LinkedIn company page from its website domain",
+      returns: "Returns the LinkedIn company page that owns a website domain: name, description, follower count, headquarters, website, logo, and numeric company id.",
+      use_when: "Use it when you have a company website rather than a LinkedIn page URL. company looks up the same record from a page URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4317,11 +5417,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List LinkedIn members similar to a given profile",
     description:
       "Returns members LinkedIn groups with a given public profile, as a canonical AuthorList: `username`, `display_name`, `bio` (headline), `url`, `avatar_url`, and `author.ext.urn`. The roster is a single window (`pagination.has_more` is `false`). Pass the same profile URL `/v1/linkedin/profile` takes.",
+    budget_ms: 12000,
     singlePage: "Fixed-window similar-profile roster. The source returns one page and has no continuation token.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List LinkedIn members similar to a given profile",
+      returns: "Returns members LinkedIn groups with a given profile, each with handle, headline, profile URL, and picture.",
+      use_when: "Use it after profile to find nearby people; search/people filters by title, company, or location instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4345,11 +5453,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search LinkedIn company pages",
     description:
       "Returns company pages matching a keyword, as a canonical AuthorList: `username`, `display_name`, `bio` (tagline), `url`, `avatar_url`, and `author.ext.company_id` (the numeric id the other `/company/*` endpoints take). Optional filters: `company_size` (LinkedIn headcount buckets), `has_jobs`, `industry_ids` (comma-separated ids from `/v1/linkedin/search/industry`), `geocode` (ids from `/v1/linkedin/search/location`). Page with `page`.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search LinkedIn company pages",
+      returns: "Returns LinkedIn company pages matching a keyword, each with name, tagline, page URL, and logo.",
+      use_when: "Use it to find companies by name and optional size, industry, location, or open-jobs filters, then pass a result to company.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4367,11 +5483,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List jobs a LinkedIn member has posted",
     description:
       "Returns the jobs a member is listed as having posted, as a canonical JobList: `job.id`, `title`, `url`, `location`, `listed_at`, and the hiring `company`. Pass the same profile URL `/v1/linkedin/profile` takes. A member with no posted jobs answers an empty list.",
+    budget_ms: 12000,
     singlePage: "Fixed-window jobs-posted-by-member roster. The source returns one page and has no continuation token.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "List jobs a LinkedIn member has posted",
+      returns: "Returns the jobs a LinkedIn member has posted, each with job id, title, hiring company, location, and posting date.",
+      use_when: "Use it when you have a person's profile URL and want the roles they listed, not every opening at their employer.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4390,11 +5514,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List the hiring team on a LinkedIn job",
     description:
       "Returns the members LinkedIn shows as the hiring team on a job posting, as a canonical AuthorList: `username`, `display_name`, `bio`, `url`, `avatar_url`. Pass a job id from `/v1/linkedin/search/jobs` or `/v1/linkedin/company/jobs`, or the job URL. An empty list means LinkedIn published no hiring team on that posting.",
+    budget_ms: 12000,
     singlePage: "Fixed-window hiring-team roster. The source returns the team on the job page and has no continuation token.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List the hiring team on a LinkedIn job",
+      returns: "Returns the members LinkedIn shows as the hiring team on a job, each with handle, headline, profile URL, and picture.",
+      use_when: "Use it after search/jobs or company/jobs, passing a job id or the job URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4414,11 +5546,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Pulse articles a LinkedIn member published",
     description:
       "Returns the member's LinkedIn Pulse articles as a canonical PostList: `post.id`, `content.text`, `author`, engagement counts, and `published_at`. Pass the same profile URL `/v1/linkedin/profile` takes. Page with `page`.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Pulse articles a LinkedIn member published",
+      returns: "Returns Pulse articles a LinkedIn member published, each with text, author, engagement, and date.",
+      use_when: "Use it for long-form writing. profile/posts is the short-form feed; article fetches one Pulse URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4436,10 +5576,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a LinkedIn Pulse article",
     description:
       "Returns one Pulse article as a canonical Post: text, author, engagement, and publish time. Pass the article's `/pulse/` URL. Comments and reactions are separate calls.",
+    budget_ms: 12000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a LinkedIn Pulse article",
+      returns: "Returns one LinkedIn Pulse article: its text, author, like and comment counts, and publish time.",
+      use_when: "Use it when you have a /pulse/ URL. Comments and reactions are article/comments and article/reactions.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4459,12 +5607,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List comments on a LinkedIn Pulse article",
     description:
       "Returns comments on a Pulse article as a canonical CommentList: commenter identity, text, and timestamp. Pass the article URL from `/v1/linkedin/article` or `/v1/linkedin/profile/articles`.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List comments on a LinkedIn Pulse article",
+      returns: "Returns comments on a LinkedIn Pulse article, with commenter identity, text, and timestamp.",
+      use_when: "Use it after article or profile/articles, passing the article URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4484,12 +5640,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List reactors on a LinkedIn Pulse article",
     description:
       "Returns members who reacted to a Pulse article as a canonical AuthorList. The reaction type rides on `author.ext.reaction_type`. Pass the article URL.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List reactors on a LinkedIn Pulse article",
+      returns: "Returns members who reacted to a LinkedIn Pulse article, each with handle, name, picture, and reaction type.",
+      use_when: "Use it after article, passing the same Pulse URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4509,6 +5673,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search LinkedIn posts by hashtag",
     description:
       "Returns public posts tagged with a hashtag as a canonical PostList. Pass the tag with or without `#`. Optional `sort_by`: `recent`, `oldest`, `relevance`. One page per call.",
+    budget_ms: 12000,
     singlePage: "Hashtag search continuation token is unproven; page 2 is declined rather than re-served.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
@@ -4518,6 +5683,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/search/hashtag", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search LinkedIn posts by hashtag",
+      returns: "Returns public LinkedIn posts tagged with a hashtag, each with text, author, engagement, and date.",
+      use_when: "Use it to monitor a tag. Keyword search across posts is search/posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4535,9 +5707,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get when a LinkedIn member was last active",
     description:
       "Returns the member's most recent public activity time. Pass the same profile URL `/v1/linkedin/profile` takes. This is a timestamp, not a feed; use `/v1/linkedin/profile/posts` for the posts themselves.",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get when a LinkedIn member was last active",
+      returns: "Returns when a LinkedIn member last showed public activity.",
+      use_when: "Use it to see recency, not the feed itself. profile/posts returns the posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4556,11 +5736,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List company pages people also viewed",
     description:
       "Returns company pages LinkedIn shows as 'people also viewed' for a company, as a canonical AuthorList. Each row carries the page's numeric company id in `author.ext.company_id`, ready for the other `/company/*` endpoints. Pass the numeric `company_id` (`author.id` from `/v1/linkedin/company`) or the company page `url`.",
+    budget_ms: 12000,
     singlePage: "Fixed-window people-also-viewed roster. The source returns one page and has no continuation token.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List company pages people also viewed",
+      returns: "Returns company pages LinkedIn shows as people also viewed, each with name, page URL, and logo.",
+      use_when: "Use it after company to find nearby pages; pass the numeric company_id from company, or the company page URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4580,9 +5768,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a company's employee count, optionally by location",
     description:
       "Returns how many LinkedIn members list the company as employer, optionally broken down by location ids from `/v1/linkedin/search/location`. The headline headcount is also on `/v1/linkedin/company` as `author.ext.employee_count`.",
+    budget_ms: 12000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a company's employee count, optionally by location",
+      returns: "Returns how many LinkedIn members list a company as employer, optionally broken down by location.",
+      use_when: "Use it for a headcount by city or country; company.ext.employee_count is the headline total.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -4602,11 +5798,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List schools a LinkedIn member follows",
     description:
       "Returns the school pages a member follows. Sibling of `/v1/linkedin/profile/interests/companies` and `/groups`. Pass the profile URL.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List schools a LinkedIn member follows",
+      returns: "Returns the school pages a LinkedIn member follows, each with name and page URL.",
+      use_when: "Use it after profile. search/schools turns a university name into a school id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4626,11 +5830,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List newsletters a LinkedIn member follows",
     description:
       "Returns the newsletters a member follows. Pass the same profile URL `/v1/linkedin/profile` takes.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List newsletters a LinkedIn member follows",
+      returns: "Returns the newsletters a LinkedIn member follows, each with name and page URL.",
+      use_when: "Use it after profile to see which newsletters they follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4648,11 +5860,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Top Voices a LinkedIn member follows",
     description:
       "Returns the Top Voice profiles a member follows. Pass the same profile URL `/v1/linkedin/profile` takes.",
+    budget_ms: 12000,
     singlePage: "Fixed-window Top Voices roster. The source has no continuation token.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List Top Voices a LinkedIn member follows",
+      returns: "Returns the Top Voice profiles a LinkedIn member follows, each with name and profile URL.",
+      use_when: "Use it after profile to see which Top Voices they follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4670,11 +5890,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a member's positions with the skills on each role",
     description:
       "Returns career positions together with the skills listed on each role. `/v1/linkedin/profile/experiences` is the role list without per-role skills; `/v1/linkedin/profile/skills` is the flat skill list.",
+    budget_ms: 12000,
     singlePage: "Fixed-window positions-with-skills roster. The source has no continuation token.",
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's positions with the skills on each role",
+      returns: "Returns a member's positions with the skills listed on each role.",
+      use_when: "Use it when you need skills per job. profile/experiences is the role list; profile/skills is the flat list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4692,9 +5920,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the company page of a member's top position",
     description:
       "Returns the LinkedIn company page of the member's current top position (the employer LinkedIn shows first on the profile), not the role itself: no job title or dates. The raw company record carries `id` (the numeric company id), `name`, `universalName`, `linkedinUrl`, `tagline`, `description`, `type`, `website`, `staffCount`, `staffCountRange`, `followerCount`, `industries`, `specialities`, `headquarter`, `locations`, `logos`, `founded` and `pageVerification`. For the same company as a canonical Author, call `/v1/linkedin/company` with that `linkedinUrl`; for the member's roles, titles and dates, use `/v1/linkedin/profile/experiences`.",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get the company page of a member's top position",
+      returns: "Returns the company page of the member's current top position: company id, name, website, headcount, industries and locations, not the job title.",
+      use_when: "Use it to find where a member works now. company returns the same company in the canonical schema; profile/experiences has titles and dates.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4712,11 +5948,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search LinkedIn people from a search-results URL",
     description:
       "Returns members from a LinkedIn people-search URL as a canonical AuthorList. Pass a `linkedin.com/search/results/people/` URL. Keyword people search remains `/v1/linkedin/search/people`.",
+    budget_ms: 12000,
     singlePage: "People-search-by-URL is a single window; continuation is unproven.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search LinkedIn people from a search-results URL",
+      returns: "Returns LinkedIn members from a people-search results URL, each with handle, headline, and profile URL.",
+      use_when: "Use it when you already have a LinkedIn people-search URL. Keyword search is search/people.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4735,9 +5979,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a member's entire profile, counts included, in one call",
     description:
       "Returns a LinkedIn member's ENTIRE public profile in a single call, every section LinkedIn publishes. This is the lane for a one-call profile audit, and it replaces stacking `/profile`, `/profile/complete`, `/profile/stats`, the five `/profile/interests/*` lanes and `/profile/similar`. `author` is the same Author object `/v1/linkedin/profile` returns, with `followers` and `following` filled, plus `verified`, `joined_at`, `ext.website`, `ext.is_influencer`, `ext.is_open_to_work`, `ext.is_hiring`, `ext.is_memorialized` and `ext.cover_url`; `verified` is null on every other LinkedIn lane and real here. `background` holds `summary` (the About text), `experiences`, `educations`, `skills`, `recommendations` (received), `current_position`, `top_education`, `certifications`, `honors`, `languages`, `projects`, `publications`, `volunteering`, `courses`, `patents`, `organizations`, `causes`, `top_skills`, `featured`, `interests` and `services`. `background.interests` is bucketed into `top_voices`, `companies`, `groups`, `schools` and `newsletters`, the same five tabs the `/v1/linkedin/profile/interests/*` lanes sell separately. `similar_profiles` is LinkedIn's People-also-viewed rail, up to 20 members, which `/v1/linkedin/profile/similar` sells separately. `background.experiences[]` carries the skills tagged on each role, and `background.skills[]` carries `endorsements` plus `endorsement_notes`, none of which `/profile/complete` returns. THREE THINGS TO READ CAREFULLY. `section_totals` gives LinkedIn's own count for each section and it can EXCEED the array beside it, because long sections are truncated at source; trust `section_totals` for a count, never `background.<section>.length`. `author.ext.followers_approximate` is true when this source reported a rounded follower count instead of an exact one, which it does on large accounts; `/v1/linkedin/profile` returns the exact integer. `background.skills[].endorsements_is_floor` is true when LinkedIn published a \\\"99+\\\" style label instead of a number, so the count is a minimum. `background.services` is returned on this lane only, is passed through in the source's own shape, and is null for a member who publishes no services page, which is most members. `background.given_recommendations` is NOT returned: this source carries only what the member received, and an empty array would read as \\\"none given\\\"; use `/v1/linkedin/profile/complete` for those. Every top-level key of the original record is kept unchanged for compatibility.",
+    budget_ms: 45000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-linkedin-entity" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a member's entire profile, counts included, in one call",
+      returns: "Returns a member's entire public profile in one call: `author` with both counts, and `background` with About, experience, education, skills, recommendations, Featured and interests.",
+      use_when: "Use it for a one-call profile audit, in place of stacking profile, profile/complete, profile/stats, the five interests lanes and profile/similar.",
+      not_for: "Not for recent posts, which it does not return (linkedin/profile/with-posts, linkedin/profile/posts) or a company page (linkedin/profile/full).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4755,9 +6007,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a member's profile, experience, education, skills and recommendations",
     description:
       "Returns a LinkedIn member's full background in one premium call, in place of `/v1/linkedin/profile` plus `/v1/linkedin/profile/experiences`, `/profile/educations`, `/profile/skills` and `/profile/recommendations`. Two keys carry it in SocialCrawl's own shapes. `author` is the same Author object `/v1/linkedin/profile` returns (`username`, `display_name`, `bio`, `location`, `avatar_url` and the `ext` flags, `urn` and `member_id` included); `followers` and `following` are null because this call reports no counts. `background` holds `summary` (the About text, or null) and five arrays whose items match the matching `/v1/linkedin/profile/*` endpoint item for item: `experiences` (`title`, `description`, `location`, `date` such as `{start: \"Apr 2025\", end: \"Present\"}`, `employment_type`, `skills`, `company` with `id`, `name`, `url` and `logo`), `educations` (`id`, `school`, `date`, `degree`), `skills` (`skill`, `is_passed_skill_assessment`), `recommendations` (received) and `given_recommendations` (`text`, `date`, `type`, `recommender`). A leaf this call does not carry is null rather than missing, for example a role's `skills` and a recommender's `urn`, and `educations` is an empty array when the member lists none. Every other top-level key (`firstName`, `fullPositions`, `languages`, `projects` and the rest) is the original packed record, kept unchanged for compatibility; languages and projects are only available there.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a member's profile, experience, education, skills and recommendations",
+      returns: "Returns a member's full background: `author` in the /profile shape, and `background` with About, experiences, educations, skills and recommendations in the profile/* item shapes.",
+      use_when: "Use it for background checks and enrichment, where one premium call replaces profile, profile/experiences, profile/educations, profile/skills and profile/recommendations.",
+      not_for: "Not for follower or connection counts, which come back null (linkedin/profile/with-posts, linkedin/profile/all), or for recent posts (linkedin/profile/with-posts).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4775,9 +6035,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a member profile with follower and connection counts and recent posts",
     description:
       "Returns a LinkedIn member's profile, follower and connection counts, and recent posts in one premium call. `author` is the same Author object `/v1/linkedin/profile` returns, with `followers` and `following` filled from this call's counts. `posts` is an array of recent posts whose items match `/v1/linkedin/profile/posts` item for item (`post.id` is the activity id, `post.published_at` is the exact posting time, `post.ext.reaction_counts` breaks reactions down by type), so `post.ext.published_at_precision` is null: there is no approximation to declare. `background` holds `summary` (the About text, or null) and `experiences`, `educations` and `skills` arrays whose items match the matching `/v1/linkedin/profile/*` endpoint item for item; a leaf this call does not carry is null rather than missing. This call carries no recommendations; use `/v1/linkedin/profile/complete` for those. Every other top-level key is the original profile record, kept unchanged for compatibility.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a member profile with follower and connection counts and recent posts",
+      returns: "Returns a member's profile with follower and connection counts in `author`, recent `posts` in the profile/posts item shape, and experiences, educations and skills under `background`.",
+      use_when: "Use it for one call covering the counts, recent posts and career history. Use profile/complete when you need recommendations.",
+      not_for: "Not for recommendations or the full background (linkedin/profile/complete, linkedin/profile/all) or a company page (linkedin/profile/full).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4795,9 +6063,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a LinkedIn post together with its comments",
     description:
       "Returns one post packed with its comments. Prefer `/v1/linkedin/post` plus `/v1/linkedin/post/comments` when you want each surface on its own schema. Pass an activity URL.",
+    budget_ms: 12000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin-pnd" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a LinkedIn post together with its comments",
+      returns: "Returns one LinkedIn post packed with its comments in a single payload.",
+      use_when: "Use it to fetch a post and its thread together. Prefer post plus post/comments when you want each on its own schema.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4815,6 +6091,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get LinkedIn post details",
     description:
       "Returns detailed information about a specific LinkedIn post including the post text, like count, comment count, share count, author info, media attachments, and publish timestamp.\n\n**Which post URL to send.** A LinkedIn post can be addressed by three different ids, and this endpoint resolves the ACTIVITY one: `https://www.linkedin.com/feed/update/urn:li:activity:<id>`, or the share-button form `https://www.linkedin.com/posts/<slug>-activity-<id>-<code>`. A `urn:li:share:` or `urn:li:ugcPost:` URL is a different id for the same post and cannot be resolved here, so it is rejected with a 400 before any credits are charged. The reliable way to get a URL that works is to read `post.url` off any endpoint that lists posts (/v1/linkedin/profile/posts, /v1/linkedin/company/posts, /v1/linkedin/search/posts and the rest): that field is always the activity form. Do not rebuild the URL from `post.id`, which on some lanes is the share or ugcPost id rather than the activity id.",
+    budget_ms: 12000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
     tags: ["linkedin"],
@@ -4823,6 +6100,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get LinkedIn post details",
+      returns: "Returns one LinkedIn post: its text, author name and picture, like, comment and share counts, attached media, and the publish time.",
+      use_when: "Use it when you have a post URL and want the post itself, not its comments, reactions, or reposts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4855,6 +6139,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search LinkedIn people",
     description:
       "Searches LinkedIn members by name and B2B filters (title, current/past company, school, industry, location, language). Returns a paginated list of matching profiles with handle, headline, location, follower count, and the member URN for follow-up enrichment calls. Each page is 10 members. On a plain call `author.followers` is LinkedIn's rounded display bucket, and only on the rows that show one (flagged `author.ext.followers_approximate: true`), and `author.following` is null on every row. Send `include=profile` and every row is joined, in the same call, to the member's profile lookup (`/v1/linkedin/profile`): `author.followers` becomes the exact follower count and `author.ext.followers_approximate` reads false on every row the lookup filled, whether the row arrived with LinkedIn's rounded bucket or with no count at all, `author.following` is filled with the member's connection count (on LinkedIn a member's `following` is the number of connections), and the location, the joined date (`author.joined_at`), and the country, website, cover image and profile flags on `author.ext` land where the row lacks them. Cost: 10 credits for the list; include=profile holds 4 credits per row and keeps only the rows filled from a fresh lookup, so a call costs at most 50; rows already in cache are free and unfilled rows are refunded. Pass `limit` (1 to 10) to join only the top rows: `limit=3&include=profile` costs at most 22. Time: the lookups run in parallel, about 1 second for 10 rows, up to 3 on a slow second, and never more than 8 seconds. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-people"] },
@@ -4866,6 +6151,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/search/people", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search LinkedIn people",
+      returns: "Returns LinkedIn members matching a name or filters, each with handle, headline, location, follower count, profile URL, and member id.",
+      use_when: "Use it to build a prospect list by job title, company, school, or location; use company/people to list one employer's staff.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -4895,6 +6187,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "profile", sibling: "linkedin/profile", fills: ["author.followers", "author.following", "author.location", "author.joined_at", "author.ext.country", "author.ext.member_id", "author.ext.website", "author.ext.cover_url", "author.ext.is_creator", "author.ext.is_influencer", "author.ext.is_open_to_work", "author.ext.is_hiring", "author.ext.is_top_voice", "author.ext.is_premium"], creditsPerItem: 4, maxItems: 10, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "profile_unavailable", partial: "profile_partial" }, replaceApproximate: ["author.followers"] },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List people at a LinkedIn company",
+      returns: "Returns the members who list a company as their employer, each with handle, headline, location, profile picture, and follower count.",
+      use_when: "Use it when you already have a company_id and want its staff; use search/people to filter across all of LinkedIn instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -4916,6 +6215,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get LinkedIn post comments",
     description:
       "Returns a paginated list of comments on a LinkedIn post, with commenter identity, text, reaction breakdown, pin/edit flags, and reply counts. LinkedIn shows the newest reply of each thread under its comment, and so does this endpoint: it is in `comment.replies`, with its own author, text and time. `engagement.replies` is the thread's full count. When a thread has older replies than the one shown, the comment also carries `ext.previous_replies_token`; pass it as `cursor` to /v1/linkedin/post/comments/replies to read the rest, or call that endpoint without `cursor` for the whole thread. A one-reply thread has no token because its only reply is already in `comment.replies`. `ext.is_submitter` is true when the commenter wrote the post (LinkedIn's Author badge). A reply's `id` is LinkedIn's comment id when LinkedIn sends one; otherwise it is a stable id built from the parent comment's id (`<parent id>:<8 hex>`).",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
@@ -4925,6 +6225,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get LinkedIn post comments",
+      returns: "Returns the comments on a LinkedIn post: commenter name, comment text, reaction counts, reply count, pinned and edited flags, and timestamps.",
+      use_when: "Use it for the top-level comments on a post, then pass a comment's id to post/comments/replies to open one thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 3584, p95: 15020, p99: 15097, n: 14, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -4945,6 +6253,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a LinkedIn member's posts",
     description:
       "List a LinkedIn member's recent posts, normalised to the SocialCrawl schema. The upstream serves this feed as ONE fixed window and has no working continuation token, so the response is always terminal (`pagination.has_more` is `false` and `next_cursor` is `null`) and a `cursor` is rejected rather than silently re-serving the first page. Use `limit` to control depth: it defaults to 20 and accepts up to 100, the provider's hard ceiling. Up to 50 the call is a flat 5 credits; above 50 it is metered at 2 credits per post returned (see the credit cost). A feed shorter than the requested `limit` simply returns everything the member has posted.\n\n**Older than the most recent 100.** Read the row count first: if this endpoint returns fewer posts than your `limit`, that is the member's entire history and there is nothing further back to fetch. If it returns exactly 100 the feed is truncated, and the way past it is /v1/linkedin/search/posts with `from_member` set to the member's urn (`author.ext.urn` on /v1/linkedin/profile) and no `query`. That endpoint pages with a real `next_cursor` that keeps advancing, and on a prolific member it reaches months further back than this one. It reads a best-effort search index rather than the member's feed, so it is the deeper source only for members this endpoint truncates. **It is not a complete archive**: how deep it goes is a property of the index and varies by member, from a couple of hundred posts to a few hundred, so walk it to find out and do not design around a fixed number.",
+    budget_ms: 12000,
     singlePage: "The upstream serves this feed as one fixed window with no working continuation token (re-verified against the provider 04/09/2026); use `limit` (up to 100, the provider's hard ceiling) to control how much of it you get in the one call.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd", "apify-linkedin"] },
@@ -4954,6 +6263,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/profile/posts", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a LinkedIn member's posts",
+      returns: "Returns the posts a LinkedIn member published, each with text, author name, like, comment and share counts, media, and publish time.",
+      use_when: "Use it for what a person posted themselves; profile/reactions covers posts they only reacted to, profile/comments their comments.",
+      not_for: "Not for the profile and its counts (linkedin/profile/with-posts), a member's complete post history (linkedin/profile/posts/archive) or a company's posts (linkedin/company/posts).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 11113, p95: 11676, p99: 11726, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -4978,6 +6295,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List posts a LinkedIn member reacted to",
+      returns: "Returns the posts a LinkedIn member reacted to, each with the post text, its original author, like, comment and share counts, and date.",
+      use_when: "Use it to see what a person engages with rather than what they publish, which profile/posts returns.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5003,6 +6327,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List reposts of a LinkedIn post",
+      returns: "Returns the reposts of a LinkedIn post, each with the resharer's name, any added commentary, engagement counts, and publish time.",
+      use_when: "Use it to see who amplified a post; post/reactions lists who reacted and post/comments lists who replied.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5030,6 +6361,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/group/posts", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List posts in a LinkedIn group",
+      returns: "Returns the posts inside a LinkedIn group, each with text, author name, like, comment and share counts, media, and publish time.",
+      use_when: "Use it to read a group's discussion feed; call group first if you also need the group's own details.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5052,6 +6390,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List a company's affiliated/showcase pages",
+      returns: "Returns a company's affiliated and showcase pages, each with page name, LinkedIn URL, speciality, follower count, and logo.",
+      use_when: "Use it to map a parent brand to its regional and product pages before pulling posts or jobs for each one.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5072,11 +6417,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List replies to a LinkedIn comment",
     description:
       "Lists the replies under one LinkedIn comment, oldest first, each with its author, text, time, reaction breakdown and `ext.is_submitter` (true when the reply is by the post's author). Called without `cursor` it returns the whole thread. Called with the parent's `ext.previous_replies_token` as `cursor` it returns only the replies older than the newest one, which /v1/linkedin/post/comments already carries in `comment.replies`, so the two calls together are the thread with no overlap. Pass the parent comment's `comment.id`, or its `comment.ext.urn`, as `comment_id`; the urn is the faster route on posts published as images, video or documents. A thread read without `cursor` takes about 20 seconds, and up to about 30 on the first comment of such a post when only the bare id is passed.",
+    budget_ms: 12000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-comment-replies"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List replies to a LinkedIn comment",
+      returns: "Returns the replies under one LinkedIn comment, each with the replier's name, reply text, reaction and reply counts, and timestamps.",
+      use_when: "Use it after post/comments: pass that comment's comment_id together with the post url to expand a single thread.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
+    latency_ms: { p50: 17926, p95: 28464, p99: 29009, n: 5, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -5097,11 +6451,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a member's work experiences",
     description:
       "List a member's work experiences, normalised to the SocialCrawl schema.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-entity"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's work experiences",
+      returns: "Returns a LinkedIn member's work history: each role's job title, company and dates, plus its location, employment type and description wherever the member filled them in.",
+      use_when: "Use it for the full career list, which the main profile endpoint condenses down to the current company only.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 6872, p95: 8804, p99: 8959, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -5122,11 +6485,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a member's education history",
     description:
       "List a member's education history, normalised to the SocialCrawl schema.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["apify-linkedin-entity"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's education history",
+      returns: "Returns a LinkedIn member's education history, with each entry's school, degree, field of study, and the years attended.",
+      use_when: "Use it for schooling detail; profile/experiences covers jobs, and search/schools turns a school name into a filter id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5147,11 +6518,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a member's skills",
     description:
       "List a member's skills, normalised to the SocialCrawl schema.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's skills",
+      returns: "Returns the skills listed on a LinkedIn member's profile, with each skill's name and the endorsements shown against it.",
+      use_when: "Use it to score a person against a skill requirement, separately from the roles returned by profile/experiences.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5177,6 +6556,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's honors and awards",
+      returns: "Returns the honors and awards on a LinkedIn member's profile, with each award's title, issuer, date, and description.",
+      use_when: "Use it for awards only: certifications live in profile/certifications and published work in profile/publications.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5202,6 +6588,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's licenses and certifications",
+      returns: "Returns the licenses and certifications on a LinkedIn member's profile, with each one's name, issuer, and issue or expiry dates.",
+      use_when: "Use it to check formal credentials, as opposed to self-listed skills in profile/skills or degrees in profile/educations.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5227,6 +6620,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's publications",
+      returns: "Returns the publications on a LinkedIn member's profile, with each one's title, publisher, publication date, description, and link.",
+      use_when: "Use it for articles, papers, and books a person published, not for their LinkedIn posts, which profile/posts returns.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5252,6 +6652,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's volunteer experiences",
+      returns: "Returns the volunteer experience on a LinkedIn member's profile, with each entry's role, organisation, cause, and dates.",
+      use_when: "Use it for unpaid and community roles, which the paid work history in profile/experiences does not cover.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5278,6 +6685,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List recommendations for a member",
+      returns: "Returns the recommendations on a LinkedIn member's profile, with the recommender's name and headline, the recommendation text, and date.",
+      use_when: "Use it for written references, and set type to received or given to choose which side of the relationship you want.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5303,6 +6717,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List companies a member follows",
+      returns: "Returns the companies a LinkedIn member follows, with each company's name, LinkedIn URL, follower count, and logo.",
+      use_when: "Use it to infer a person's interests and vendor affinities; profile/interests/groups covers the groups they follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5328,6 +6749,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List groups a member follows",
+      returns: "Returns the LinkedIn groups a member follows, with each group's name, URL, and the size of its membership.",
+      use_when: "Use it to find the communities a person belongs to, then pass a group_id to group or group/posts to go deeper.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5352,6 +6780,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a member's image posts",
+      returns: "Returns the image posts on a LinkedIn member's profile, with each post's text, image links, engagement counts, and publish time.",
+      use_when: "Use it when you only want photo posts; profile/posts returns every format and profile/videos returns the videos.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5379,6 +6814,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/videos", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a member's video posts",
+      returns: "Returns the video posts on a LinkedIn member's profile, with each post's text, video and thumbnail links, engagement counts, and date.",
+      use_when: "Use it to collect a person's videos, then pass a video post's URL to post/transcript to read what was said.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5406,6 +6848,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "reddit/profile/comments", why: "The same data from reddit." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List a member's comments",
+      returns: "Returns the comments a LinkedIn member left on other people's posts, with the comment text, the post it sits under, and the timestamp.",
+      use_when: "Use it to track someone's activity in other conversations; post/comments returns the comments on one specific post.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5428,6 +6877,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List reactors on a LinkedIn post",
     description:
       "Lists the members who reacted to a LinkedIn post as a canonical AuthorList: name, headline, profile URL, avatar and member URN (`author.ext.urn`), with the reaction they left on `author.ext.reaction_type` (filter it with `type`). Each page is 10 reactors; page through with `page`. On a plain call a reactor row carries no follower count, connection count or location: `author.followers` and `author.following` are null on every row. Send `include=profile` and every row is joined, in the same call, to the member's profile lookup (`/v1/linkedin/profile`): `author.followers` becomes the exact follower count and `author.ext.followers_approximate` reads false on every row the lookup filled, whether the row arrived with LinkedIn's rounded bucket or with no count at all, `author.following` is filled with the member's connection count (on LinkedIn a member's `following` is the number of connections), and the location, the joined date (`author.joined_at`), and the country, website, cover image and profile flags on `author.ext` land where the row lacks them. Cost: 10 credits for the list; include=profile holds 4 credits per row and keeps only the rows filled from a fresh lookup, so a call costs at most 50; rows already in cache are free and unfilled rows are refunded. Pass `limit` (1 to 10) to join only the top rows: `limit=3&include=profile` costs at most 22. Time: the lookups run in parallel, about 1 second for 10 rows, up to 3 on a slow second, and never more than 8 seconds. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
@@ -5436,6 +6886,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "profile", sibling: "linkedin/profile", fills: ["author.followers", "author.following", "author.location", "author.joined_at", "author.ext.country", "author.ext.member_id", "author.ext.website", "author.ext.cover_url", "author.ext.is_creator", "author.ext.is_influencer", "author.ext.is_open_to_work", "author.ext.is_hiring", "author.ext.is_top_voice", "author.ext.is_premium"], creditsPerItem: 4, maxItems: 10, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "profile_unavailable", partial: "profile_partial" }, replaceApproximate: ["author.followers"] },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "List reactors on a LinkedIn post",
+      returns: "Returns the people who reacted to a LinkedIn post, each with their name, headline, profile URL, and the reaction they left.",
+      use_when: "Use it to see who liked or praised a post, optionally filtered by type; post/comments covers the people who wrote a comment.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5469,6 +6926,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "date_posted", benefit: "Only posts from this time window.", example: "anytime" },
     ],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "List a company's job postings",
+      returns: "Returns the jobs a company has posted, each with job id, title, location, hiring company details, posting date, and Easy Apply flag.",
+      use_when: "Use it for one employer's openings; search/jobs looks across all companies and job returns one posting's full text.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5505,6 +6969,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "date_posted", benefit: "Only posts from this time window.", example: "anytime" },
     ],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "Search LinkedIn jobs",
+      returns: "Returns LinkedIn job postings matching a keyword, each with job id, title, hiring company, location, posting date, and Easy Apply flag.",
+      use_when: "Use it to search openings across employers with filters like remote, job type, and experience level, then pass an id to job.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5530,6 +7001,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/search/location", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Resolve a location to a LinkedIn geocode id",
+      returns: "Returns LinkedIn locations matching a place name, each with the location's display name and the geocode id LinkedIn filters on.",
+      use_when: "Use it first to turn a city or country name into the id that search/people and search/jobs expect for location filters.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5554,6 +7032,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search LinkedIn schools",
+      returns: "Returns LinkedIn school pages matching a name, each with the school's name, page URL, and the id used in search filters.",
+      use_when: "Use it to turn a university name into the school id that search/people accepts as a filter.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5576,6 +7061,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Resolve an industry name to a LinkedIn industry id",
+      returns: "Returns LinkedIn industries matching a keyword, each with the industry name and the id LinkedIn uses to identify it.",
+      use_when: "Use it to turn an industry name into the id that search/people and search/jobs need for their industry filters.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5595,12 +7087,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a member's account freshness signals (NOT the profile About section)",
     description:
       "Returns LinkedIn's account-freshness panel for a member: `joined` (the month the account was created, as a label such as \"May 2013\"), and how recently the contact information and profile photo were updated. `is_verified` and `verification` (LinkedIn's identity verification details) appear only when LinkedIn's verification panel can be read for that member; otherwise the response carries no verification keys. **This is not the member's About/summary section**: despite the resource name, no free-text profile summary is returned. The closest public text LinkedIn publishes for a member is the headline, on `author.bio` from `/v1/linkedin/profile`. For a company's About tab, use `/v1/linkedin/company` (`author.ext`). The join date itself is already on `/v1/linkedin/profile` as `author.joined_at` (an exact date).",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
     tags: ["linkedin"],
     related: [
       { id: "instagram/profile/about", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "Get a member's account freshness signals (NOT the profile About section)",
+      returns: "Returns the month a LinkedIn member joined and how recently contact details and the profile photo were updated, plus identity verification when LinkedIn shows it for that member.",
+      use_when: "Use it to judge how current a profile is. Verification is included only for members whose verification panel can be read. Values come back as relative text, not exact dates.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5621,6 +7121,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a member's public contact info",
+      returns: "Returns the contact details a LinkedIn member exposes publicly: websites, phone numbers, address, WeChat, and Twitter, alongside their name and profile urn.",
+      use_when: "Use it when you need a way to reach a person; most fields come back empty unless the member filled them in, and no email address is returned.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5638,9 +7145,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a member's follower + connection counts",
     description:
       "Returns `follower_count` and `connection_count` for a member and nothing else. `/v1/linkedin/profile` returns the same two numbers (`author.followers`, `author.following`) at the same credit cost together with the full profile, so prefer it; this lane exists for callers that want the two counters with no other fields in the response.",
+    budget_ms: 12000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd"] },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a member's follower + connection counts",
+      returns: "Returns a LinkedIn member's audience size: their follower count and their connection count.",
+      use_when: "Use it when all you need is reach numbers and you do not want to pull the whole profile.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 6978, p95: 6978, p99: 6978, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -5661,6 +7177,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get a company's open job count",
+      returns: "Returns the number of jobs a LinkedIn company currently has open.",
+      use_when: "Use it to track hiring volume over time without paging through the full list in company/jobs.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5681,6 +7204,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
+    purpose: {
+      summary: "Get aggregate insights about a company's members",
+      returns: "Returns headcount breakdowns of a LinkedIn company's members as name and count pairs, covering locations, schools, job functions, skills, service categories, and fields of study.",
+      use_when: "Use it for a workforce profile of an employer without paging through staff; company/people lists the individual members.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5704,6 +7234,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "facebook/group", why: "The same data from facebook." },
     ],
+    purpose: {
+      summary: "Get LinkedIn group details",
+      returns: "Returns a LinkedIn group's profile: name, description, member count, posting rules, industries, owners, logo and cover images, and its public and active flags.",
+      use_when: "Use it to size up a group and read its rules before pulling its feed with group/posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5727,6 +7264,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "rapidapi-linkedin" },
     tags: ["linkedin"],
     responseShape: { root: "data.job" },
+    purpose: {
+      summary: "Get LinkedIn job details",
+      returns: "Returns one LinkedIn job posting in full: title, hiring company, location, posting date, the job description text, and the Easy Apply flag.",
+      use_when: "Use it after search/jobs or company/jobs, passing a job id from those lists to read the complete description.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "linkedin",
@@ -5747,11 +7291,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List LinkedIn company posts",
     description:
       "Returns recent posts from a LinkedIn company page as the same PostList shape as `/v1/linkedin/profile/posts`: text, reaction/comment/share counts, the company slug on `post.author.username`, and `content.media_urls` / `thumbnail_url` when the row is an image, a video or an article share. Video duration is `content.duration_seconds`. The company's follower count rides on `post.ext.author_followers`.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd", "apify-linkedin-company-posts"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List LinkedIn company posts",
+      returns: "Returns the recent posts from a LinkedIn company page, each with text, author name, like, comment and share counts, media, and date.",
+      use_when: "Use it for what a brand publishes; profile/posts covers an individual member and group/posts covers a group feed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: true },
+    latency_ms: { p50: 682, p95: 682, p99: 682, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "linkedin",
@@ -5776,6 +7329,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google/ad", why: "The same data from google." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get LinkedIn ad details",
+      returns: "Returns one LinkedIn ad from the Ad Library: the ad copy, creative images, the advertiser's name and logo, total impressions, and start date.",
+      use_when: "Use it after ads/search, passing an ad's Ad Library URL to read that single ad in full.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5804,6 +7364,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["linkedin", "linkedin-ads"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search LinkedIn ads",
+      returns: "Returns ads from the LinkedIn Ad Library matching a company, keyword, country, or date range, with each ad's copy and the advertiser behind it.",
+      use_when: "Use it to find what a competitor is running, then pass a result's ad URL to ad for the complete record.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5824,11 +7391,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Walk a LinkedIn member's COMPLETE post history, 100 posts a page, with exact publish times and share counts the other lanes cannot return. Metered: 5 credits per post returned, so try the cheaper /v1/linkedin/profile/posts first",
     description:
       "Returns a LinkedIn member's posts read from their own feed rather than from a public search index, and it is **the only route that reaches a member's complete history**. Measured on one prolific member 07/09/2026: this endpoint walked about 1,800 posts back to June 2017 and then stopped because there was nothing older, while /v1/linkedin/profile/posts caps at 100 and walking /v1/linkedin/search/posts with `from_member` exhausts at about 395. How far back it reaches is a property of the member, not of this endpoint: when a page comes back with no `next_cursor`, you have everything. Each post carries the text, media, the exact publish timestamp and the full engagement breakdown including share counts. **It is not the cheapest lane.** /v1/linkedin/profile/posts returns up to 50 posts for a flat 5 credits, or up to 100 at 2 credits a post, and is the whole history for most members, so start there and come here when it is not enough, or when you need what it cannot give you: an exact publish timestamp on every row instead of an approximation that shifts between calls, the share count, and a guarantee that every row was written by the member rather than reshared by them. **To walk the archive, pass `limit=100` and follow `next_cursor` until it stops coming back.** A `limit` below 100 returns that many of the newest posts and no cursor, because a partial page cannot be continued without silently skipping the rest of it. **Pricing is metered at 5 credits per post RETURNED**, so a member who has posted fewer than your `limit` costs less than you asked for, and a member with no posts costs nothing. Reposts are excluded, so every row you are charged for is one the member wrote. A profile we cannot find comes back as an empty list and costs nothing.",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "pagination_token", limitParam: "limit" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "apify-linkedin-posts", fallbackKinds: ["apify-linkedin"] },
     tags: ["linkedin"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Walk a LinkedIn member's COMPLETE post history, 100 posts a page, with exact publish times and share counts the other lanes cannot return. Metered: 5 credits per post returned, so try the cheaper /v1/linkedin/profile/posts first",
+      returns: "Returns a LinkedIn member's deep post archive, read from their own feed rather than a search index, with the exact publish timestamp, media and the full engagement breakdown including share counts.",
+      use_when: "Use it only when profile/posts (up to 100 posts; 5 credits to 50, then 2 per post) and search/posts with from_member run out of depth. Metered at 5 credits per post returned.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5868,6 +7443,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search public LinkedIn posts by keyword",
     description:
       "Finds public LinkedIn posts, feed updates, and Pulse articles via Google Search. Returns description, author, media, like count, comment count, and published date when LinkedIn exposes them publicly. Best-effort against Google's index, not a complete native LinkedIn search. Use `date_posted` to narrow to recent posts and `page` to walk deeper.\n\n**Many posts in one call.** Pass `limit` (1 to 200) with a `query` and the call reads as many pages as it needs, removes duplicates, and returns up to that many posts in relevance order, charged 1 credit for every 5 posts returned, so 200 posts is 40 credits. Repeat the identical call inside the 2-minute cache window and it is served from cache for nothing. The response carries a `walk` summary saying how many pages were read and why the call stopped.\n\n**Reading one member's back catalogue.** Pass `from_member` on its own, with no `query`, and page through the result: this is the only way to reach a member's posts older than the 100 that /v1/linkedin/profile/posts can return, and unlike that endpoint it hands you a real `next_cursor` that keeps advancing. Get the urn from `author.ext.urn` on /v1/linkedin/profile. Those results come back newest-first; `sort_by=relevance` is rejected on a subject-only call because there is no query for them to be relevant to.\n\n**This is not a complete history, and how much it returns varies by member.** It reads a public search index, so it holds whatever that index holds for a given profile and no more. Measured 06/09/2026: one prolific member exhausted at 395 posts, while a customer walking his own profile of 800+ posts reached 223. Neither number is a limit you can raise by paging harder; the walk simply ends when the index runs out. Treat the depth as unknown until you walk it, and do not design around a fixed figure. For a member whose /v1/linkedin/profile/posts call already returns fewer posts than the `limit` you asked for, that feed is their whole history and this endpoint returns less, not more.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-linkedin", fallbackKinds: ["rapidapi-linkedin-pnd", "apify-linkedin-post-search"] },
@@ -5883,6 +7459,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "facebook/search/posts", why: "The same data from facebook." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search public LinkedIn posts by keyword",
+      returns: "Returns public LinkedIn posts and Pulse articles matching a keyword, with each result's text, author, media, like and comment counts, and date.",
+      use_when: "Use it for broad keyword monitoring; it reads public search results, so treat coverage as best effort rather than complete.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5907,6 +7490,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/post/transcript", why: "The same data from tiktok." },
       { id: "facebook/post/transcript", why: "The same data from facebook." },
     ],
+    purpose: {
+      summary: "Get a LinkedIn post video transcript",
+      returns: "Returns the spoken text of a video in a LinkedIn post. A post with no transcript answers 404 with reason no_captions, and a repost is read from the original post it shares.",
+      use_when: "Use it to read or search what was said in a LinkedIn video; you are only charged when a transcript actually comes back.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "linkedin",
@@ -5924,7 +7514,7 @@ export const ENDPOINTS: Endpoint[] = [
     creditCost: 5,
     pricing: { cost: 5, tier: "standard", ladderCost: 1, model: "flat" },
     archetype: "Analytics",
-    summary: "LinkedIn company profile, recent posts, and computed analytics in one call.",
+    summary: "LinkedIn company profile, recent posts, and computed analytics in one call. Company pages only; a member's profile is `/v1/linkedin/profile/all`.",
     description:
       "Fans out to the LinkedIn company profile and recent-posts endpoints in parallel and returns the unified author, the recent-post list, and computed metrics: avg_engagement_rate, avg_engagement_rate_by_followers, posting cadence (with the window it was measured over), the top post, and the format mix. avg_engagement_rate is view-based: the mean of each post's (likes + comments + shares) / views, so only posts that carry a view count contribute, and it is null when none does. avg_engagement_rate_by_followers is the mean of likes + comments per post divided by the account's follower count, over every post that carries both, so it covers posts with no view count. One call reads one page of recent posts, which on LinkedIn company is 10 posts, and computes the metrics over that page: `posts` can shorten the window but not lengthen it past one page, and `_warnings` says so when fewer posts came back than `posts` asked for. Pass `posts_cursor` back as `cursor` to read the next page, 5 credits a call. The profile leg is the only critical leg: if posts can't be fetched the call still returns the profile with post-dependent metrics null, and every leg's status is surfaced in legs[]. Flat 5 credits. This is a company-page composite: pass a `linkedin.com/company/{slug}` URL. Person `/in/` URLs belong on `/v1/linkedin/profile`. Posts are loaded from `/v1/linkedin/company/posts` using the numeric `company_id` the profile leg returns as `author.id`.",
     execution: "sync",
@@ -5938,6 +7528,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/full", why: "The same data from tiktok." },
       { id: "instagram/profile/full", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "LinkedIn company profile, recent posts, and computed analytics in one call. Company pages only; a member's profile is `/v1/linkedin/profile/all`.",
+      returns: "Returns a LinkedIn company page, its latest 10 posts, and computed metrics together: engagement rate by views and by followers, posting cadence, top post, format mix.",
+      use_when: "Use it for a one-call company snapshot instead of calling company and company/posts and doing the engagement maths yourself.",
+      not_for: "Not for a member's profile, because it takes company pages only (linkedin/profile/all for the whole profile, linkedin/profile/with-posts for counts and recent posts).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- facebook (29 endpoints) ---
   {
@@ -5958,6 +7555,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Facebook page profile",
     description:
       "Returns a unified Facebook Author profile with page ID, display name, profile URL, profile image, bio (the page intro), follower count, page-like count, and creation date. Two things to know before grading on the numbers: `author.followers` is Facebook's ROUNDED public display figure (106,000,000 on the Meta page, where the exact page-like count alongside it reads 106,588,412), and `author.joined_at` is an ISO DATE (`YYYY-MM-DD`), not an instant, because Facebook publishes page creation to the day. A **business page** carries considerably more than a personal profile, and all of it rides in `author.ext`: `business_category`, `website`, `links[]`, `public_phone`, `public_email`, `address`, `price_range`, `rating` (Facebook's recommendation string, e.g. `\"74% recommend (9,493 reviews)\"`) with `rating_count` (that review count as a number), `talking_about_count`, `cover_url`, `page_active`, and `ad_library_page_id` / `ad_library_status`: the Ad Library page id is a different id from `author.id` and is the one `/v1/facebook/adlibrary/company/ads` takes, so you can chain profile → ads off a single lookup. A personal profile returns null for the listing fields it has no equivalent for rather than omitting them. `links[]` and `business_hours[]` are also mapped, the latter only when you pass `get_business_hours=true`, but Facebook returned both empty on every page measured on 2026-08-11, so treat them as best effort rather than data you can depend on. `author.following` and `author.posts_count` remain null because the upstream profile response does not provide those totals.",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-facebook"] },
     tags: ["facebook"],
@@ -5967,6 +7565,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Facebook page profile",
+      returns: "Returns a Facebook page's public profile: page id, display name, profile image, bio, follower count, and page-like count.",
+      use_when: "Use it when you have a page URL and want a quick snapshot before pulling that page's posts, photos, or reels.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -5990,6 +7595,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Facebook page posts",
     description:
       "Returns a list of recent posts from a Facebook page or profile. Each post includes the post text, like count, comment count, media attachments, the publish timestamp, and the per-reaction breakdown on `post.ext.reaction_counts` (`[{type, count}]`, highest first). Facebook publishes a post's share count, and a reel's exact view count and duration, on the individual post only, not on the feed, so on a plain call `post.engagement.shares` is null on every row and `post.engagement.views` and `post.content.duration_seconds` are null on reels. Send `include=engagement` and every row is joined, in the same call, to the per-post lookup that carries them: the share count lands on each row, and the exact view count and duration on each reel. The reaction counts and the publish time the feed already carries are never replaced, and a row that links to an event rather than a post is not looked up. Cost: 1 credit for the page plus 1 credit per row filled from a fresh lookup (3 rows a page, so 4 credits at most); rows already in cache are filled for free, rows that could not be filled are refunded, and a repeat of the same call within the cache window is 0 credits. Time: `include=engagement` adds 2 to 7 seconds on a fresh page (the lookups run in parallel and the call waits for the slowest, never more than 12 seconds) and nothing when the rows are already cached. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds. Facebook serves this feed in small slices, so the first response is a window onto the page rather than everything it has: `pagination.page_size` reports how many posts that window held, and deeper history is a cursor walk. Send `pagination.next_cursor` back as `cursor` and repeat until `pagination.has_more` is false; each page costs 1 credit (plus the join when you ask for it), so depth is bounded by how many pages you buy. `recent_days=N` keeps only posts from the last N days and ends the walk once a page reaches older posts; it does not change the price of a page.",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-facebook"] },
@@ -6005,6 +7611,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook page posts",
+      returns: "Returns recent posts from a Facebook page or profile, each with the post text, like and comment counts, the per-reaction breakdown, media, and publish time. Share counts are null on a plain call.",
+      use_when: "Use it to pull a page's recent content by url or pageId. The optional include=engagement fills each row's share count, and a reel's exact views and duration, in the same call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6025,6 +7638,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Facebook post details",
     description:
       "Returns detailed information about a specific Facebook post: the post text, like count, comment count, share count, media attachments, author info, and the per-reaction breakdown on `post.ext.reaction_counts` (`[{type, count}]`, highest first, zero-count reactions omitted: `like`, `love`, `care`, `haha`, `wow`, `sad`, `anger`). `post.ext.feedback_id` is the join key `/v1/facebook/post/comments` accepts, so you can chain post to comments off a single lookup instead of paying for the URL resolution twice.",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-facebook"] },
     tags: ["facebook"],
@@ -6033,6 +7647,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Facebook post details",
+      returns: "Returns one Facebook post in full: the post text, like, comment and share counts, a reactions breakdown, media attachments, and author info.",
+      use_when: "Use it when you have a single post URL and need more than profile/posts gives, such as the reactions breakdown.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6061,6 +7682,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Facebook post comments",
     description:
       "Returns a list of comments on a specific Facebook post. Each comment includes the author name, comment text, like count, reply count, and creation timestamp.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-facebook", fallbackKinds: ["scrapecreators"] },
@@ -6075,6 +7697,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List Facebook post comments",
+      returns: "Returns comments on a Facebook post, each with the commenter's name, comment text, like count, reply count, and creation time.",
+      use_when: "Use it to read a post's discussion; it also returns the feedback_id and expansion_token that post/comment/replies needs.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6103,6 +7732,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/group/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook group posts",
+      returns: "Returns posts from a Facebook group, 3 to 4 per page, each with the post text, reaction count, comment count, the per-reaction breakdown, and author info.",
+      use_when: "Use it for group content, since profile/posts covers pages only. Send next_cursor back as cursor for older posts. Share counts are not on this surface; read one with post.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6128,6 +7764,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/group", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Facebook group",
+      returns: "Returns a Facebook group's public record: name, description, member count, privacy, visibility, and creation date.",
+      use_when: "Use it to identify a group by URL or group_id before calling group/posts for the recent posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6152,6 +7795,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/post/transcript", why: "The same data from tiktok." },
       { id: "linkedin/post/transcript", why: "The same data from linkedin." },
     ],
+    purpose: {
+      summary: "Get Facebook video transcript",
+      returns: "Returns the spoken words of a Facebook video post as a transcript, using Facebook's auto-generated captions.",
+      use_when: "Use it when you need what was said in a video; post returns the caption text and engagement but not the speech.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6181,6 +7831,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "details", sibling: "facebook/post", fills: ["post.author.display_name", "post.author.avatar_url", "post.ext.author_id", "post.engagement.likes", "post.engagement.comments", "post.engagement.shares", "post.published_at"], creditsPerItem: 1, maxItems: 8, cacheSibling: true, warnings: { unavailable: "details_unavailable", partial: "details_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook profile photos",
+      returns: "Returns a page or profile's photos, each with a photo id, permalink, full-size image URL, thumbnail, and accessibility caption when available.",
+      use_when: "Use it for a page's photo gallery. The plain row carries no author, engagement or publish time, so add the optional include=details to fill them from each photo's own post in the same call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6202,6 +7859,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Facebook profile reels",
     description:
       "Returns Facebook page or profile reels as unified Post items. Each item includes a reel ID, description, thumbnail, duration when available, author identity, `engagement.views` when the upstream provides it, permalink, and publish time. Likes, comments, shares, and saves remain null because this endpoint does not expose those counts. **Two caveats worth knowing before you grade on these numbers:** (1) `engagement.views` here is Facebook's ROUNDED public display value (the \"12K\" / \"2.6M\" the page shows, parsed back to a number: e.g. 12000 where the true count is 12366), not an exact count; (2) the upstream carries no per-reel engagement beyond that view count. A third, on pagination: on a page with only a handful of reels the first response can report `pagination.has_more: true` and the next page then come back empty, because the upstream mints a cursor it cannot fill. The empty page is free, so this costs a round trip rather than a credit. For EXACT views plus likes, comments, and shares, the easiest path is `GET /v1/facebook/profile/reels/full`, which runs this list and the per-reel lookups server-side and merges the exact engagement in (flat 5 credits per page of 10 reels). Alternatively, take each item's `post.url` and pass it to `/v1/facebook/post` (single) or batch up to 100 of them into `POST /v1/prism/post-stats` (1 credit per successful URL, dead links refunded).",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "next_page_id" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-facebook"] },
@@ -6210,6 +7868,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile/reels", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook profile reels",
+      returns: "Returns a page or profile's reels, each with a reel id, description, thumbnail, permalink, publish time, and a rounded public view count.",
+      use_when: "Use it for a cheap reel listing; when you need exact views plus likes, comments, and shares, use profile/reels/full instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6228,7 +7893,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Post",
     summary: "Get Facebook Ad Library ad details",
     description:
-      "Returns one ad from the Facebook Ad Library. Video creatives land in `content.media_urls` (playable URL) and `content.thumbnail_url` (preview frame); every ad signal rides the `post.ext.ad` envelope: CTA text and type, `link_url`, `is_active`, `end_date_iso`, `display_format`, `title`, `publisher_platforms`, `categories`, the video URLs, and the advertiser's own `page_id`, `page_profile_uri` (their Facebook page, so you can chain straight to `/v1/facebook/profile`), `page_like_count` and `page_categories`. **`spend`, `reach_estimate` and `currency` are populated by Facebook for POLITICAL and issue ads only** and read null or empty on a commercial ad; Facebook publishes no per-ad impression count outside that same political set, so there is no impressions figure to return. `post.author.username` is null by design: an Ad Library record carries the page NAME, not its handle, and a name is not a handle. An ad has no public view count, so `engagement.views` carries Facebook's audience REACH ESTIMATE where one exists (political and issue ads) and is null everywhere else; the same figure is on `post.ext.ad.reach_estimate` under its real name, and `computed.engagement_rate` is derived from it rather than from any real engagement. `published_at` is the ad's first-run DATE; the `07:00:00Z` clock component on every row is an artefact of Facebook storing ad dates on a US Pacific day boundary and carries no sub-day meaning. For ad video transcripts use `/v1/facebook/adlibrary/ad/transcript` (separate endpoint, premium tier).",
+      "Returns one ad from the Facebook Ad Library. Video creatives land in `content.media_urls` (playable URL) and `content.thumbnail_url` (preview frame); every ad signal rides the `post.ext.ad` envelope: CTA text and type, `link_url`, `is_active`, `end_date_iso`, `display_format`, `title`, `publisher_platforms`, `categories`, the video URLs, and the advertiser's own `page_id`, `page_profile_uri` (their Facebook page, so you can chain straight to `/v1/facebook/profile`), `page_like_count` and `page_categories`. **`spend`, `reach_estimate` and `currency` are populated by Facebook for POLITICAL and issue ads only** and read null or empty on a commercial ad; Facebook publishes no per-ad impression count outside that same political set, so there is no impressions figure to return. `post.author.username` is null by design: an Ad Library record carries the page NAME, not its handle, and a name is not a handle. An ad has no public view count, so `engagement.views` carries Facebook's audience REACH ESTIMATE where one exists (political and issue ads) and is null everywhere else; the same figure is on `post.ext.ad.reach_estimate` under its real name, and `computed.engagement_rate` is derived from it rather than from any real engagement. `published_at` is the ad's first-run DATE; the `07:00:00Z` clock component on every row is an artefact of Facebook storing ad dates on a US Pacific day boundary and carries no sub-day meaning. On an ad that ran in the EU, Facebook publishes who saw it: `post.ext.ad.eu_total_reach` is the total EU reach, `post.ext.ad.eu_reach_breakdown` lists each EU country with that reach split into age bands (18-24 to 65+) by `male`, `female` and `unknown`, and `post.ext.ad.targets_eu`, `target_ages`, `target_gender` and `target_locations` are who the advertiser targeted. An ad that never ran in the EU carries none of these, and they read null. For ad video transcripts use `/v1/facebook/adlibrary/ad/transcript` (separate endpoint, premium tier).",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "scrapecreators" },
     tags: ["facebook", "facebook-ads"],
@@ -6239,6 +7904,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/adlibrary/ad", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Facebook Ad Library ad details",
+      returns: "Returns one ad from the Facebook Ad Library: creative, CTA and link, run dates, display format, and the advertiser's page URL, likes and categories.",
+      use_when: "Use it when you have an ad id or URL. Spend and reach are political-ads-only, and Facebook publishes no per-ad impression count.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 5690, p95: 5818, p99: 5829, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "facebook",
@@ -6257,23 +7930,35 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "end_date", type: "string", description: "End date to search for. Format: YYYY-MM-DD" },
       { name: "cursor", type: "string", description: "Cursor to paginate through results" },
       { name: "trim", type: "boolean", description: "Set to true for a trimmed down version of the response" },
+      { name: "include", type: "enum", enumValues: ["audience"], description: "Set to `audience` (one token only) to fill, on every ad that ran in the EU, `post.ext.ad.eu_total_reach`, `post.ext.ad.eu_reach_breakdown` (reach per EU country by age band and gender), `post.ext.ad.targets_eu`, `target_ages`, `target_gender` and `target_locations`. Holds 1 credit per ad (30 a page) and keeps only the rows filled from a fresh lookup; rows already in cache, ads that never ran in the EU and rows the lookup cannot fill are refunded, so a page is never more than 35 credits. The join takes 3 to 6 seconds on a fresh page, never more than 12 seconds a row, and nothing when the rows are already cached; read `data.hydration` for the rows, the credits held and kept, and the time. Without it the call is unchanged." },
     ],
     oneOfGroups: [["pageId", "companyName"]],
     creditTier: "advanced",
     creditCost: 5,
-    pricing: { cost: 5, tier: "advanced", ladderCost: 5, model: "ladder" },
+    pricing: { cost: 5, tier: "advanced", ladderCost: 5, model: "metered", minCost: 5, maxCost: 35, description: "5 credits for the page. include=audience holds 1 credit per ad (30 a page) and keeps only the rows filled from a fresh lookup, so a page is at most 35 credits; rows served from cache are free, ads that never ran in the EU and other unfilled rows are refunded, and a repeat of the same call within the cache window costs 0." },
     archetype: "PostList",
     summary: "List Facebook Ad Library company ads",
     description:
-      "Returns ads from one company or page in the Facebook Ad Library, ordered by impressions or recency depending on `sort_by`. Same per-ad shape as `/v1/facebook/adlibrary/ad`: video creatives in `content.media_urls` and `content.thumbnail_url`, every ad signal on the `post.ext.ad` envelope (CTA, `link_url`, active status, dates, display format, headline, video URLs, plus the advertiser's `page_profile_uri`, `page_like_count` and `page_categories`). **`spend` and `reach_estimate` are populated for POLITICAL and issue ads only** and read null on commercial advertisers. `engagement.views` carries Facebook's audience REACH ESTIMATE, not a view count (an ad has no public view count); it is null on commercial advertisers and the same figure rides `post.ext.ad.reach_estimate` under its real name. `published_at` is the ad's first-run DATE: the `07:00:00Z` clock component is an artefact of Facebook's US Pacific day boundary and carries no sub-day meaning. `post.author.username` is null by design (an Ad Library record carries the page name, not its handle).",
+      "Returns ads from one company or page in the Facebook Ad Library, ordered by impressions or recency depending on `sort_by`. Same per-ad shape as `/v1/facebook/adlibrary/ad`: video creatives in `content.media_urls` and `content.thumbnail_url`, every ad signal on the `post.ext.ad` envelope (CTA, `link_url`, active status, dates, display format, headline, video URLs, plus the advertiser's `page_profile_uri`, `page_like_count` and `page_categories`). **`spend` and `reach_estimate` are populated for POLITICAL and issue ads only** and read null on commercial advertisers. `engagement.views` carries Facebook's audience REACH ESTIMATE, not a view count (an ad has no public view count); it is null on commercial advertisers and the same figure rides `post.ext.ad.reach_estimate` under its real name. `published_at` is the ad's first-run DATE: the `07:00:00Z` clock component is an artefact of Facebook's US Pacific day boundary and carries no sub-day meaning. `post.author.username` is null by design (an Ad Library record carries the page name, not its handle). A plain row carries no audience breakdown. Send `include=audience` and every ad is joined, in the same call, to the per-ad lookup: on an ad that ran in the EU, `post.ext.ad.eu_total_reach` is the total EU reach, `post.ext.ad.eu_reach_breakdown` lists each EU country with that reach split into age bands (18-24 to 65+) by `male`, `female` and `unknown`, and `target_ages`, `target_gender` and `target_locations` are who the advertiser targeted. These are counts Facebook publishes under EU transparency rules, so an ad that never ran in the EU has none of them and its row is refunded. Cost: 5 credits for the page plus 1 credit per ad filled from a fresh lookup (30 ads a page, so 35 credits at most); rows already in cache are free, rows that could not be filled are refunded, and a repeat of the same call within the cache window is 0 credits. Time: `include=audience` adds 3 to 6 seconds on a fresh page (the lookups run in parallel and the call waits for the slowest, never more than 12 seconds). The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds.",
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "scrapecreators" },
     tags: ["facebook", "facebook-ads"],
+    hydration: [
+      { param: "include", token: "audience", sibling: "facebook/adlibrary/ad", fills: ["post.ext.ad.targets_eu", "post.ext.ad.eu_total_reach", "post.ext.ad.eu_reach_breakdown", "post.ext.ad.target_ages", "post.ext.ad.target_gender", "post.ext.ad.target_locations"], creditsPerItem: 1, maxItems: 30, cacheSibling: true, warnings: { unavailable: "audience_unavailable", partial: "audience_partial" } },
+    ],
     featuredParams: [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook Ad Library company ads",
+      returns: "Returns the ads one company or page is running in the Facebook Ad Library, each with its creative, status, spend, and targeting info.",
+      use_when: "Use it when you know the advertiser by pageId or company name; to find ads by keyword across advertisers, use adlibrary/search/ads.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 9380, p95: 21340, p99: 22960, n: 7, provisional: true, low_sample: true },
   },
   {
     platform: "facebook",
@@ -6310,6 +7995,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Facebook Ad Library",
+      returns: "Returns Facebook Ad Library ads matching a keyword, each with its creative text, images, sponsor info, and running status.",
+      use_when: "Use it to find ads across all advertisers by keyword; if you already know the advertiser, adlibrary/company/ads is more direct.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6332,6 +8024,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook", "facebook-ads"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Facebook Ad Library companies",
+      returns: "Returns advertiser pages in the Facebook Ad Library matching a name, each with its page id, name, handle, verification badge and follower count.",
+      use_when: "Use it to find an advertiser's pageId first, then pass that pageId to adlibrary/company/ads, which is also where you count their ads.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6360,6 +8059,14 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "details", sibling: "facebook/event/details", fills: ["post.ext.event.description", "post.ext.event.time_text", "post.ext.event.duration_text", "post.ext.event.location_name", "post.ext.event.address", "post.ext.event.city", "post.ext.event.latitude", "post.ext.event.longitude", "post.ext.event.hosts", "post.ext.event.host_context_text", "post.ext.event.category", "post.ext.event.privacy", "post.ext.event.is_online", "post.ext.event.is_canceled", "post.ext.event.is_past", "post.ext.event.attendance_count", "post.ext.event.interested_count", "post.ext.event.going_count", "post.content.thumbnail_url", "post.engagement.views", "post.engagement.likes", "post.author.display_name"], creditsPerItem: 1, maxItems: 8, cacheSibling: true, warnings: { unavailable: "details_unavailable", partial: "details_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Facebook page's events",
+      returns: "Returns a Facebook page's upcoming and past events, each with a title, link, the start time, the venue, the city, the rendered time line, and the cancelled, past and online flags.",
+      use_when: "Use it for one page's own events; events covers a city. The start time sits on published_at and is often in the future. Optional include=details adds the description, hosts, cover and RSVP counts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 5989, p95: 5989, p99: 5989, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "facebook",
@@ -6389,6 +8096,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List replies to a Facebook post comment",
     description:
       "Returns the reply thread for a single Facebook comment. Both `feedback_id` and `expansion_token` come from the parent `/v1/facebook/post/comments` response: note that `feedback_id` is NOT the comment ID. Forward the returned cursor for additional pages.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -6402,6 +8110,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comment/replies", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List replies to a Facebook post comment",
+      returns: "Returns the replies under a single Facebook comment, each with the author name, reply text, like count, and creation time.",
+      use_when: "Use it after post/comments: pass that response's feedback_id and expansion_token, which are not the comment id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "facebook",
@@ -6424,6 +8139,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Facebook Marketplace locations",
+      returns: "Returns Facebook Marketplace locations and cities matching a search term, each with its lat and lng coordinates.",
+      use_when: "Use it first to turn a place name into coordinates, then pass those to marketplace/search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6459,6 +8181,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Facebook Marketplace listings",
+      returns: "Returns Facebook Marketplace listings near a lat/lng, each with title, price, location, photo, delivery types, and sold or live flags.",
+      use_when: "Use it to find listings in an area; get lat and lng from marketplace/location/search, and de-duplicate by listing id since ordering can shift.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6481,6 +8210,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Facebook Marketplace item",
+      returns: "Returns one Facebook Marketplace listing: title, description, price, location, condition, photos, seller, and availability flags.",
+      use_when: "Use it after marketplace/search when you need one listing in full, by numeric id or Marketplace URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6505,6 +8241,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Facebook events by keyword",
+      returns: "Returns public Facebook events matching a keyword, each with name, date sentence, venue, cover photo, interested and going counts, and online and past flags.",
+      use_when: "Use it to find events by topic anywhere; filter on is_past yourself, since the directory also returns events that have already happened.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6534,6 +8277,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "details", sibling: "facebook/event/details", fills: ["post.ext.event.description", "post.ext.event.time_text", "post.ext.event.duration_text", "post.ext.event.location_name", "post.ext.event.address", "post.ext.event.city", "post.ext.event.latitude", "post.ext.event.longitude", "post.ext.event.hosts", "post.ext.event.host_context_text", "post.ext.event.category", "post.ext.event.privacy", "post.ext.event.is_online", "post.ext.event.is_canceled", "post.ext.event.is_past", "post.ext.event.attendance_count", "post.ext.event.interested_count", "post.ext.event.going_count", "post.content.thumbnail_url", "post.engagement.views", "post.engagement.likes", "post.author.display_name"], creditsPerItem: 1, maxItems: 12, cacheSibling: true, warnings: { unavailable: "details_unavailable", partial: "details_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Facebook events for a city",
+      returns: "Returns the events listed on a Facebook city or region events page, each with a title, link, cover image, the start time, the venue, and the going and interested counts.",
+      use_when: "Use it to see what is on in a place, optionally narrowed by a time filter; use profile/events for one page's own events. The optional include=details adds the description, address and hosts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6556,6 +8306,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["facebook"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get details for a Facebook event",
+      returns: "Returns one Facebook event in full: title, description, start and end time, location, host, cover image, and RSVP counts when shown.",
+      use_when: "Use it after events, events/search, or profile/events when a listing row is not enough, by event id or URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6577,6 +8334,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "immutable", ttlSeconds: 2592000 },
     upstream: { kind: "scrapecreators" },
     tags: ["facebook", "facebook-ads"],
+    purpose: {
+      summary: "Get a Facebook Ad Library video ad transcript",
+      returns: "Returns the spoken words of a Facebook Ad Library video ad, from Facebook's captions when available or transcribed from the video itself.",
+      use_when: "Use it when you need what an ad says out loud; adlibrary/ad returns the creative and spend but not the speech.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6608,6 +8372,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/profile/full", why: "The same data from tiktok." },
       { id: "instagram/profile/full", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "Facebook profile, recent posts, and computed analytics in one call.",
+      returns: "Returns a page's profile plus its latest 3 posts and computed figures: engagement rate by views and by followers, posting cadence, top post, and format mix.",
+      use_when: "Use it instead of calling profile and profile/posts yourself; the profile still comes back even if the posts part fails.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6639,6 +8410,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "instagram/profile/reels/full", why: "The same data from instagram." },
     ],
+    purpose: {
+      summary: "Facebook profile reels with exact views, likes, comments, and shares merged in, in one call.",
+      returns: "Returns a page's reels with exact per-reel engagement merged in: views, likes, comments, and shares, plus each reel's id, thumbnail, and link.",
+      use_when: "Use it instead of profile/reels when the numbers matter, since that list carries only a rounded view count and no likes or comments.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6680,6 +8458,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Facebook posts by keyword",
     description:
       "Searches public Facebook posts by keyword and returns unified Post items: text, permalink, publish time, like count, comment count, share count, author, and media when Facebook exposes them. About 5 to 7 posts a page. `recent_posts=true` ranks by recency; `start_date` and `end_date` (YYYY-MM-DD) bound the window. Duplicate ids across consecutive pages are Facebook search behaviour, not a pagination bug. Forward `pagination.next_cursor` as `cursor`.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-facebook" },
@@ -6694,6 +8473,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/search/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Facebook posts by keyword",
+      returns: "Returns public Facebook posts matching a keyword, each with text, permalink, publish time, like count, comment count, and author.",
+      use_when: "Use it when you have a phrase, not a page URL. recent_posts=true ranks by recency; start_date and end_date bound the window.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6714,11 +8500,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Facebook pages by keyword",
     description:
       "Searches public Facebook pages by keyword and returns unified Author items: page id, display name, permalink, avatar, and verified flag. Follower counts are not on this search card; take a matching `author.url` to `/v1/facebook/profile` for the full page. About 7 pages a page. Forward `pagination.next_cursor` as `cursor`.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-facebook" },
     tags: ["facebook"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Facebook pages by keyword",
+      returns: "Returns Facebook pages matching a keyword, each with page id, display name, permalink, avatar, and verified flag.",
+      use_when: "Use it to find pages by name; follower counts are not on this card, so take author.url to profile for the full page.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6739,6 +8533,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Facebook people by keyword",
     description:
       "Searches public Facebook people by keyword and returns unified Author items: profile id, display name, permalink, avatar, and verified flag. The id is often a `pfbid` token rather than a numeric user id. Follower counts are not on this search card. About 7 people a page. Pass `location_uid` to scope the people tab to a city, the same way /v1/facebook/search/pages already does. Forward `pagination.next_cursor` as `cursor`.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-facebook" },
@@ -6747,6 +8542,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/search/people", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Facebook people by keyword",
+      returns: "Returns Facebook people matching a keyword, each with profile id, display name, permalink, avatar, and verified flag.",
+      use_when: "Use it to find people by name. The id is often a pfbid token, not a numeric user id, and follower counts are not on this card.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6770,11 +8572,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Facebook videos by keyword",
     description:
       "Searches public Facebook videos and reels by keyword and returns unified Post items: video id, caption, permalink, thumbnail, and author. View counts are Facebook's display string on this surface and are not parsed into `engagement.views`. About 7 videos a page. Forward `pagination.next_cursor` as `cursor`.",
+    budget_ms: 35000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-facebook" },
     tags: ["facebook"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Facebook videos by keyword",
+      returns: "Returns public Facebook videos matching a keyword, each with video id, caption, permalink, thumbnail, and author.",
+      use_when: "Use it to find videos by phrase. View counts on this card are a display string and are not parsed into engagement.views.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "facebook",
@@ -6803,6 +8613,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Facebook groups by keyword",
     description:
       "Finds public Facebook groups by keyword, so you can pick the groups to read before calling `/v1/facebook/group/posts`. Returns one row per group, in the order the search found them, on the same Author shape `/v1/facebook/group` returns: `author.id` is the group's key (its numeric id, or the vanity name of a group that set one), `author.url` is the canonical `https://www.facebook.com/groups/<key>/` form that `/v1/facebook/group/posts` and `/v1/facebook/group` take as `url` with no re-mapping, and `author.display_name` is the group's name. Groups are discovered through a public web search index limited to Facebook group pages, so a group is found either through its own page or through a post inside it: `author.ext.search_hit.match` says which (`group_page` or `post_in_group`), and `author.ext.search_hit` also carries the hit's `title`, `snippet` and `evidence_url` (the exact page that matched). A group found only through a post has `display_name: null`, because a post's title is not the group's name. The search hit carries no member count, description, privacy or creation date, so on a plain call `author.followers`, `author.bio`, `author.joined_at` and `author.ext.group` are null. Send `include=details` and every group is joined, in the same call, to the group lookup: the member count, the description, the creation date, the privacy and visibility labels, the posting activity (`author.ext.group.activity`), the numeric id (`author.ext.group.id`) and, where it was null, the name land on each row. Cost: 1 credit for the page plus 1 credit per group whose member count, description or activity was filled from a fresh lookup (at most 10 groups a page, so 11 credits at most); groups already in cache are free, groups that could not be filled are refunded, and a repeat of the same call within the cache window is 0 credits. Time: a plain page takes about 2 to 5 seconds; `include=details` adds 3 to 7 seconds on a fresh page (the lookups run in parallel and the call waits for the slowest, never more than 12 seconds) and nothing when the groups are already cached. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds. Every row also carries `computed.relevance` against your query, free, and `relevance=filter` drops the groups that are not about it. A page holds up to 10 groups, fewer when several hits belong to one group. Forward `pagination.next_cursor` as `cursor` for the next page. The same group can appear again on a later page, and once under its vanity name and once under its numeric id, so dedupe on `author.ext.group.id` after `include=details` when that matters. A group can be public in the search and still private to read: check `author.ext.group.privacy_label` before calling `group/posts`.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators" },
@@ -6815,6 +8626,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "relevance", benefit: "Drops rows that are not about your query, at no extra credits; relevance=score keeps them and adds a score.", example: "filter" },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Facebook groups by keyword",
+      returns: "Returns public Facebook groups matching a keyword, each with the group key, page URL, and whether the hit was the group page or a post inside it.",
+      use_when: "Use it to find groups before facebook/group. include=details fills members and privacy, one credit per group filled.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- reddit (14 endpoints) ---
   {
@@ -6850,6 +8668,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Reddit subreddit posts",
     description:
       "Returns a list of posts from a subreddit. Each post includes the title, the post body at `ext.selftext`, score, comment count, author, permalink, and creation timestamp. Most rows also carry the author's avatar at `author.avatar_url`, the post's attached media or link target at `content.media_urls`, and the upvote ratio, post flair and Reddit's own content language at `ext.upvote_ratio`, `ext.flair` and `ext.content_language`. `ext.upvote_ratio` and `ext.flair` come from the same source as the posts, so they are there whenever Reddit reports them. `author.avatar_url` and `ext.content_language` come from a second source that runs alongside the main one on PAGE ONE ONLY, so a walk past the first page returns the same posts in the same order without those two, and on a small share of first pages they are null across the whole page while every other field is unchanged. Treat those two as present-usually rather than guaranteed, and never as a signal about the post itself. `content.media_urls` on this surface is whatever the post points at, so on a link post it is the article or site the post links to rather than an image or a video. Page size varies with the subreddit and the sort and is not fixed: a busy community returns roughly 15 to 25 posts on the default sort. On `sort=top`, a SHORT window (`day`) is a full page and a LONG window (`year`) is the sparse one — measured 09/09/2026 on r/HouseOfTheDragon: all 22, day 22, week 19, month 10, year 3. Paginate with `after` rather than assuming a count. Ranking and row set are Reddit's own listing, unchanged by the enrichment.",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "after" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators" },
@@ -6860,6 +8679,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Reddit subreddit posts",
+      returns: "Returns posts from a subreddit, each with title, body, score, comment count, author, permalink, and creation timestamp.",
+      use_when: "Use it to read a community's feed, noting timeframe works only with sort=top, which is auto-selected when you omit sort; subreddit/search filters that same community by keyword.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -6878,10 +8704,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Reddit subreddit details",
     description:
       "Returns detailed information about a subreddit including the subscriber count at `author.followers`, weekly active users and weekly contributions at `author.ext.weekly_active_users` and `author.ext.weekly_contributions`, the description, creation date, rules, and subreddit icon URL. The subscriber count and Reddit's own community language tag at `author.ext.language` come from a second source that runs only when the main one leaves the count empty, so on a small share of calls they are null while every other field is unchanged. The subreddit name is case-sensitive on the main source: pass the canonical casing (e.g. `AskReddit`, not `askreddit`) to get the whole object. A non-canonical spelling is not a 404 — it falls through to the second source, which still answers with the core fields but without the weekly-activity numbers.",
+    budget_ms: 15000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-redditdata"] },
     tags: ["reddit"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Reddit subreddit details",
+      returns: "Returns a subreddit's own details: subscriber count, active user count, description, creation date, rules, and icon URL.",
+      use_when: "Use it to size up a community before pulling its posts; the name is case-sensitive here, so spell it exactly as Reddit does.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -6923,6 +8757,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Reddit posts",
     description:
       "Searches Reddit for posts matching a keyword query. Returns a list of matching posts with titles, scores, comment counts, subreddit names, and permalinks. One result page is assembled from more than one index, so a few leaves are reported for only part of a page and are `null` on the rest: `post.flags.spoiler`, `post.engagement.shares` and `post.engagement.saves`. A `null` there means the index that returned that row does not report the field, never that the value is false or zero — treat those three as opportunistic and do not aggregate over them. The post body is at `ext.selftext` (`content.text` is the title and body joined, matching `/v1/reddit/post`); this surface sends it on self-posts without any extra flag. A page holds up to 25 posts and the exact count varies between calls, so do not assume a fixed page size: pages of about 7 are common and a sparse query can return fewer. Rows beyond the first few, and the newest rows on a `sort=new` page, may carry fewer fields than the rest: `flags.spoiler` in particular is present on some rows and null on others within one response. Where a row carries them you also get the author's avatar at `author.avatar_url`, images or video at `content.media_urls`, and the upvote ratio, post flair and Reddit's own content language at `ext.upvote_ratio`, `ext.flair` and `ext.content_language`. `include_body=true` is still accepted and rarely needed now: bodies arrive on the rows themselves, so on most pages the flag finds nothing to fetch and its extra credits are refunded in full. It still hydrates a row that does arrive without a body, at 1 extra credit per row hydrated, up to 25 per page. Link posts have no body, so `ext.selftext` is null. Ranking is a voice-of-customer sweep rather than precision retrieval: expect some off-topic matches on short or ambiguous queries, and use quoted phrases to tighten them.",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "after" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-redditdata"] },
@@ -6939,6 +8774,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Reddit posts",
+      returns: "Returns posts matching a keyword from across Reddit, each with title, score, comment count, subreddit, permalink, and the body at ext.selftext. A page holds up to 25 posts and varies.",
+      use_when: "Use it to search all of Reddit at once. Bodies arrive free here, so include_body=true is rarely needed and refunds what it does not spend. subreddit/search searches inside one community.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 9558, p95: 11067, p99: 11201, n: 3, provisional: true, low_sample: true },
   },
   {
     platform: "reddit",
@@ -6956,6 +8799,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Reddit post",
     description:
       "Returns a single Reddit post from its URL, including the post BODY (selftext). `content.text` is the title and body joined, matching how posts read on `/v1/reddit/subreddit`; `ext.title` and `ext.selftext` carry the two halves separately. Also returns score, comment count, author, author avatar, images or video, thumbnail, and creation timestamp. `engagement.shares` carries Reddit's share count. `ext.selftext` is null on link posts, which have no body. For the post's comments use `/v1/reddit/post/comments`.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-redditdata", fallbackKinds: ["scrapecreators"] },
     tags: ["reddit"],
@@ -6964,6 +8808,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Reddit post",
+      returns: "Returns one post from its URL including the body text, plus score, comment count, share count, author, author avatar, thumbnail, and creation timestamp.",
+      use_when: "Use it when you have a post URL and want that one post's body. Search rows carry their own bodies now, so you rarely need to fan out per post. post/comments returns the discussion.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -6993,6 +8844,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Reddit post comments",
     description:
       "Returns the full threaded comment tree for a Reddit post. Nested replies are auto-expanded by following upstream pagination, so a single call returns the deep tree (not just top-level comments). Each comment includes the author, body, score, direct-reply count, creation timestamp, its nesting depth at `ext.depth`, and a recursive `replies[]` array. Comment bodies are Reddit's own markdown source, so `comment.text` can contain markdown such as `**bold**` and `[label](url)`. Comment ids are unique within a response: cursor windows can re-offer a boundary node, and those are de-duplicated before the tree is returned. Very large threads are bounded, and `data.truncated` tells you whether more of the thread exists than the response carries. It is not simply a record of our own paging: a response that reached the source's end of the thread is still reported as `truncated: true` when it falls far short of the post's own comment count, because that end is the end of one ranking window rather than the end of the thread. So `truncated: true` can arrive with no `next_cursor`, which means the thread is incomplete and this endpoint cannot fetch you the rest. A whole thread pages from one top-level cursor, so `ext.replies_cursor` on an individual branch is rare. `truncated: false` means the response looks complete against the post's own count, which is normally still higher than the comments you receive because Reddit counts removed, deleted, and filtered replies that no listing returns to anyone. `items[]` can also contain a comment whose own parent was removed upstream: it sits at the top level beside the real roots, and `parent_id` is what separates them, because a root's `parent_id` equals its `post_id` and an orphan's does not.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-redditdata", fallbackKinds: ["scrapecreators"] },
@@ -7008,6 +8860,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List Reddit post comments",
+      returns: "Returns the full comment tree for a post, each comment with author, body, score, direct-reply count, nesting depth, timestamp, and its nested replies.",
+      use_when: "Use it when you want the whole discussion rather than only top-level comments. Read data.truncated: true means the thread is incomplete, so keep paging while a cursor comes back.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7031,11 +8890,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search within a subreddit",
     description:
       "Searches for posts within a specific subreddit. Returns matching posts with titles, scores, comment counts, permalinks and, where the row carries them, the post body at `ext.selftext`, the author's avatar, structured media, the upvote ratio, the flair and Reddit's own content language. One result page is assembled from more than one index: the first rows are the community's own relevance ranking, unchanged and in its original order, and further rows are appended from Reddit's search index scoped to the same community. A page holds up to 25 posts and the exact count varies between calls, so read the length of `items` rather than assuming a number — pages of about 7 are what you get when only the first index answers. Because the page spans two indexes, three leaves are reported for only part of it and are `null` on the rest: `post.flags.spoiler`, `post.engagement.shares` and `post.engagement.saves`. A `null` there means the index that returned that row does not report the field, never that the value is false or zero, so do not aggregate over them. Omitting `query` returns the community listing from the first index alone, because Reddit's scoped search needs terms to match. `include_body=true` is still accepted and rarely needed now that bodies arrive on the rows themselves: it costs 1 extra credit per post that actually comes back with a body, up to 25 per page, and refunds every credit it does not spend. Ranking is a voice-of-customer sweep rather than precision retrieval, so expect some off-topic matches on short queries, and use quoted phrases to tighten them.",
+    budget_ms: 25000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["rapidapi-redditdata"] },
     tags: ["reddit"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search within a subreddit",
+      returns: "Returns posts matching a query inside one subreddit, each with title, score, comment count, and permalink. This upstream sends no post body, so ext.selftext is null without include_body.",
+      use_when: "Use it to search one community. Bodies cost extra here, so prefer search with query=subreddit:name plus your terms: bodies for one credit, though it returns a different set of rows.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7053,6 +8920,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Reddit user profile",
     description:
       "Returns one Reddit account by username: the four-way karma split, the cake day, the bio, the avatar and banner, the trophy count and the profile title. `author.likes_count` is TOTAL karma; the split that Reddit users actually reason about is at `ext.post_karma`, `ext.comment_karma` and `ext.awardee_karma`, and the three sum to the total. `author.joined_at` is the cake day. `author.display_name` carries Reddit's `t2_` fullname, which is the same value and the same encoding this API puts on `post.author.display_name` and `comment.author.display_name`, so a profile joins to that account's posts and comments on one field. `author.url` is the canonical `https://www.reddit.com/user/<name>/` profile, derived from the username rather than fetched. `author.followers` is Reddit's public follower count for the account (`subscribers` on the upstream). It is a real number: accounts nobody follows report 0, and creator accounts report a non-zero count (measured 09/09/2026: u/GallowBoob 33899, u/spez 0, corroborated by a second independent source on the same day). Reddit publishes no following count and no submission count on this surface, so `author.following` and `author.posts_count` stay null. Verification, moderator and employee flags are not available on this surface and are null rather than guessed. A username that does not exist returns 404 and costs nothing. Usernames are matched case-insensitively.",
+    budget_ms: 15000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-redditdata" },
     tags: ["reddit"],
@@ -7061,6 +8929,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Reddit user profile",
+      returns: "Returns one Reddit account: total karma, the post/comment/award karma split, cake day, bio, avatar, banner, trophy count and profile title.",
+      use_when: "Use it to size or vet an account before reading its posts. author.followers is null on purpose: Reddit publishes no public follower count, so karma is the reach signal.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7082,6 +8957,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a Reddit user's posts",
     description:
       "Returns the posts a Reddit account has submitted, newest first by default, up to 25 per page. Each row carries the title, the body at `ext.selftext`, the score, the comment count, the upvote ratio, the flair, Reddit's own content language, the author avatar, structured media at `content.media_urls` and the permalink. `ext.subreddit` is the field that matters most on this lane and is populated on every row: a person's submissions span communities by construction, so it is the only thing that says where each post landed. Paginate with `cursor` from the previous response's `pagination.next_cursor`. `post.engagement.shares` is null here, as on every Reddit list endpoint — the upstream sends a share-BUTTON count on this shape and that is a different metric from the crosspost count this field means, so it is not published. An account with no submissions returns an empty list and is refunded; an account that does not exist is indistinguishable from one with no posts on this upstream and returns the same empty list, so check `/v1/reddit/profile` when you need to tell them apart. When the main source is unavailable, the first page in the default order is answered by a second source: the same posts, with `author.avatar_url` and `ext.content_language` null and no next cursor. A later page, `sort=hot`, `sort=top` or a `timeframe` has no second source and returns an error to retry.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-redditdata", fallbackKinds: ["apify-reddit"] },
@@ -7091,6 +8967,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Reddit user's posts",
+      returns: "Returns the posts one account has submitted, newest first, with the body at ext.selftext, score, comment count, upvote ratio, flair, media and ext.subreddit.",
+      use_when: "Use it to read one person's submissions across communities. An account with no posts and one that does not exist both return an empty list, so call profile to tell them apart.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7111,6 +8994,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Read a Reddit account's own comment history, newest first, deeper than any search index reaches. Metered: 2 credits per comment returned, so try /v1/reddit/search/comments?query=author:name first",
     description:
       "Returns the comments one Reddit account has written, newest first, read from the account's own listing rather than from a search index. **That distinction is the whole endpoint.** `/v1/reddit/search/comments?query=author:username` costs 1 credit for a page and looks like the same thing, but it reads Reddit's search index, which holds a small relevance-ranked subset: measured 07/09/2026 on one account, the search route returned 9 comments and then stopped, while this endpoint returned 60 in chronological order reaching back to 2021. **Start with the search route.** Come here when you need the history rather than a sample. Each row carries the comment text, the score, the permalink, the post it sits under at `post_id` and `ext.post_url`, the community at `ext.subreddit`, and a real `parent_id` — `t1_` on a reply and `t3_` on a top-level comment, so a comment whose `parent_id` equals its `post_id` is top-level. `ext.is_submitter` is Reddit's OP badge, true when the commenter also wrote the post they are replying under, and `ext.controversiality` is Reddit's own flag for a comment with roughly balanced up and down votes, which the score alone hides. `limit` is a real depth control and not a page size: a higher `limit` reaches further back, at the same speed. There is no cursor, because the depth control makes one unnecessary — ask for the depth you want in one call. **Pricing is metered at 2 credits per comment RETURNED**, so an account with fewer comments than your `limit` costs less than you asked for. A username that does not exist returns an empty list and costs nothing, and so does a real account that has never commented — this upstream cannot tell them apart, so call `/v1/reddit/profile` when you need to know which it was.",
+    budget_ms: 25000,
     singlePage: "The upstream has no cursor. `limit` is a depth control, so a deeper history is one larger call rather than more pages; use `before` to window past the 100-comment ceiling.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "apify-reddit" },
@@ -7119,6 +9003,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/comments", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Read a Reddit account's own comment history, newest first, deeper than any search index reaches. Metered: 2 credits per comment returned, so try /v1/reddit/search/comments?query=author:name first",
+      returns: "Returns an account's own comment history, newest first, each with the text, score, permalink, parent_id, the post it sits under and ext.subreddit.",
+      use_when: "Use it when you need a real comment history rather than a sample. Try search/comments with query=author:name first: 1 credit a page, but far fewer rows.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7140,11 +9031,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Reddit comments",
     description:
       "Searches Reddit's COMMENT index directly, so a phrase that only ever appears three levels deep inside someone's reply is reachable in one call. Every other comment surface on this API needs a post you have already found; this one does not. Each hit arrives with its parent post inline, because a bare comment body off a search index is unreadable without it: `ext.post_title`, `ext.subreddit`, `ext.subreddit_subscribers`, `ext.post_score`, `ext.post_comment_count`, `ext.post_author`, `ext.post_published_at`, `ext.post_flair`, `ext.post_url` and `ext.content_language`. Reddit's search operators work in `query`, which is where most of the power is: `author:username` returns that account's indexed comments, `subreddit:name terms` scopes the sweep to one community, and quoted phrases tighten a loose match. `comment.parent_id` is null on this lane and that is honest rather than missing — the upstream does not say whether a hit is a top-level comment or a deep reply, and this API does not guess. Up to 25 hits per page; paginate with `cursor`. A query that matches nothing still returns a full page of loosely-related comments rather than an empty list, which is Reddit's own search behaviour on both of this API's Reddit upstreams, so judge relevance on the rows rather than on the count. When the main source is unavailable, the first page is answered by a second source that reads the same comment index: the same hits, but without the parent-post block, so `ext.post_title`, `ext.post_url`, `ext.subreddit_subscribers`, `ext.post_score`, `ext.post_comment_count`, `ext.post_author`, `ext.post_published_at`, `ext.post_flair`, `ext.content_language` and `author.avatar_url` are null on that page, and it carries no next cursor. `ext.subreddit` is still filled. A later page has no second source and returns an error to retry.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-redditdata", fallbackKinds: ["apify-reddit-comment-search"] },
     tags: ["reddit"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Search Reddit comments",
+      returns: "Returns comments matching a phrase from Reddit's comment index, each with its parent post inline: ext.post_title, ext.subreddit, ext.post_score and ext.post_url.",
+      use_when: "Use it when the phrase lives in a reply rather than a title, and for author:username or subreddit:name sweeps. parent_id is null: the upstream does not report thread position.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7166,6 +9065,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find subreddits by topic",
     description:
       "Finds communities by topic. Every other Reddit endpoint on this API needs you to already know the subreddit you want; this is the one that answers which communities discuss a subject. Returns up to 25 communities with the name, the subscriber count, the description, the icon, the NSFW flag and the community URL. `author.id` is the bare community name in Reddit's own casing, which is exactly what `/v1/reddit/subreddit`, `/v1/reddit/subreddit/details` and `/v1/reddit/subreddit/search` take as their `subreddit` parameter, so a discovery call feeds a listing call with no re-mapping in between. The row is the same Author shape `/v1/reddit/subreddit/details` returns. The search surface publishes nothing else, so on a plain call `author.joined_at`, `author.ext.weekly_active_users`, `author.ext.weekly_contributions`, `author.ext.rules_text` and `author.ext.language` are null on every row. Send `include=details` and every row is joined, in the same call, to the details lookup that carries them: the community's creation date, weekly active users, weekly contributions and rules land on each row (rules stay null for a community that publishes none), and the language on most rows (it comes from a second source that can miss a row on a busy page, so treat it as usually present). When the details lookup's main source cannot answer a row, its second source still fills the creation date and the language and that row is billed as filled, but the weekly numbers and the rules stay null on it; `data.hydration` counts it among the filled rows. Cost: 1 credit for the page plus 1 credit per row filled from a fresh lookup (25 rows, so 26 at most); rows already in cache are filled for free, rows that could not be filled are refunded, and a repeat of the same call within the cache window is 0. Time: a plain call is about 1 second; `include=details` adds 3 to 9 seconds on a fresh page (the lookups run in parallel and the call waits for the slowest, never more than 12 seconds) and nothing when the rows are already cached. `limit=N` (1 to 25) takes the top N communities of the page and, with `include`, caps the extra credits at N. The response carries a `hydration` block itemising rows, lookups, cache hits, credits and milliseconds. The subscriber count on a search row is the search index's own figure; the join never overwrites a value the row already carries. Note the name: this is `subreddits/search` and it finds COMMUNITIES, where the singular `subreddit/search` searches posts INSIDE one community. Paginate with `cursor`. A query that matches nothing still returns communities rather than an empty list, which is Reddit's own search behaviour, so judge relevance on the rows.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-redditdata" },
@@ -7174,6 +9074,13 @@ export const ENDPOINTS: Endpoint[] = [
       { param: "include", token: "details", sibling: "reddit/subreddit/details", fills: ["author.joined_at", "author.ext.weekly_active_users", "author.ext.weekly_contributions", "author.ext.rules_text", "author.ext.language"], creditsPerItem: 1, maxItems: 25, rowLimitParam: "limit", cacheSibling: true, warnings: { unavailable: "details_unavailable", partial: "details_partial" } },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Find subreddits by topic",
+      returns: "Returns up to 25 communities matching a topic, each with the name at author.id, subscriber count, description and icon. include=details adds the creation date, weekly activity, rules and language.",
+      use_when: "Use it to find which communities discuss a subject. Send include=details instead of one subreddit/details call per community, at 1 credit plus 1 per row filled, 26 at most.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7195,11 +9102,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Reddit image and video posts",
     description:
       "Searches Reddit's media-scoped index: the posts a keyword search would return, filtered to those that actually carry an image, a video or a gallery. Use it when you want visual content for a topic and do not want to filter a mixed page yourself. Up to 25 posts per page, each with the title, the score, the comment count, the subreddit, the upvote ratio, the flair, the author avatar, the thumbnail and the media at `content.media_urls` — an array on a gallery post and a single-element array otherwise. Reddit's operators work in `query` here too, so `subreddit:name terms` scopes the sweep to one community. `timeframe` applies on `sort=relevance`, `sort=top` and `sort=comment_count`; it has no effect on `sort=new`, which is already newest-first. Paginate with `cursor`. A query that matches nothing still returns loosely-related media posts rather than an empty list, which is Reddit's own search behaviour.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-redditdata" },
     tags: ["reddit"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Reddit image and video posts",
+      returns: "Returns up to 25 Reddit posts that carry an image, video or gallery, with the media at content.media_urls plus title, score, comment count and subreddit.",
+      use_when: "Use it for visual posts on a topic without filtering a mixed page yourself. subreddit:name terms scopes it to one community; timeframe has no effect on sort=new.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7226,6 +9141,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/post/transcript", why: "The same data from tiktok." },
       { id: "linkedin/post/transcript", why: "The same data from linkedin." },
     ],
+    purpose: {
+      summary: "Get a Reddit video post transcript",
+      returns: "Returns the transcript of a Reddit video post, both the raw caption file and a plain-text version, when Reddit publishes captions for it.",
+      use_when: "Use it for video posts; when Reddit exposes no captions the transcript comes back empty and flagged rather than as an error.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "reddit",
@@ -7259,6 +9181,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["reddit", "prism"],
+    purpose: {
+      summary: "Reddit VoC sweep: one keyword → threads across all of Reddit with subreddit attribution and top comments inline.",
+      returns: "Returns threads from across Reddit for one keyword with their top comments inline at top_comments, plus a roll-up of which subreddits are talking, their weekly active users and tone.",
+      use_when: "Use it for a customer-listening sweep in one call rather than running search then post/comments per thread; it is slow and relevance is loose.",
+      not_for: "Not for a quick keyword search (reddit/search), one thread's full comments (reddit/post/comments) or other platforms (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- threads (6 endpoints) ---
   {
@@ -7287,6 +9216,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Threads user profile",
+      returns: "Returns a Threads account's public profile: bio, the external link set in that bio, follower count, profile picture URL, and verification status.",
+      use_when: "Use it when you have a handle and want the account itself; user/posts returns what that account has posted.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "threads",
@@ -7326,6 +9262,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "kwai/user/posts", why: "The same data from kwai." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Threads user posts",
+      returns: "Returns a Threads user's most recent posts, usually about 15 for 1 credit. Send limit above 15 (up to 50) to collect more of the same feed, with view counts and display names filled in.",
+      use_when: "Use it for a recent-activity window of about 15 posts. Set limit above 15 for deeper history on the same feed, or use search for a keyword lookup.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "threads",
@@ -7356,6 +9299,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Threads post details",
+      returns: "Returns one Threads post's text, like, reply and repost counts, every carousel slide or video URL, author, creation time, and topic tag at post.ext.topic_tag.",
+      use_when: "Use it when you have a post URL and want that single post rather than a whole feed. If it is a quote post, the quoted post arrives at post.ext.quoted_post.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "threads",
@@ -7419,6 +9369,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Threads posts",
+      returns: "Returns Threads posts matching a keyword, each with its text, like count, author, creation time, and the topic tag it was filed under at post.ext.topic_tag, plus a cursor for the next window.",
+      use_when: "Use it to find posts by topic across Threads. Follow pagination.next_cursor to page deeper, or set limit (up to 100) to collect several windows in one call; start_date and end_date bound the period.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 5446, p95: 6134, p99: 6195, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "threads",
@@ -7451,6 +9409,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get comments on a Threads post",
+      returns: "Returns the replies Threads bundles with a post, usually about 20 for 1 credit. Send limit above 25 (up to 50) to collect more first-level replies from a second source.",
+      use_when: "Use it to read the reaction under a post you already have the URL for. It is one window with no cursor. Set limit above 25 when the bundled window is not enough.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "threads",
@@ -7484,6 +9449,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/search/users", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Threads users",
+      returns: "Returns Threads accounts matching a query, with handle, display name, avatar and verification status. Follower count, bio and the private flag stay null unless you send include=profile.",
+      use_when: "Use it to find accounts by name or topic; search looks for posts instead of people. Send include=profile when you need follower count and bio on the same rows, at 1 credit per account filled.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- pinterest (6 endpoints) ---
   {
@@ -7522,6 +9494,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Pinterest pins",
+      returns: "Returns Pinterest pins matching a keyword, each with its text, original image, pinner and pin date; include=engagement adds save, reaction, comment and share counts.",
+      use_when: "Use it to discover pins on a topic; add include=engagement for each pin's saves at 1 credit a row, or call pin when you already have one pin URL.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "pinterest",
@@ -7548,6 +9527,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Pinterest pin details",
+      returns: "Returns one Pinterest pin: its text, original image, pinner, pin date, and its save, reaction, comment and share counts.",
+      use_when: "Use it when you have a pin URL and want everything about that single pin rather than a list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "pinterest",
@@ -7565,9 +9551,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Pinterest save counts for external URLs",
     description:
       "Returns how many times each URL (up to 10 per request, comma-separated) has been saved to Pinterest via the Save Button. Counts are exact-URL-string keyed: scheme, trailing slash, and query string each produce a different count. URLs are passed through verbatim, never normalized. A count of 0 can mean either 'never pinned' or 'page does not exist'. Counts come from the Pinterest Save Button embed ecosystem; pages outside it may undercount. Single page only, no pagination.",
+    budget_ms: 5000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-pinterest", fallbackKinds: ["pinterest-widget-count"] },
     tags: ["pinterest"],
+    purpose: {
+      summary: "Get Pinterest save counts for external URLs",
+      returns: "Returns how many times each of up to 10 external URLs has been saved to Pinterest through the Save Button.",
+      use_when: "Use it to measure a page's pull on Pinterest, passing URLs exactly as used, since http vs https and a trailing slash count as different URLs.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "pinterest",
@@ -7601,6 +9595,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get Pinterest board",
+      returns: "Returns the pins on a Pinterest board with text, image URL, author, and save, comment and share counts; include=engagement adds each pin's date and reaction count.",
+      use_when: "Use it when you have a board URL: about 15 pins a page, cursor for the rest, include=engagement for pin dates at 1 credit a row. user/boards finds the boards.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "pinterest",
@@ -7628,6 +9629,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "trim", benefit: "Same price, lighter payload: drops the bulky raw fields.", example: "true" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Pinterest user boards",
+      returns: "Returns the boards a Pinterest user has created, each with its title, description, pin count, and cover image.",
+      use_when: "Use it to list someone's boards from their handle, then pass a board URL to board to get that board's pins.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "pinterest",
@@ -7649,6 +9657,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Pinterest Trends for a country",
     description:
       "Returns what people in one market are searching for on Pinterest, with no keyword in: the Pinterest Trends list for a country and a table. `type` picks the table: `growing` (terms rising fastest, the default), `seasonal` (terms that come back at this time every year), `top_monthly` or `top_yearly` (the most searched). Each item has `rank` (1 is the top), `term`, `country`, `market` (the list Pinterest reads it from: Ireland reads GB+IE, Australia and New Zealand read AU+NZ, Great Britain alone has its own list), `type`, `search_index` (relative search volume, 0 to 100 within the answer), `weekly_change`, `monthly_change` and `yearly_change` (as Pinterest reports them, a fraction where 0.3 is +30%; Pinterest reports 100.01 for a term that was near zero before), `seasonality` (0 to 1), `url` (the term's Pinterest Trends page) and `as_of` (the date Pinterest's weekly data is as of; null on the rare call served while Pinterest throttles the primary route). Narrow with `include` and `exclude`, comma-separated keywords. Filters that match nothing, and a list Pinterest has empty, return 404 at 0 credits. Flat 10 credits whatever the depth. Exact repeats within 6 hours are served from cache at 0 credits.",
+    budget_ms: 10000,
     singlePage: "One ranked list per market and table with no pagination. `limit` sets how many terms ship, up to 50.",
     cache: { category: "analytics", ttlSeconds: 21600 },
     upstream: { kind: "pinterest-trends", fallbackKinds: ["apify-pinterest-trends"] },
@@ -7658,6 +9667,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "DE" },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Pinterest Trends for a country",
+      returns: "Returns the Pinterest Trends list for a country: growing, seasonal or top terms, each with rank, relative search volume, weekly, monthly and yearly change, and seasonality.",
+      use_when: "Use it to find what a market is starting to search for on Pinterest without naming a keyword, optionally narrowed with include and exclude keywords.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   // --- twitch (4 endpoints) ---
   {
@@ -7685,6 +9701,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Twitch streamer profile",
+      returns: "Returns a Twitch streamer's public profile: display name, follower count, bio, profile image URL, broadcast language, and partner status.",
+      use_when: "Use it for a snapshot of a channel by handle, before pulling that channel's videos or its upcoming schedule.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitch",
@@ -7709,6 +9732,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "kick/clip", why: "The same data from kick." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Twitch clip details",
+      returns: "Returns one Twitch clip: title, view count, duration, the creator and broadcaster names, the game, a thumbnail URL, and when it was created.",
+      use_when: "Use it when you have a clip URL, whereas a channel's own highlights and uploads come from user/videos.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitch",
@@ -7734,6 +9764,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["twitch"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Twitch user's videos",
+      returns: "Returns up to 100 of a Twitch user's videos with title, URL, view count, duration in seconds, language, game, thumbnail, and available qualities.",
+      use_when: "Use it to list a channel's highlights or uploads sorted by time or by views, noting it returns one fixed set with no further pages.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "twitch",
@@ -7754,6 +9791,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators" },
     tags: ["twitch"],
+    purpose: {
+      summary: "Get a Twitch user's stream schedule",
+      returns: "Returns a Twitch channel's schedule under channel.schedule, with each segment's start time, end time, title, categories, and cancellation flags.",
+      use_when: "Use it for planned streams, and expect channel.schedule to be null when the streamer has not published one; user/videos covers past broadcasts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   // --- snapchat (2 endpoints) ---
   {
@@ -7781,6 +9825,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Snapchat user profile",
+      returns: "Returns a Snapchat account's public profile: display name, Bitmoji avatar URL, subscriber count, and bio.",
+      use_when: "Use it to confirm a Snapchat account exists and read its public details.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "snapchat",
@@ -7805,6 +9856,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["snapchat"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List comments on a Snapchat Spotlight",
+      returns: "Returns comments on a Snapchat Spotlight snap, each with text, display name, reaction count, nested reply count, and timestamp.",
+      use_when: "Use it when you have a Spotlight URL and want the comment thread, paging with cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   // --- truthsocial (3 endpoints) ---
   {
@@ -7833,6 +9891,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Truth Social user profile",
+      returns: "Returns a Truth Social account's public profile: display name, bio, follower and following counts, truth count, and profile image URL.",
+      use_when: "Use it when you have a handle and want the account snapshot before pulling its posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "truthsocial",
@@ -7865,6 +9930,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "kwai/user/posts", why: "The same data from kwai." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Truth Social user posts",
+      returns: "Returns a Truth Social user's recent truths, each with its text, like, retruth and reply counts, media attachments, and creation time.",
+      use_when: "Use it for an account's feed, passing either handle or user_id, and paging deeper with next_max_id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "truthsocial",
@@ -7890,6 +9962,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Truth Social post details",
+      returns: "Returns one Truth Social post's text, like, retruth and reply counts, media attachments, author, and creation time.",
+      use_when: "Use it when you have a post URL and want that single truth rather than the whole feed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   // --- telegram (3 endpoints) ---
   {
@@ -7917,6 +9996,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Telegram channel profile",
+      returns: "Returns a public Telegram channel or group profile: display name, description, avatar URL, verified badge, and an exact subscriber count.",
+      use_when: "Use it when you have a handle and want the channel snapshot, or to confirm a channel is public before paging its posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "telegram",
@@ -7945,6 +10031,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Telegram channel posts",
+      returns: "Returns one page of a channel's public posts, newest first, each with its text, publish time, view count, per-emoji reaction breakdown, and direct photo or video URLs.",
+      use_when: "Use it to read or archive a channel's history. Page size varies, so keep passing the cursor until it comes back empty rather than stopping on a short page.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "telegram",
@@ -7970,6 +10063,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Telegram post",
+      returns: "Returns one public Telegram post by its t.me URL, with the text, publish time, view count, per-emoji reaction breakdown, and direct media URLs.",
+      use_when: "Use it when you have a single post link and do not want to page the whole channel. View and reaction counts are rounded, so read them as ranking signals rather than exact figures.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   // --- kick (1 endpoint) ---
   {
@@ -7988,6 +10088,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Kick clip details",
     description:
       "Returns detailed information about a specific Kick clip including the title, view count, duration, category, creator name, channel name, thumbnail URL, and creation timestamp.",
+    budget_ms: 9000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators" },
     tags: ["kick"],
@@ -7995,6 +10096,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitch/clip", why: "The same data from twitch." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Kick clip details",
+      returns: "Returns one Kick clip: title, view count, duration, category, creator name, channel name, thumbnail URL, and when it was created.",
+      use_when: "Use it when you have a Kick clip URL, and note it is the only Kick endpoint, so channels and live streams are not covered.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   // --- kwai (3 endpoints) ---
   {
@@ -8023,6 +10131,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Kwai user profile",
+      returns: "Returns a Kwai account's public profile: username, bio, avatar, verification status, and follower, following, like, and post counts.",
+      use_when: "Use it for a snapshot of an account by handle or profile URL, before pulling what it has posted with user/posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kwai",
@@ -8052,6 +10167,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "truthsocial/user/posts", why: "The same data from truthsocial." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Kwai user's posts",
+      returns: "Returns a page of a Kwai user's public posts, each with caption, video and cover URLs, engagement counts, and author details.",
+      use_when: "Use it to list everything one account has posted, passing the returned cursor for the next page; post covers one known video.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kwai",
@@ -8077,8 +10199,15 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Kwai post",
+      returns: "Returns one Kwai post: caption, video and cover URLs, view, like, comment and share counts, author details, and the music used.",
+      use_when: "Use it when you have a single post URL; user/posts returns that account's whole feed instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
-  // --- tiktokshop (5 endpoints) ---
+  // --- tiktokshop (6 endpoints) ---
   {
     platform: "tiktokshop",
     resource: "product",
@@ -8097,6 +10226,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TikTok Shop product details",
     description:
       "Returns detailed information about a TikTok Shop product: full listing description, price and discount, rating, review count, brand, specifications, stock availability, seller details (including official-shop identity, positive-feedback percent, 24-hour response rate, and lifetime units sold), shipping and delivery estimate, and images. Identify the product by `url` or by `product_id`. Region: default US. SG, MY, TH, VN and PH product lookups are served. GB and ID are temporarily unavailable and answer 503 without charge. Other regions are rejected before billing. tiktokshop/search, tiktokshop/products and tiktokshop/product/reviews keep the wider 16-market set.",
+    budget_ms: 40000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["apify-tiktokshop-product", "apify-tiktokshop-product-sea"] },
     tags: ["tiktokshop"],
@@ -8108,6 +10238,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/product", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get TikTok Shop product details",
+      returns: "Returns one TikTok Shop product: description, price, discount, rating, review count, brand, stock, shipping, official-shop flag, and seller details with positive-feedback % and lifetime units sold.",
+      use_when: "Use it for a single known product URL or product id. Default region is US; GB, ID, MY, TH, SG, VN and PH also resolve. Other regions 400 before billing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 24232, p95: 24990, p99: 25083, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "tiktokshop",
@@ -8147,6 +10285,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "List TikTok Shop product reviews",
+      returns: "Returns reviews for a TikTok Shop product, each with a star rating, review text, author, and timestamp.",
+      use_when: "Use it to read what buyers actually said, since product gives only the rating and review count, and page through the whole review corpus with the cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktokshop",
@@ -8176,6 +10321,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List TikTok Shop products",
+      returns: "Returns the products listed on one TikTok Shop storefront: title, cover images, URL, price, discount percent, sold count, review count, rating, and the shop's own profile.",
+      use_when: "Use it for one shop's whole catalogue by best selling or newest, paging with the cursor, where search instead finds products across all shops.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktokshop",
@@ -8196,6 +10348,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TikTok Shop products",
     description:
       "Searches TikTok Shop across every storefront for products matching a keyword, in any supported market. Each result is the same canonical product object `tiktokshop/products` returns, id, title, canonical URL, images, price and original price, rating, review count, sold count, seller, plus the merchandising signals only search carries: the seller trust label, where the item ships from, promotion badges, the category breadcrumb, and the demo video when the listing has one.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["apify-tiktokshop-search-us", "apify-tiktokshop-search"] },
@@ -8208,6 +10361,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search TikTok Shop products",
+      returns: "Returns TikTok Shop products matching a keyword, in the same canonical shape products returns, plus the trust label, shipping origin, and promotion badges.",
+      use_when: "Use it to find products across every shop by keyword and region; products returns the catalogue of one named storefront instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tiktokshop",
@@ -8236,6 +10396,45 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List TikTok user showcase products",
+      returns: "Returns the products on a TikTok creator's profile showcase, each the same product object tiktokshop/products returns (title, price, rating, sold count, images, SKU id), plus the creator's handle.",
+      use_when: "Use it to see what a creator promotes rather than what a shop sells; a handle TikTok does not resolve returns 404 at no charge.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "tiktokshop",
+    resource: "sales",
+    method: "GET",
+    params: [
+      { name: "query", required: true, description: "Product keyword, sent unchanged to each market's search (1-200 characters).", example: "lip gloss" },
+    ],
+    optionalParams: [
+      { name: "regions", type: "string", description: "Comma-separated markets, up to 8: US, GB, DE, FR, IT, ES, IE, ID, MY, MX, PH, SG, TH, VN, BR, JP. Default US. Each market costs one search page (1 credit) when it returns listings.", example: "US,GB,MY" },
+      { name: "top", type: "integer", minimum: 1, maximum: 20, description: "How many top listings by units to return per market, 1 to 20. Default 5." },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "metered", minCost: 0, maxCost: 8, description: "Metered, 0-8 credits: each market is one /v1/tiktokshop/search page billed at that endpoint's own price (1 credit), exactly as a direct call is billed. A market whose page found nothing or failed costs nothing, and a page served from cache is free. data.regions[].credits shows each market's charge and credits_used the total." },
+    archetype: "Analytics",
+    summary: "TikTok Shop units sold and estimated sales per market",
+    description:
+      "Runs one keyword through TikTok Shop search in each market you name and returns, per market: how many listings came back (`listings`, `listings_with_sales`), their lifetime units sold added up (`units_sold`), an estimate of sales in the market's own currency (`estimated_sales`, each listing's units times its current price, `currency`), and the top listings by units (`top_products`, each with id, title, url, price, units_sold and estimated_sales). These are lifetime units of the listings on the first search page at today's price, and TikTok can return a different first page on a repeat call, so compare markets within one call; the figures are not a period total or the whole market. For sales over a period, call it on a schedule and take the difference between two calls. Each market is one call to /v1/tiktokshop/search at that endpoint's own price, so every row behind the numbers is the row that endpoint returns; a market that found nothing or failed costs nothing and reports `status` `empty` or `failed` with null figures, never 0. `data.regions[].credits` and `request_id` show each market's own call.",
+    execution: "sync",
+    singlePage: "A per-market summary of each market's first search page. Page a market's listings on /v1/tiktokshop/search with that market's region.",
+    cache: { category: "search", ttlSeconds: 900 },
+    upstream: { kind: "meta" },
+    tags: ["tiktokshop"],
+    purpose: {
+      summary: "TikTok Shop units sold and estimated sales per market",
+      returns: "Returns units sold and estimated sales per TikTok Shop market for a keyword, with the top listings by units, from each market's first search page.",
+      use_when: "Use it to compare how much of a product sells in each country in one call; search returns the listings themselves.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   // --- perplexity (1 endpoint) ---
   {
@@ -8264,8 +10463,15 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "polymarket/research", why: "The same data from polymarket." },
     ],
+    purpose: {
+      summary: "Web research via Perplexity Sonar",
+      returns: "Returns a written answer to a natural-language question researched over the live web, along with the source URLs the answer was built from.",
+      use_when: "Use it for open questions that need current information, such as recent news or funding, rather than a fixed lookup on one platform.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
-  // --- google (10 endpoints) ---
+  // --- google (11 endpoints) ---
   {
     platform: "google",
     resource: "search",
@@ -8286,6 +10492,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Google web search",
     description:
       "Returns Google search results for a query. Each result includes title, URL, and a text snippet.",
+    budget_ms: 12000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["apify-google-search"] },
@@ -8298,6 +10505,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Google web search",
+      returns: "Returns Google web search results for a query: each result's title, page URL, and a text snippet.",
+      use_when: "Use it for general web results; for Korean web pages use naver/webkr/search, and for news headlines use google_news/search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8322,6 +10536,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/ad", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Google ad details",
+      returns: "Returns one Google ad from an Ads Transparency Center creative URL: the ad copy, creative image, advertiser id, and the date the creative was published.",
+      use_when: "Use it after company/ads to expand a single creative, since the list version does not carry the ad's own copy. No impression estimate is returned.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8346,6 +10567,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["google", "google-ads"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Google Ad Library advertisers",
+      returns: "Returns advertisers in the Google Ads Transparency Center matching a name, each with its display name, advertiser id, and country.",
+      use_when: "Use it first to look up the advertiser_id that company/ads needs when all you have is a brand name.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8377,6 +10605,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["google", "google-ads"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List Google ads by company",
+      returns: "Returns the ads one company has run in the Google Ads Transparency Center, each with a creative id, ad URL, advertiser name, thumbnail, and first shown date.",
+      use_when: "Use it to page through an advertiser's whole ad history by domain or advertiser_id, filtered by date, placement, or format.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "ads_intelligence", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8398,6 +10633,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Google Business Profile",
     description:
       "Returns the full Google Business Profile (Maps / Knowledge Panel) for a local business: name, category, rating, address, phone, coordinates, hours, attributes, and claimed status. Identify the place by keyword, cid, or place_id (cid/place_id are most reliable).",
+    budget_ms: 15000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-google-maps", fallbackKinds: ["dfs-google-business", "apify-google-places"] },
     tags: ["google"],
@@ -8405,6 +10641,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "yelp/business/info", why: "The same data from yelp." },
     ],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a Google Business Profile",
+      returns: "Returns a business's Google Business Profile: name, category, star rating, address, phone, coordinates, opening hours, and whether the listing is claimed.",
+      use_when: "Use it to look up one local business by keyword, cid, or place_id before pulling its reviews, questions, or updates.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 31368, p95: 44986, p99: 44987, n: 15, provisional: true, low_sample: true },
   },
   {
     platform: "google",
@@ -8436,7 +10680,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google extended (multi-source) reviews",
     description:
       "Returns reviews of a place aggregated from the Google reviews element, not only Google users but reputable third-party sources (TripAdvisor, Yelp, Trustpilot). Each review carries its source domain, full text (with original-language translation), star rating, reviewer stats, and owner replies. Identify the place by keyword, cid, or place_id.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-google-business" },
     tags: ["google"],
@@ -8445,6 +10689,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Names the product issue each review raises, at no extra credits; sentiment is free too.", example: "issue" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Google extended (multi-source) reviews",
+      returns: "Returns reviews on a place's Google listing, including ones from sites like TripAdvisor and Yelp, with each review's source, text, star rating, and owner reply.",
+      use_when: "Use it when you want a place's reviews from Google and third party sites together, rather than product or app reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8465,11 +10716,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Business Profile posts (updates)",
     description:
       "Returns the owner-published posts (updates) on a Google Business Profile: text, image, publish date, and any call-to-action link. Most businesses publish none; an empty result is a valid 'no posts' answer. Identify the business by keyword or cid.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-google-business" },
     tags: ["google"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get Google Business Profile posts (updates)",
+      returns: "Returns the posts a business owner published on its Google Business Profile: text, image, publish date, and any call to action link.",
+      use_when: "Use it to read a business's own announcements; most businesses publish none, so an empty list is a normal answer.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8492,11 +10750,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Business Profile questions & answers",
     description:
       "Returns the community Q&A on a Google Business Profile: each question and its answers flattened into one comment list linked by parent_id. Identify the business by keyword, cid, or place_id.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-google-business" },
     tags: ["google"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get Google Business Profile questions & answers",
+      returns: "Returns the public questions and answers on a Google Business Profile as one list, where each answer links back to its question by parent_id.",
+      use_when: "Use it to see what customers ask a business, as opposed to business/extended-reviews which returns ratings and opinions.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8519,11 +10784,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Google hotels",
     description:
       "Returns hotels for a query from Google Travel: name, star rating, review score, coordinates, images, and nightly price. Dates default to next-day / one-night / two-visitors when omitted. Each hotel_identifier can be passed to GET /v1/google/hotels/info for full detail.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-google-business" },
     tags: ["google"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search Google hotels",
+      returns: "Returns hotels matching a query from Google Travel: name, star rating, review score, coordinates, images, nightly price, and a hotel_identifier.",
+      use_when: "Use it to find candidate hotels for a place or keyword, then pass a hotel_identifier to hotels/info for the full record.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google",
@@ -8548,6 +10820,45 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "dfs-google-business" },
     tags: ["google"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get Google hotel detail",
+      returns: "Returns full detail for one hotel: description, star rating, address, phone, coordinates, amenities, review sentiment topics, and prices from several vendors.",
+      use_when: "Use it after hotels/search when you need one hotel's amenities and vendor prices rather than a list of candidates.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
+  },
+  {
+    platform: "google",
+    resource: "keyword-volume",
+    method: "GET",
+    params: [
+      { name: "keywords", required: true, description: "1-20 comma-separated keywords (e.g. 'lip gloss,lip oil'). Each keyword may be up to 80 characters. Duplicates are ignored. More than 20 keywords, or a keyword over 80 characters, is rejected with a free 400 before the request is billed.", example: "lip gloss,lip oil" },
+    ],
+    optionalParams: [
+      { name: "location", type: "string", description: "Country as an ISO code ('US', 'GB', 'KR'), a full country name ('United Kingdom', 'South Korea') or a numeric location code ('2826'). Defaults to the United States. Volume is published for 94 countries; any other location is rejected with a free 400 naming the accepted forms.", example: "GB" },
+      { name: "language", type: "string", description: "Language code ('en', 'de', 'ko') the keywords are searched in. Defaults to the country's primary language, so Germany is 'de' and Belgium is 'fr'. A language the country does not hold (Germany in English) is rejected with a free 400 listing the ones it does." },
+    ],
+    oneOfGroups: [],
+    csvConstraints: { "keywords": { max: 20 } },
+    creditTier: "premium",
+    creditCost: 16,
+    pricing: { cost: 16, tier: "premium", ladderCost: 10, model: "flat" },
+    archetype: "Analytics",
+    summary: "Get Google keyword search volume by country",
+    description:
+      "Returns Google monthly search volume, cost per click, competition, and a 12-month trend for up to 20 keywords in one country. Response is `{ location, location_name, language, items }`: each item carries `keyword`, `search_volume` (average monthly searches), `cpc` with its `currency`, `competition` (0 to 1) with `competition_level`, `monthly_searches` (the last 12 months, oldest first, as `{ year, month, search_volume }`) and, where Google classifies it, `search_intent`. Use it to compare demand for a product across markets: call it once per country with the same keywords. You get one item per keyword you asked for, in your order. A keyword Google holds no volume for comes back with `search_volume: null`, never 0, so a null means unknown and a 0 means Google reports none. When no keyword has any data the call returns 404 and costs 0 credits. Volumes are Google's own rounded monthly averages and are refreshed monthly, so results are cached for 24 hours. Typical latency is 2 seconds. Priced at a flat 16 credits per call whatever the keyword count, so send all 20 at once.",
+    budget_ms: 20000,
+    cache: { category: "analytics", ttlSeconds: 86400 },
+    upstream: { kind: "dfs-keyword-volume" },
+    tags: ["google", "keywords", "seo"],
+    purpose: {
+      summary: "Get Google keyword search volume by country",
+      returns: "Returns Google monthly search volume, cost per click, competition and a 12-month trend for up to 20 keywords in one country, one row per keyword.",
+      use_when: "Use it to compare demand for a product across countries by calling it once per country with the same keywords.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   // --- amazon (8 endpoints) ---
   {
@@ -8570,6 +10881,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["amazon"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get Amazon shop page",
+      returns: "Returns the products featured on an Amazon shop or storefront page: product name, price, rating, and image for each item.",
+      use_when: "Use it when you have a storefront page URL and want what that seller puts on it, rather than searching the whole catalogue.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "amazon",
@@ -8590,7 +10908,8 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "ProductList",
     summary: "Search Amazon products by keyword",
     description:
-      "Returns organic Amazon search results for a keyword: title, price, list price, rating, image, and ASIN per product. Results reflect the chosen marketplace (default United States). Sponsored placements and related searches are excluded in v1. Paginate with the universal cursor parameter; pass depth instead if you need a single large page.",
+      "Returns organic Amazon search results for a keyword: title, price, list price, rating, image, and ASIN per product. Where Amazon shows its monthly purchase badge, `product.ext.bought_past_month_label` carries Amazon's text (\"9K+ bought in past month\") and `product.ext.bought_past_month` its lower bound as a number (9000); both are null when the row shows no badge, and the number is null on a badge with no count (\"New on Amazon in past month\"). Multiply it by `price.current` per `country` for an estimate of monthly spend by marketplace. Results reflect the chosen marketplace (default United States). Sponsored placements and related searches are excluded in v1. Paginate with the universal cursor parameter; pass depth instead if you need a single large page.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce", fallbackKinds: ["dfs-amazon"] },
@@ -8602,6 +10921,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/product-search", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Amazon products by keyword",
+      returns: "Returns Amazon search results for a keyword: title, price, rating, image, and ASIN for each product, from the marketplace you pick.",
+      use_when: "Use it when you have a keyword and need to find products or their ASINs, then call the product endpoint for full detail.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "amazon",
@@ -8621,6 +10947,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an Amazon product by ASIN",
     description:
       "Returns full product detail for an Amazon ASIN: title, brand, description, price, rating, image gallery, specifications, and variant ASINs. For this product's customer reviews, call GET /v1/amazon/reviews with the same ASIN (shared upstream call).",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-amazon", fallbackKinds: ["rapidapi-ecommerce"] },
     tags: ["amazon"],
@@ -8632,6 +10959,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/product", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get an Amazon product by ASIN",
+      returns: "Returns one Amazon product by ASIN: title, brand, description, price, rating, image gallery, specifications, and variant ASINs.",
+      use_when: "Use it when you already have the ASIN and need full product detail rather than search results. For its reviews, call the reviews endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "amazon",
@@ -8660,7 +10994,8 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Amazon product reviews",
     description:
       "Returns the customer reviews shown on an Amazon product page (by ASIN), typically around 8 per product. Each review carries the full text, star rating, reviewer, verified-purchase flag, helpful-vote count, and any review images. A product with no on-page reviews returns a refunded empty list.",
-    singlePage: "Both sources return one fixed page of on-page reviews and expose no honest pagination: /amazon/product-reviews repeats the same 8 review ids on page 1, 2 and 50 (measured 2026-08-29), and the DFS fallback controls page size by depth in a single call.",
+    budget_ms: 20000,
+    singlePage: "Both sources return one fixed page of on-page reviews and expose no honest pagination: /amazon/product-reviews repeats the same 8 review ids on page 1, 2 and 50 (measured 2026-08-29), and the fallback source controls page size by depth in a single call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-ecommerce", fallbackKinds: ["dfs-amazon"] },
     tags: ["amazon"],
@@ -8674,6 +11009,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "trustpilot/reviews", why: "The same data from trustpilot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Amazon product reviews",
+      returns: "Returns the customer reviews shown on an Amazon product page, around 8 per ASIN, each with full text, star rating, reviewer, verified-purchase flag, and photos.",
+      use_when: "Use it when you want what shoppers wrote about an ASIN. This is one page of on-page reviews, not a full review crawl.",
+      not_for: "Not for a rating comparison across shops with themed pros and cons (prism/product-reviews) or whether the ratings look genuine (prism/review-integrity).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "amazon",
@@ -8693,7 +11035,8 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Amazon sellers and offers for a product",
     description:
       "Returns every seller offering a given Amazon ASIN: seller name, price, rating, and condition (new / used / refurbished), including the buy-box winner.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    budget_ms: 28000,
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-amazon", fallbackKinds: ["rapidapi-ecommerce"] },
     tags: ["amazon"],
@@ -8704,6 +11047,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/sellers", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "seller" },
+    purpose: {
+      summary: "Get Amazon sellers and offers for a product",
+      returns: "Returns every seller offering an Amazon product by ASIN: seller name, price, rating, and condition (new, used, or refurbished), including the buy-box winner.",
+      use_when: "Use it to compare who sells one ASIN and at what price, rather than pulling that product's own detail or reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "amazon",
@@ -8725,6 +11075,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Amazon Best Sellers in a category",
     description:
       "Returns ranked Amazon Best Seller listings for a category: ASIN, title, price, rating, and image. Pass type to switch to New Releases, Most Wished For, or Gift Ideas. Movers and Shakers is accepted but currently returns an empty list at 0 credits, because Amazon publishes no Movers and Shakers rows on the marketplaces we checked. Amazon serves up to two pages of 50; a page past the last typically 503s and is refunded.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce" },
@@ -8733,6 +11084,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Get Amazon Best Sellers in a category",
+      returns: "Returns ranked Amazon Best Seller listings for a category (ASIN, title, price, rating, image), or New Releases, Most Wished For, Gift Ideas. Movers and Shakers currently returns empty at 0 credits.",
+      use_when: "Use it to read a chart by category slug or department/node path such as officeproduct/202900031, then pass an ASIN into product or reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "amazon",
@@ -8750,6 +11108,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get current Amazon deals",
     description:
       "Returns Amazon deals currently on the deals page: title, deal price, list price, savings, and the ASIN to look up with GET /v1/amazon/product.",
+    budget_ms: 20000,
     singlePage: "The deals feed returns one window of current deals with no page parameter on this source.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce" },
@@ -8758,6 +11117,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Get current Amazon deals",
+      returns: "Returns current Amazon deals with title, deal price, list price, savings, and the ASIN for each offer.",
+      use_when: "Use it to list what is on sale now, then look up a deal's ASIN with the product endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "amazon",
@@ -8777,6 +11143,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an Amazon seller profile",
     description:
       "Returns one Amazon seller by seller id: name, store URL, rating, ratings count, and business name. Seller ids appear on offer rows from GET /v1/amazon/sellers.",
+    budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-ecommerce" },
     tags: ["amazon"],
@@ -8788,6 +11155,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/seller", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.seller" },
+    purpose: {
+      summary: "Get an Amazon seller profile",
+      returns: "Returns one Amazon seller by seller id: name, store URL, rating, and ratings count.",
+      use_when: "Use it when you already have a seller id from sellers offer rows and want that seller's profile, not the offers on one ASIN.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- google_shopping (5 endpoints) ---
   {
@@ -8813,7 +11187,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Google Shopping products",
     description:
       "Searches Google Shopping for products matching a keyword. Returns a unified ProductList with title, seller, price (current/original/currency), rating, image URLs, and the opaque product identifiers (id, ext.gid, ext.data_docid) required to fetch product detail, reviews, or sellers. Read from a task-based upstream; the async lifecycle is handled server-side, so this is an ordinary synchronous request. First calls take ~20-30s, then serve from cache.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-google-shopping" },
     tags: ["google_shopping"],
@@ -8821,6 +11195,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product-search", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Google Shopping products",
+      returns: "Returns Google Shopping products matching a keyword: title, seller, current and original price, rating, images, and the ids needed to fetch more detail.",
+      use_when: "Use it as the entry point for Google Shopping, since product, reviews, and sellers all need an id it returns.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_shopping",
@@ -8850,6 +11231,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get Google Shopping product detail",
+      returns: "Returns one Google Shopping product's full record: title, description, rating, image gallery, feature bullets, grouped specifications, and product variations.",
+      use_when: "Use it when you have a product id from product-search and want the listing detail rather than prices or reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "google_shopping",
@@ -8882,7 +11270,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Shopping product reviews",
     description:
       "Returns a unified ReviewList for a Google Shopping product, aggregated across retailers (each review's `source` is the hosting retailer domain). Each review carries the title, full text, star rating, author (when present), images, and publication date. Pass the product's gid (from product-search); product_id and data_docid are recommended for accuracy. Products with no Google Shopping reviews return 404 (auto-refunded).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-google-shopping" },
     tags: ["google_shopping"],
@@ -8895,6 +11283,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "trustpilot/reviews", why: "The same data from trustpilot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Google Shopping product reviews",
+      returns: "Returns reviews for a Google Shopping product gathered across retailers, each with the retailer domain, title, full text, star rating, images, and date.",
+      use_when: "Use it for shopper opinions on a product; pass the gid from product-search, and expect a 404 when a product has no reviews.",
+      not_for: "Not for a rating comparison across shops with themed pros and cons (prism/product-reviews) or whether the ratings look genuine (prism/review-integrity).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "google_shopping",
@@ -8916,7 +11311,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Shopping sellers for a product",
     description:
       "Returns the list of sellers/offers for a single Google Shopping product: seller name, domain, itemised price (base/tax/shipping/total/currency), rating, product condition, availability, and any special-offer annotation. Pass any one of the opaque identifiers (product_id, gid, or data_docid) from product-search.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-google-shopping" },
     tags: ["google_shopping"],
@@ -8924,6 +11319,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/sellers", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.items[]", itemKey: "seller" },
+    purpose: {
+      summary: "Get Google Shopping sellers for a product",
+      returns: "Returns the sellers offering one Google Shopping product, each with seller name, domain, base price, tax, shipping, total, rating, condition, and availability.",
+      use_when: "Use it to compare who sells a product and at what total delivered price, rather than the single price shown in product-search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "google_shopping",
@@ -8943,10 +11345,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Shopping price history for a product",
     description:
       "Returns dated price observations per store for a Google Shopping product_id from product-search. Each store has a prices array of date and price pairs. This is a time series, not a current-price listing.",
+    budget_ms: 20000,
     singlePage: "Price history is one time-series payload per product_id with no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-ecommerce" },
     tags: ["google_shopping"],
+    purpose: {
+      summary: "Get Google Shopping price history for a product",
+      returns: "Returns dated price observations per store for a Google Shopping product, each with a date and a price.",
+      use_when: "Use it when you have a product_id from product-search and need a price time series rather than the current listing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- google_news (1 endpoint) ---
   {
@@ -8975,6 +11385,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Google News",
     description:
       "Returns a unified NewsArticleList of the top Google News results for a keyword, right now: headline, source outlet, thumbnail, article URL, and absolute UTC publish time (a text snippet may be present on some results). Ranked results land in one list: `rank` is the 1-based position of the row in the list you were served, on every source, and `placement` distinguishes a Top Stories block when present. `source` is the outlet name where the provider supplies one and the article's domain otherwise; `domain` is always the hostname. The keyword supports quoted phrases and boolean operators (AND, OR, NOT). Localize with `location_name`/`location_code`/`location_coordinate` + `language_code` (non-Latin scripts supported). Filter by recency with `time_range`, by an exact date window with `from`/`to` (YYYY-MM-DD or Unix timestamp; overrides `time_range` when present), or by outlet with `publisher` (a bare domain like bbc.com). `publisher`/`from`/`to` cannot be combined with `location_coordinate` or `time_range=hour` (clear 400, never billed). There is no pagination beyond `depth`. This surface returns at most 100 articles per query (default 10). For the full article body, scrape the returned `url`. Served live from Google News: an ordinary synchronous request.",
+    budget_ms: 12000,
     singlePage: "Depth-based fan-out: page size is controlled by depth, one call (no cursor on either source).",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 300 },
@@ -8985,8 +11396,16 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "article" },
+    purpose: {
+      summary: "Search Google News",
+      returns: "Returns current Google News results for a keyword: headline, source outlet, thumbnail, article URL, and the exact publish time in UTC.",
+      use_when: "Use it for news coverage of a topic, narrowed by country, language, date window, or a single publisher domain.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 16083, p95: 16083, p99: 16083, n: 1, provisional: true, low_sample: true },
   },
-  // --- finance (7 endpoints) ---
+  // --- finance (8 endpoints) ---
   {
     platform: "finance",
     resource: "quote",
@@ -8995,8 +11414,8 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "keyword", required: true, description: "Instrument identifier: TICKER:EXCHANGE for stocks/ETFs/indices ('GOOGL:NASDAQ', '.INX:INDEXSP') or a forex/crypto pair ('EUR-USD', 'BTC-USD'). Use the `id` returned by ticker-search.", example: "GOOGL:NASDAQ" },
     ],
     optionalParams: [
-      { name: "language", type: "string", description: "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English." },
-      { name: "location", type: "string", description: "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US." },
+      { name: "language", type: "string", description: "Language as a full name ('English') or 2-letter code ('en'). Defaults to English." },
+      { name: "location", type: "string", description: "Location as a full name ('United States') or numeric code ('2840'). Defaults to the US." },
     ],
     oneOfGroups: [],
     creditTier: "advanced",
@@ -9010,6 +11429,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "dfs-google-finance" },
     tags: ["finance"],
     responseShape: { root: "data.quote" },
+    purpose: {
+      summary: "Get a financial instrument quote",
+      returns: "Returns one instrument's full quote: live price and intraday graph, market cap, P/E, dividend yield, 52 week range, company profile, financials, and peers.",
+      use_when: "Use it when you know the exact symbol, like GOOGL:NASDAQ or BTC-USD; ticker-search gives you that symbol from a name.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9020,8 +11446,8 @@ export const ENDPOINTS: Endpoint[] = [
     ],
     optionalParams: [
       { name: "category", type: "enum", enumValues: ["all", "stock", "index", "mutual_fund", "currency", "futures"], description: "Restrict to one instrument class: all (default), stock, index, mutual_fund, currency, or futures. A class with no matches returns an empty list." },
-      { name: "language", type: "string", description: "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English." },
-      { name: "location", type: "string", description: "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US." },
+      { name: "language", type: "string", description: "Language as a full name ('English') or 2-letter code ('en'). Defaults to English." },
+      { name: "location", type: "string", description: "Location as a full name ('United States') or numeric code ('2840'). Defaults to the US." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -9031,11 +11457,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search financial instruments by name",
     description:
       "Searches Google Finance for financial instruments matching a name and returns a unified QuoteList: each row carries the `id` (e.g. 'AAPL:NASDAQ', '.INX:INDEXSP', 'EUR-USD') to feed into /v1/finance/quote, plus the ticker, display name, exchange, live price, and `type` discriminator. Spans stocks, ETFs, indices, and forex/crypto pairs (asset pairs populate `quote.pair`, with a null `ticker`). Filter by instrument class with `category`. Read live from the Google Finance SERP (~2-3s).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-google-finance" },
     tags: ["finance"],
     responseShape: { root: "data.items[]", itemKey: "quote" },
+    purpose: {
+      summary: "Search financial instruments by name",
+      returns: "Returns instruments matching a name, each with the exact id to pass to quote, plus its ticker, display name, exchange, live price, and instrument type.",
+      use_when: "Use it to turn a company or asset name into the symbol that quote requires.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9043,8 +11476,8 @@ export const ENDPOINTS: Endpoint[] = [
     method: "GET",
     params: [],
     optionalParams: [
-      { name: "language", type: "string", description: "Language as a DFS name ('English') or 2-letter code ('en'). Defaults to English." },
-      { name: "location", type: "string", description: "Location as a DFS name ('United States') or numeric code ('2840'). Defaults to the US." },
+      { name: "language", type: "string", description: "Language as a full name ('English') or 2-letter code ('en'). Defaults to English." },
+      { name: "location", type: "string", description: "Location as a full name ('United States') or numeric code ('2840'). Defaults to the US." },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -9054,11 +11487,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a markets overview (indices + movers)",
     description:
       "Returns a unified QuoteList snapshot of the global markets overview: the major regional indices (US / Europe / Asia, tagged in `quote.ext.section`) plus the day's most-active, gainers, and losers movers. Each row is the same canonical Quote shape used everywhere: re-feed any `id` into /v1/finance/quote for the full detail. A standing overview (no input required); the regional grouping is baked into the single response. Read live from the Google Finance SERP (~4-8s).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "analytics", ttlSeconds: 60 },
     upstream: { kind: "dfs-google-finance" },
     tags: ["finance"],
     responseShape: { root: "data.items[]", itemKey: "quote" },
+    purpose: {
+      summary: "Get a markets overview (indices + movers)",
+      returns: "Returns a snapshot of the major world indices grouped by region, plus the day's most active stocks, biggest gainers, and biggest losers.",
+      use_when: "Use it for a standing market overview; unlike quote and ticker-search it needs no symbol or search term.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9078,6 +11518,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get recent news for a financial instrument",
     description:
       "Returns recent news articles for one financial instrument as a unified NewsArticleList: title, absolute publish time (UTC), publisher, source domain, article URL, and the widest available thumbnail. Pass the instrument in `keyword` as a bare ticker (`AAPL`) or in the `TICKER:EXCHANGE` form used by /v1/finance/quote (`AAPL:NASDAQ`) - the exchange suffix is stripped for you. Rows use the same canonical shape as /v1/google_news/search, so finance news and news-search results join on one row type. `published_at` is always an absolute second-precision ISO-8601 UTC instant, never a localized \"2 hours ago\" string. Prices and instrument data are delayed; see the platform guide for per-exchange delays.",
+    budget_ms: 15000,
     singlePage: "The upstream returns one fixed-size batch per instrument; `limit` caps it and there is no continuation token.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-yhfinance" },
@@ -9086,6 +11527,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "search/news", why: "The same data from search." },
     ],
     responseShape: { root: "data.items[]", itemKey: "article" },
+    purpose: {
+      summary: "Get recent news for a financial instrument",
+      returns: "Returns recent news for one instrument: headline, absolute UTC publish time, publisher, domain, article URL, and the largest thumbnail. Same row shape as google_news/search, so the two merge cleanly.",
+      use_when: "Use it to find why a price moved. Pass a bare ticker ('AAPL') or quote's 'AAPL:NASDAQ' form; the suffix is ignored. This platform is delayed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9107,11 +11555,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get daily price history for an instrument",
     description:
       "Returns daily OHLCV bars for one instrument across an explicit date range, as a unified BarList. Each row carries `close` AND `adj_close` as separate leaves, and the distinction matters: `close` is split-adjusted only, `adj_close` is adjusted for splits AND dividends. Use `adj_close` for total-return maths and `close` for drawing prices; substituting one for the other produces a plausible wrong answer whose error grows the further back you look. Cash dividends and splits appear on the dated row they take effect, so a corporate-action history needs no second call. Delisted instruments return no data, and a recycled ticker resolves to whichever company currently holds the symbol.",
+    budget_ms: 25000,
     singlePage: "The full requested date range is returned in one response; widen or narrow the range rather than paging.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-yahoofull" },
     tags: ["finance"],
     responseShape: { root: "data.items[]", itemKey: "bar" },
+    purpose: {
+      summary: "Get daily price history for an instrument",
+      returns: "Returns daily OHLCV bars for a date range. Each row carries close and adj_close separately, plus any dividend or split effective that day.",
+      use_when: "Use it for charts, returns and backtests. Pick adj_close for total return, close for price. Delisted tickers return nothing; recycled ones return the new company.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9131,11 +11587,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get financial statements for a company",
     description:
       "Returns income-statement, balance-sheet and cash-flow line items per reporting period as a unified FinancialStatementList. Line-item names match the `financials` block inside /v1/finance/quote, so both surfaces spell `net_income` the same way. Every `_delta` leaf is the period-over-period fractional change of its line item; the earliest period has nothing to compare against and reports null rather than a fabricated zero. Four leaves have no source on this surface and are always null: `currency`, `price_to_book`, `return_on_assets` and `return_on_capital` (the last two are conventionally trailing-twelve-month ratios over averaged denominators, and a single-period substitute would be a different number wearing the same name). The oldest one or two periods can arrive carrying only their identity leaves, which is what the upstream holds for them, not a fault. IMPORTANT: rows are keyed by fiscal period END, not by filing date. This surface therefore cannot support point-in-time reconstruction, and a restatement silently replaces the original figures, so a backtest built on it carries look-ahead bias.",
+    budget_ms: 25000,
     singlePage: "Every available reporting period is returned in one response; there is no continuation token.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-yahoofull" },
     tags: ["finance"],
     responseShape: { root: "data.items[]", itemKey: "financial_statement" },
+    purpose: {
+      summary: "Get financial statements for a company",
+      returns: "Returns income, balance sheet and cash flow line items per period, each with its period-over-period fractional change. Currency, price to book, ROA and ROIC have no source here and are always null.",
+      use_when: "Use it for fundamentals screening. Rows are keyed by fiscal period end, NOT filing date, so point-in-time reconstruction is not supported.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "finance",
@@ -9155,11 +11619,50 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an options chain for an instrument",
     description:
       "Returns one expiry's option chain as a flat unified OptionContractList: calls and puts in a single list distinguished by `type`, each with strike, bid, ask, last price, volume, open interest, implied volatility and an in-the-money flag. Flattening is deliberate, so filtering by `type` works exactly like filtering by `strike` instead of walking two differently-shaped arrays. Options quotes are OPRA data and are delayed by roughly 15 minutes; this endpoint is not suitable for execution decisions.",
+    budget_ms: 25000,
     singlePage: "One expiry's full chain is returned per response; select another expiry rather than paging.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-yahoofull" },
     tags: ["finance"],
     responseShape: { root: "data.items[]", itemKey: "option_contract" },
+    purpose: {
+      summary: "Get an options chain for an instrument",
+      returns: "Returns one expiry's chain as a flat list: calls and puts together, split by type, with strike, bid, ask, open interest and implied volatility.",
+      use_when: "Use it to scan a chain without walking two arrays. OPRA data is roughly 15 minutes delayed, so do not trade off it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "finance",
+    resource: "fundamentals",
+    method: "GET",
+    params: [
+      { name: "keyword", required: true, description: "Company ticker, case-insensitive. A bare symbol ('TGT') or the 'TICKER:EXCHANGE' form; the exchange suffix is ignored. Share classes work as 'BRK.B' or 'BRK-B'.", example: "TGT" },
+    ],
+    optionalParams: [
+      { name: "period", type: "enum", enumValues: ["quarterly", "annual"], description: "Reporting period: quarterly or annual. Defaults to quarterly.", example: "quarterly" },
+      { name: "limit", type: "integer", minimum: 1, maximum: 40, description: "Number of most recent periods to return, 1 to 40. Defaults to 8.", example: "8" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "ladder" },
+    archetype: "Analytics",
+    summary: "Get quarterly or annual fundamentals for a public company",
+    description:
+      "Returns reported fundamentals for one US-listed company from its SEC filings: revenue, cost of goods sold, gross profit, inventory, the change in inventory since the previous period, and accounts payable, newest period first. Each row carries `period_end`, the fiscal year and period, the SEC form and the original filing date. Quarterly rows use the three-month figures; the fourth quarter is never filed on its own, so it is computed as the fiscal year minus the three reported quarters and listed in the row's `derived_fields`. `concepts_used` names the US GAAP concept that fed each field, because companies tag the same line differently (a retailer may report cost of goods sold under one concept, a software company cost of revenue under another). A figure the company does not report is null, never 0: a company with no inventory line returns null inventory. Values are USD, as filed; a restated figure replaces the original. Covers companies that file US GAAP statements with the SEC; foreign filers on IFRS and unlisted companies return not found.",
+    budget_ms: 15000,
+    cache: { category: "analytics", ttlSeconds: 21600 },
+    upstream: { kind: "sec-edgar" },
+    tags: ["finance"],
+    purpose: {
+      summary: "Get quarterly or annual fundamentals for a public company",
+      returns: "Returns reported revenue, cost of goods sold, gross profit, inventory, inventory change and accounts payable for a US-listed company by quarter or year, newest first, from its SEC filings.",
+      use_when: "Use it to track a public company's inventory, cost of goods sold and payables over time from SEC filings; use statements for the full income, balance sheet and cash flow line items.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   // --- google_trends (3 endpoints) ---
   {
@@ -9183,9 +11686,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Trends interest over time",
     description:
       "Returns Google Trends interest-over-time for up to 5 keywords in one call. Response is `{ series, averages }`: `series` is one entry per keyword, each with dated `points` ({ date, datetime, value, partial }) where `value` is Google's 0-100 relative-popularity score; `averages` is the per-keyword mean over the window. `partial` is true on a bucket Google is still accumulating, which is normally the last point: treat it as an incomplete count rather than a fall in interest, and drop it before charting a trend. Compare terms head-to-head (values are normalised across the keyword set) and scope by `location`, `timeframe`, and `category`. A keyword set with no measurable search interest returns 404 and costs 0 credits, so a dead term is never billed. A billed refresh is typically 5-9s and the slow tail reaches about 30s, so set a client timeout of at least 60s: this surface reads Google Trends live and Google itself is the slow part. Exact repeats may use the 2-minute search cache and return in milliseconds at 0 credits.",
+    budget_ms: 26000,
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "apify-google-trends", fallbackKinds: ["dfs-google-trends"] },
     tags: ["google_trends"],
+    purpose: {
+      summary: "Get Google Trends interest over time",
+      returns: "Returns Google Trends interest over time for up to five keywords: dated points scored 0 to 100 per keyword, plus each keyword's average over the window.",
+      use_when: "Use it to size a search term or compare several terms head to head over a chosen period, region, and category.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_trends",
@@ -9208,9 +11719,17 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get related + rising Google Trends queries",
     description:
       "Returns the related search queries for ONE keyword as `{ rising, top }`. `rising` is the breakout list: queries whose search interest grew the most over the window, each with a `growth` percentage (a true breakout can read into the thousands, e.g. 3200 = +3200%); `top` is the most-searched related queries, each with a 0-100 relative `value`. The closest thing to a 'breakout terms' primitive: pair it with /v1/google_trends/explore to size a trend and find the queries driving it. A keyword with too little search volume in the requested location and window to build a related-query list returns 404 at 0 credits: that is a fact about the KEYWORD, not an unsupported location, and the same location will answer 200 for a keyword people there actually search. Widen `timeframe` or use the keyword in the local language before concluding a location is unavailable. A billed refresh is typically 5-9s and the slow tail reaches about 30s, so set a client timeout of at least 60s: this surface reads Google Trends live and Google itself is the slow part. Exact repeats may use the 2-minute search cache and return in milliseconds at 0 credits.",
+    budget_ms: 26000,
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "apify-google-trends", fallbackKinds: ["dfs-google-trends"] },
     tags: ["google_trends"],
+    purpose: {
+      summary: "Get related + rising Google Trends queries",
+      returns: "Returns related searches for one keyword in two lists: rising queries with their growth percentage, and top queries with a 0 to 100 popularity score.",
+      use_when: "Use it to find the breakout searches driving a trend, after explore has shown you how big that trend is.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_trends",
@@ -9234,6 +11753,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Trends Trending Now for a location",
     description:
       "Returns what people in one country or region are searching for right now, with no keyword in: the Google Trends Trending Now list for a place and a time window. Each item has `rank` (Google's relevance position), `title`, `search_volume` (the lower bound of Google's bucket, so 50000 means 50K+), `increase_percent` (Google shows at most 1000), `started_at`, `ended_at` and `active` (still trending when `ended_at` is null), `categories`, `breakdown` (the related searches Google groups into the trend) and up to 3 `news` articles Google links to it. `total` counts every trend matching your filters before `limit`. Narrow with `hours`, `category` and `status`, and reorder with `sort`; these are the same filters trends.google.com/trending offers. Google publishes no worldwide list, so `location` is required. A place and window with nothing trending returns 404 at 0 credits; filters that match nothing return an empty list at 0 credits. Typically under 2 seconds; allow 30 seconds for the slow tail. Exact repeats within 5 minutes are served from cache at 0 credits.",
+    budget_ms: 10000,
     singlePage: "One ranked list per place and window with no pagination. Google returns the whole list in one answer (DE, 24 hours: 431 trends, 13/09/2026); `limit` caps how many rows ship.",
     cache: { category: "search", ttlSeconds: 300 },
     upstream: { kind: "google-trends-trending", fallbackKinds: ["google-trends-trending-dc", "google-trends-trending-residential"] },
@@ -9244,6 +11764,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/trending", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Google Trends Trending Now for a location",
+      returns: "Returns the Google Trends Trending Now list for one country or region: each trend's search volume, increase, start and end time, categories, related searches, and linked news.",
+      use_when: "Use it to discover what a market is searching for right now without naming a keyword, filtered by time window, category, and active status.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   // --- trustpilot (2 endpoints) ---
   {
@@ -9264,11 +11791,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Trustpilot businesses",
     description:
       "Searches Trustpilot for businesses (companies) matching a keyword. Returns a unified AuthorList: each result is a business profile with its display name, Trustpilot domain (`username`/`id`), own website (`external_url`), Trustpilot review-page URL (`url`), and total Trustpilot review count (`posts_count`). Use the returned domain to pull that business's reviews via /v1/trustpilot/reviews. Note: search matches BUSINESSES, not products: a domain-shaped query returns no results. Read from a task-based upstream; the async lifecycle is handled server-side, so this is an ordinary synchronous request (first calls take ~15-45s, then serve from cache).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-trustpilot" },
     tags: ["trustpilot"],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Trustpilot businesses",
+      returns: "Returns Trustpilot businesses matching a keyword: company name, its Trustpilot domain, its own website, its review page URL, and total review count.",
+      use_when: "Use it to find a company's Trustpilot domain, which the reviews endpoint needs. It matches businesses, not products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "trustpilot",
@@ -9298,7 +11832,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Trustpilot reviews for a business",
     description:
       "Returns a unified ReviewList of customer reviews for a business on Trustpilot, keyed by its domain (`entity_id` on every review). Each review carries the star rating, full text, title, verified-status, language (reviews arrive in many languages: filter client-side via `language`), reviewer profile, owner/brand `responses[]`, and publish date. Reviews are about the COMPANY (shipping, refunds, support), never a specific product: for product reviews use /v1/google_shopping/reviews or /v1/amazon/reviews. Get the domain from /v1/trustpilot/business-search. The platform exposes no deeper pagination: `depth` caps at 200 (the most recent / most relevant); a business with no Trustpilot reviews returns 404 (auto-refunded). Read from a task-based upstream (first calls ~15-45s, then cached).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-trustpilot" },
     tags: ["trustpilot"],
@@ -9311,6 +11845,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Trustpilot reviews for a business",
+      returns: "Returns customer reviews of a business on Trustpilot by its domain: star rating, title, full text, language, reviewer, company replies, and publish date.",
+      use_when: "Use it for opinions about a company, such as shipping, refunds, or support. For reviews of one product, use Amazon or Google Shopping reviews.",
+      not_for: "Not for one product's ratings across several shops (prism/product-reviews) or a company's blended reputation across sources (prism/reputation).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   // --- g2 (7 endpoints) ---
   {
@@ -9331,6 +11872,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a G2 product by slug or URL",
     description:
       "Returns one G2 software product: name, description, star rating, review count, categories, seller, pricing plans, feature list, alternatives, comparisons, and media. Pass the G2 slug (postman) or the full G2 product URL. Contact enrichment of the product's own website is off by default; set website_contacts_crawl_mode to homepage or deep to include it. For written reviews call GET /v1/g2/reviews with the same id.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-g2" },
     group: "Products",
@@ -9340,6 +11882,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a G2 product by slug or URL",
+      returns: "Returns one G2 software product by slug or URL: name, description, rating, review count, categories, seller, pricing plans, features, and alternatives.",
+      use_when: "Use it when you have a G2 slug or product URL and need the full product page, including rating and pricing, before paging reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9375,6 +11924,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get G2 reviews for a product",
     description:
       "Returns written G2 reviews for a software product, 10 per page. Filter by star rating, company segment, industry, reviewer role, region, or keyword, and sort by G2 relevance, recency, helpfulness, or rating. G2 caps each filter combination at 10 pages; use the returned cursor until has_more is false. Get the product slug from GET /v1/g2/product.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-g2" },
@@ -9389,6 +11939,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get G2 reviews for a product",
+      returns: "Returns written G2 reviews for a product, 10 per page, with star rating, reviewer role, company size, and publish date.",
+      use_when: "Use it when you want the review text itself. For rating and review count only, one call to the product endpoint is cheaper than paging reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9409,6 +11966,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List products in a G2 category",
     description:
       "Returns one page of G2 products in a software category, 15 per page: name, slug, rating, review count, seller, and logo. Sort by G2 score, popularity, or satisfaction. Get a category slug from GET /v1/g2/categories.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-g2" },
@@ -9419,6 +11977,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "target/category", why: "The same data from target." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List products in a G2 category",
+      returns: "Returns products listed in a G2 software category, 15 per page, each with name, rating, review count, seller, and logo.",
+      use_when: "Use it to walk a G2 category and discover product slugs. Get the category slug from the categories endpoint first.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9434,6 +11999,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List every G2 category URL",
     description:
       "Returns the full G2 category taxonomy as URL + slug rows. Feed a slug into GET /v1/g2/category to list the products in that category. Static reference data, so it is 1 credit and heavily cached.",
+    budget_ms: 20000,
     singlePage: "The upstream returns the complete category URL dump in one call (2,227 links, live-verified 2026-09-01) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-g2" },
@@ -9443,6 +12009,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/categories", why: "The same data from google_play." },
       { id: "app_store/categories", why: "The same data from app_store." },
     ],
+    purpose: {
+      summary: "List every G2 category URL",
+      returns: "Returns the full G2 category taxonomy as URL and slug rows.",
+      use_when: "Use it first to find a category slug, then pass that slug to the category endpoint to list products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9464,6 +12037,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a G2 seller (vendor) profile",
     description:
       "Returns one G2 seller: name, description, aggregate rating, review count, headquarters, year founded, website, and a page of the product portfolio. Product and review teasers paginate independently via products_page and reviews_page. For the full product list without the profile chrome, call GET /v1/g2/seller/products.",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-g2" },
     group: "Sellers",
@@ -9473,6 +12047,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/seller", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a G2 seller (vendor) profile",
+      returns: "Returns one G2 seller profile: name, description, aggregate rating, review count, headquarters, and a page of its products.",
+      use_when: "Use it when you have a seller slug and need the vendor page. For the product list alone, call seller/products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9492,12 +12073,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List products for a G2 seller",
     description:
       "Returns one page of a G2 seller's product portfolio, 9 per page: name, slug, rating, review count, and description. Use GET /v1/g2/seller when you also need the seller profile.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-g2" },
     group: "Sellers",
     tags: ["g2"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List products for a G2 seller",
+      returns: "Returns one page of a G2 seller's products, 9 per page, each with name, rating, review count, and description.",
+      use_when: "Use it to walk a seller's full catalogue. Use the seller endpoint when you also need the vendor profile.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "g2",
@@ -9515,11 +12104,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List G2 product URLs",
     description:
       "Returns G2 product review-page URLs, 100 per page, each with the product slug as id. Use a slug with GET /v1/g2/product or GET /v1/g2/reviews. The upstream sends the full catalogue in one call; this endpoint pages it so the response stays small. Prefer the universal cursor parameter.",
+    budget_ms: 30000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-g2" },
     group: "Products",
     tags: ["g2"],
+    purpose: {
+      summary: "List G2 product URLs",
+      returns: "Returns G2 product review-page URLs, 100 per page, each with the product slug.",
+      use_when: "Use it to walk the G2 product catalogue and collect slugs for the product and reviews endpoints.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- google_play (9 endpoints) ---
   {
@@ -9542,7 +12139,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Google Play apps by keyword",
     description:
       "Returns a unified AppList of Google Play apps matching a keyword: title, icon, developer, rating, price/is_free, and store URL on every item, on the same canonical `App` shape used across every app marketplace (`app.store` = \"google_play\"). Detail-only fields (description, screenshots, installs) are null on search items; fetch /v1/google_play/app-info for the full record. Served from the Google Play catalogue: a first, uncached call is task-polled upstream and typically takes 3 to 15s, with a review pull at high `depth` reaching 40s. Set a client timeout of at least 60s.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-app-data" },
     tags: ["google_play"],
@@ -9553,6 +12150,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/app-search", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Search Google Play apps by keyword",
+      returns: "Returns Google Play apps matching a keyword: title, icon, developer, rating, price or free flag, and store URL for each result.",
+      use_when: "Use it to find an app's package name by keyword; description, screenshots, and install counts come from app-info.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9584,6 +12188,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/search-suggestions", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Google Play search suggestions",
+      returns: "Returns the autocomplete terms the Google Play search box suggests for a keyword stem, each with its rank in Play's own ordering.",
+      use_when: "Use it for store keyword research: poll a stem daily and diff the list to catch rising app searches early.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9604,6 +12215,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get full Google Play app details",
     description:
       "Returns the full canonical `App` record for one Google Play app keyed by its package name (`app_id`): title, description, developer block (incl. email/address/website), rating, price, install count + display ('1,000,000,000+'), version, size, screenshots, genres, chart tags, similar apps, and update date. The `app.store` field is always \"google_play\"; Apple-only leaves (advisories, languages) are null. Get the `app_id` from /v1/google_play/app-search.",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-app-data", fallbackKinds: ["apify-google-play-app"] },
     tags: ["google_play"],
@@ -9614,6 +12226,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/app-info", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.app" },
+    purpose: {
+      summary: "Get full Google Play app details",
+      returns: "Returns one Google Play app's full record by package name: description, developer contact, rating, price, install count, version, size, screenshots, and genres.",
+      use_when: "Use it when you already have an app_id and need the detail that search results leave out.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "google_play",
@@ -9646,7 +12265,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Google Play reviews for an app",
     description:
       "Returns a unified ReviewList of Google Play user reviews for an app, keyed by its package name (`app_id` on every review's `entity_id`). Each review carries the star rating, full text, reviewer name + avatar, helpful-vote count, developer `responses[]` (reply text + date), and publish date: on the SAME canonical `Review` shape used by Amazon, Google Shopping, and Trustpilot. Google reviews have no title (always null). `depth` returns reviews in batches of 150 (max 600).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-app-data" },
     tags: ["google_play"],
@@ -9659,6 +12278,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/app-reviews", why: "The same data from prism." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Google Play reviews for an app",
+      returns: "Returns Google Play user reviews for an app: star rating, full text, reviewer name and avatar, helpful vote count, publish date, and any developer reply.",
+      use_when: "Use it to read what users say about one app; reviews come back in batches of 150, up to 600 in total.",
+      not_for: "Not for both stores at once with themes and sentiment over time (prism/app-reviews).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "google_play",
@@ -9682,7 +12308,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Google Play store chart",
     description:
       "Returns a unified AppList for a Google Play store chart (top free, top paid, top grossing, movers & shakers, etc.), optionally scoped to a category. Each item is the same canonical `App` shape as app-search. Use it to track ranking movements or build a category leaderboard.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-app-data" },
     tags: ["google_play"],
@@ -9690,6 +12316,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/app-list", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Get a Google Play store chart",
+      returns: "Returns a Google Play store chart such as top free, top paid, top grossing, or movers and shakers, with the same app fields as app-search.",
+      use_when: "Use it to track ranking movements or build a category leaderboard, rather than searching for one named app.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9723,6 +12356,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/app-listings-search", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Search the Google Play listings database (paginated)",
+      returns: "Returns Google Play listings matching an app title, and optionally a description, from a filterable database, plus a total count across the whole store.",
+      use_when: "Use it when you must page through many results, since it is the only Google Play endpoint with real paging.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9745,6 +12385,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "app_store/categories", why: "The same data from app_store." },
     ],
+    purpose: {
+      summary: "List Google Play app categories",
+      returns: "Returns the Google Play app category names accepted by the app_category filter on app-list.",
+      use_when: "Use it to look up a valid category value before calling app-list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9769,6 +12416,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/locations", why: "The same data from app_store." },
       { id: "gumtree/locations", why: "The same data from gumtree." },
     ],
+    purpose: {
+      summary: "List supported Google Play storefront locations",
+      returns: "Returns the storefronts the Google Play endpoints support, each with its name and numeric location code.",
+      use_when: "Use it to find a valid value for the country parameter on the other Google Play endpoints.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "google_play",
@@ -9791,6 +12445,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/languages", why: "The same data from app_store." },
       { id: "content_analysis/languages", why: "The same data from content_analysis." },
     ],
+    purpose: {
+      summary: "List supported Google Play languages",
+      returns: "Returns the languages the Google Play endpoints support, each with its name and code.",
+      use_when: "Use it to find a valid value for the language parameter on the other Google Play endpoints.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- app_store (9 endpoints) ---
   {
@@ -9813,7 +12474,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Apple App Store apps by keyword",
     description:
       "Returns a unified AppList of Apple App Store apps matching a keyword: title, icon, developer, category, rating, price/is_free, and store URL on every item, on the same canonical `App` shape used across every app marketplace (`app.store` = \"app_store\"). Detail-only fields (description, screenshots, similar apps) are null on search items; fetch /v1/app_store/app-info for the full record. Served from the Apple App Store catalogue: a first, uncached call is task-polled upstream and typically takes 3 to 15s, with a review pull at high `depth` reaching 40s. Set a client timeout of at least 60s.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-app-data" },
     tags: ["app_store"],
@@ -9824,6 +12485,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/app-search", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Search Apple App Store apps by keyword",
+      returns: "Returns Apple App Store apps matching a keyword: title, icon, rating, price or free flag, and store URL for each result.",
+      use_when: "Use it to find an app's numeric id by keyword; description, screenshots, and developer come from app-info.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -9854,6 +12522,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/search-suggestions", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Apple App Store search suggestions",
+      returns: "Returns the autocomplete search hints the Apple App Store search box suggests for a keyword stem, each with its rank in Apple's own ordering.",
+      use_when: "Use it for App Store keyword research: poll a stem daily and diff the list to catch rising searches early.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -9874,6 +12549,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get full Apple App Store app details",
     description:
       "Returns the full canonical `App` record for one Apple App Store app keyed by its numeric `app_id`: title, subtitle, description, developer (including public website), rating, price, category, original release date, version, minimum iOS version, size, screenshots, supported languages, age advisories, similar apps, and update date. The `app.store` field is always \"app_store\"; Google-only leaves (installs, developer email/address) are null. Get the `app_id` from /v1/app_store/app-search.",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "dfs-app-data", fallbackKinds: ["itunes-lookup"] },
     tags: ["app_store"],
@@ -9884,6 +12560,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/app-info", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.app" },
+    purpose: {
+      summary: "Get full Apple App Store app details",
+      returns: "Returns one App Store app by numeric id: subtitle, description, developer and website, rating, price, category, first release date, version, minimum iOS, size, screenshots, and age advisories.",
+      use_when: "Use it when you already have an app_id and need the detail that search results leave out.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "app_store",
@@ -9916,7 +12599,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Apple App Store reviews for an app",
     description:
       "Returns a unified ReviewList of Apple App Store user reviews for an app, keyed by its numeric `app_id` (on every review's `entity_id`). Each review carries the star rating, full text, review title, reviewer name, and publish date: on the SAME canonical `Review` shape used by Amazon, Google Shopping, and Trustpilot. Apple reviews have no avatar, helpful-vote count, or developer responses (those are null). `depth` returns reviews in batches of 50 (max 500; a 500-review pull takes around 40s). Apple's review feed cannot be filtered by star rating upstream, so `rating` is rejected here with a free 400 rather than silently returning the unfiltered feed: request a larger `depth` and filter on `review.rating.value`, or use /v1/google_play/app-reviews where the filter is real.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-app-data" },
     tags: ["app_store"],
@@ -9929,6 +12612,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/app-reviews", why: "The same data from prism." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Apple App Store reviews for an app",
+      returns: "Returns Apple App Store user reviews for an app: star rating, review title, full text, reviewer name, and publish date.",
+      use_when: "Use it to read what users say about one app; reviews come back in batches of 50, up to 600 in total.",
+      not_for: "Not for both stores at once with themes and sentiment over time (prism/app-reviews).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "app_store",
@@ -9952,7 +12642,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an Apple App Store chart",
     description:
       "Returns a unified AppList for an Apple App Store chart (top free, top paid, top grossing, and the three new-apps charts), optionally scoped to a category. Each item is the same canonical `App` shape as app-search. Use it to track ranking movements or build a category leaderboard. iPad-specific charts are not available from this source. Apple publishes a chart for most but not all categories: the Newsstand-era `magazines_*` values plus `catalogs`, `games_dice` and `games_educational` return an empty list on `top_free_ios` at 0 credits (measured 06/09/2026), and several of them do populate on the `new_ios` charts.",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-app-data" },
     tags: ["app_store"],
@@ -9960,6 +12650,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/app-list", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Get an Apple App Store chart",
+      returns: "Returns an Apple App Store chart such as top free, top paid, top grossing for iPhone or iPad, or new apps, with the same app fields as app-search.",
+      use_when: "Use it to track ranking movements or build a category leaderboard, rather than searching for one named app.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -9993,6 +12690,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/app-listings-search", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.items[]", itemKey: "app" },
+    purpose: {
+      summary: "Search the Apple App Store listings database (paginated)",
+      returns: "Returns App Store listings matching an app title, and optionally a description, from a filterable database, plus a total count across the whole store.",
+      use_when: "Use it when you must page through many results, since it is the only App Store endpoint with real paging.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -10015,6 +12719,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "List Apple App Store app categories",
+      returns: "Returns the Apple App Store category names accepted by the app_category filter on app-list.",
+      use_when: "Use it to look up a valid category value before calling app-list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -10039,6 +12750,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/locations", why: "The same data from google_play." },
       { id: "gumtree/locations", why: "The same data from gumtree." },
     ],
+    purpose: {
+      summary: "List supported Apple App Store storefront locations",
+      returns: "Returns the storefronts the Apple App Store endpoints support, each with its name and numeric location code.",
+      use_when: "Use it to find a valid value for the country parameter on the other App Store endpoints.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "app_store",
@@ -10061,6 +12779,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/languages", why: "The same data from google_play." },
       { id: "content_analysis/languages", why: "The same data from content_analysis." },
     ],
+    purpose: {
+      summary: "List supported Apple App Store languages",
+      returns: "Returns the languages the Apple App Store endpoints support, each with its name and code.",
+      use_when: "Use it to find a valid value for the language parameter on the other App Store endpoints.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- tripadvisor (16 endpoints) ---
   {
@@ -10083,7 +12808,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TripAdvisor businesses & places",
     description:
       "Searches TripAdvisor for businesses and places (restaurants, hotels, attractions) matching a keyword in a location. Returns a unified PlaceList: each result carries the place name, category, star rating, total review count, and the `url_path` (the `id`/`url` are derived from it) that you pass to /v1/tripadvisor/reviews to pull that place's reviews. Results are location-bound (default: United States). Read from a task-based upstream; the async lifecycle is handled server-side, so this is an ordinary synchronous request (first calls take ~15-45s, then serve from cache).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "dfs-tripadvisor" },
     tags: ["tripadvisor"],
@@ -10092,6 +12817,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search TripAdvisor businesses & places",
+      returns: "Returns TripAdvisor places matching a keyword in a location: name, category, star rating, total review count, and the url_path that identifies the place.",
+      use_when: "Use it to find a restaurant, hotel, or attraction and get the url_path that the reviews endpoint needs.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10125,7 +12857,8 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TripAdvisor reviews for a place",
     description:
       "Returns a unified ReviewList of traveler reviews for a TripAdvisor place, keyed by its `url_path` (`entity_id` on every review). Each review carries the star rating, full text, title, reviewer profile, attached photos, owner/management `responses[]`, the original + translated language (TripAdvisor auto-translates: a `translated` flag marks it), and publish date. Get the `url_path` from /v1/tripadvisor/search. Filter by traveler rating, traveler type, or a keyword. The synchronous endpoint caps `depth` at 30 (deeper history is a future async surface); a place with no matching reviews returns 404 (auto-refunded). Read from a task-based upstream (first calls ~15-45s, then cached).",
-    singlePage: "DFS depth-based fan-out: page size is controlled by depth, one call.",
+    budget_ms: 12000,
+    singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-tripadvisor", fallbackKinds: ["dfs-tripadvisor"] },
     tags: ["tripadvisor"],
@@ -10138,6 +12871,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get TripAdvisor reviews for a place",
+      returns: "Returns traveler reviews for a TripAdvisor place: star rating, title, full text, reviewer, photos, management replies, language, and publish date.",
+      use_when: "Use it once search has given you a place's url_path. Filter by rating, traveler type, or keyword when you want one slice of the reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10158,11 +12898,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a TripAdvisor place by URL",
     description:
       "Resolves any TripAdvisor place URL - hotel, restaurant, or attraction - into a unified Place: name, category, star rating, total review count, price level, address, phone, coordinates, and images. This is the generic resolver: pass the `url_path` from a /v1/tripadvisor/search result, or any TripAdvisor page URL a user pasted, and get back the resolved place. Use it to confirm which property a `url_path` actually points at before pulling its reviews, because TripAdvisor keys on the numeric id in the path and ignores the slug text, so a stale slug can name a different property than the one it resolves to. A URL that resolves to nothing returns 404 (auto-refunded).",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Places",
     tags: ["tripadvisor"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a TripAdvisor place by URL",
+      returns: "Returns one TripAdvisor place resolved from any page URL: name, category, star rating, review count, price level, address, phone, and coordinates.",
+      use_when: "Use it to confirm which property a url_path actually points at, since TripAdvisor keys on the numeric id and ignores the slug text.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10183,12 +12931,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Autocomplete TripAdvisor places",
     description:
       "Type-ahead lookup for TripAdvisor destinations, hotels, restaurants, and attractions. Returns a unified PlaceList with the resolved location id, name, locality subtitle (e.g. 'Ile-de-France, France'), coordinates, thumbnail, and the TripAdvisor URL to chain into /v1/tripadvisor/place or /v1/tripadvisor/reviews. Best for turning a name a user typed into a concrete place. Note this lane carries NO star rating and NO review count - use /v1/tripadvisor/search when you need those on every result.",
+    budget_ms: 25000,
     singlePage: "TripAdvisor's typeahead returns one ranked set; `depth` is its page size (max 50) and there is no second page upstream.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Places",
     tags: ["tripadvisor"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Autocomplete TripAdvisor places",
+      returns: "Returns TripAdvisor typeahead matches for a name: location id, place name, locality subtitle, coordinates, thumbnail, and the page URL to chain from.",
+      use_when: "Use it to turn a name someone typed into a real place. It carries no rating or review count, so use search when you need those.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10215,12 +12971,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TripAdvisor hotels",
     description:
       "Searches TripAdvisor hotels in a destination, with filters for nightly price band, hotel class, guest rating, and property type. Returns a unified PlaceList: name, category, and the `url_path` you pass to /v1/tripadvisor/hotel or /v1/tripadvisor/reviews. Note this lane returns no star rating and no review count per result - chain /v1/tripadvisor/hotel for those, or use /v1/tripadvisor/restaurants and /v1/tripadvisor/attractions, whose results do carry ratings.",
+    budget_ms: 25000,
     singlePage: "Upstream multi-pages internally above 30 rows, so `depth` (max 100) is served by one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Hotels",
     tags: ["tripadvisor"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search TripAdvisor hotels",
+      returns: "Returns TripAdvisor hotels in a destination, filtered by nightly price, hotel class, guest rating, and property type.",
+      use_when: "Use it to build a shortlist for a city. Results carry no rating, so chain hotel for the star rating and review count.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10241,11 +13005,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a TripAdvisor hotel",
     description:
       "Returns a unified Place for one TripAdvisor hotel: name, star rating, total review count, price band, address, phone, coordinates, its rank within the destination, and its amenity list. Get the `url_path` from /v1/tripadvisor/hotels or /v1/tripadvisor/search. A `url_path` matching no property returns 404 (auto-refunded).",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Hotels",
     tags: ["tripadvisor"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a TripAdvisor hotel",
+      returns: "Returns one TripAdvisor hotel: name, star rating, review count, price band, address, phone, coordinates, destination rank, and amenity list.",
+      use_when: "Use it after hotels or search to fill in the detail a listing row leaves out.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10272,12 +13044,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TripAdvisor restaurants",
     description:
       "Searches TripAdvisor restaurants in a destination, with filters for cuisine, meal type, price level, dietary restriction, open-now, and online reservations. Returns a unified PlaceList carrying the star rating, review count, cuisine tags, a photo, and the `url_path` you pass to /v1/tripadvisor/restaurant or /v1/tripadvisor/restaurant/reviews.",
+    budget_ms: 25000,
     singlePage: "Upstream multi-pages internally above 30 rows, so `depth` (max 100) is served by one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Restaurants",
     tags: ["tripadvisor"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search TripAdvisor restaurants",
+      returns: "Returns TripAdvisor restaurants in a destination with star rating, review count, and cuisine tags, filtered by cuisine, meal, price, or dietary need.",
+      use_when: "Use it to shortlist places to eat in a city, then chain restaurant or restaurant/reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10298,11 +13078,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a TripAdvisor restaurant",
     description:
       "Returns a unified Place for one TripAdvisor restaurant: name, star rating, total review count, price band, cuisine tags, full address, phone, coordinates, opening hours by day, its rank within the destination, and whether the listing is claimed by its owner. Get the `url_path` from /v1/tripadvisor/restaurants or /v1/tripadvisor/search.",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Restaurants",
     tags: ["tripadvisor"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a TripAdvisor restaurant",
+      returns: "Returns one TripAdvisor restaurant: star rating, review count, price band, cuisines, address, phone, coordinates, opening hours, and destination rank.",
+      use_when: "Use it after restaurants or search when you need opening hours or the full address.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10332,6 +13120,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TripAdvisor reviews for a restaurant",
     description:
       "Returns a unified ReviewList of diner reviews for a TripAdvisor restaurant, keyed by its `url_path` (`entity_id` on every review). Each review carries the star rating, full text, title, reviewer profile with contribution count, attached photos, owner/management `responses[]`, helpful-vote count, the original + translated language, and the publish date. Get the `url_path` from /v1/tripadvisor/restaurants. A restaurant with no reviews returns 404 (auto-refunded).",
+    budget_ms: 25000,
     singlePage: "Upstream page size is 20; a deeper `depth` is served by an internal offset fan-out inside one request.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-tripadvisor" },
@@ -10342,6 +13131,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Names the product issue each review raises, at no extra credits; sentiment is free too.", example: "issue" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get TripAdvisor reviews for a restaurant",
+      returns: "Returns diner reviews for a TripAdvisor restaurant: star rating, title, full text, reviewer, photos, owner replies, helpful votes, and publish date.",
+      use_when: "Use it once restaurants has given you a url_path, when you want what diners actually said rather than the score.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10368,12 +13164,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TripAdvisor attractions and things to do",
     description:
       "Searches TripAdvisor attractions, tours, museums, and activities in a destination, with filters for category, duration, minimum traveler rating, free cancellation, skip-the-line, and private tours. Returns a unified PlaceList carrying the star rating, review count, a photo, and the `url_path` you pass to /v1/tripadvisor/attraction or /v1/tripadvisor/attraction/reviews.",
+    budget_ms: 25000,
     singlePage: "Upstream multi-pages internally above 30 rows, so `depth` (max 100) is served by one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Attractions",
     tags: ["tripadvisor"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search TripAdvisor attractions and things to do",
+      returns: "Returns TripAdvisor attractions and activities in a destination with star rating and review count, filtered by category, duration, or rating.",
+      use_when: "Use it to plan what to do in a city, then chain attraction or attraction/reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10394,11 +13198,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a TripAdvisor attraction",
     description:
       "Returns a unified Place for one TripAdvisor attraction: name, editorial description, star rating, total review count, full address, phone, coordinates, opening hours, its rank within the destination, and its photo gallery. Get the `url_path` from /v1/tripadvisor/attractions or /v1/tripadvisor/search.",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Attractions",
     tags: ["tripadvisor"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a TripAdvisor attraction",
+      returns: "Returns one TripAdvisor attraction: description, star rating, review count, address, phone, coordinates, opening hours, destination rank, and photos.",
+      use_when: "Use it after attractions or search when you need the write-up, hours, or exact location.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10428,6 +13240,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TripAdvisor reviews for an attraction",
     description:
       "Returns a unified ReviewList of visitor reviews for a TripAdvisor attraction, keyed by its `url_path` (`entity_id` on every review). Each review carries the star rating, full text, title, reviewer profile with contribution count, attached photos, helpful-vote count, and the publish date. Get the `url_path` from /v1/tripadvisor/attractions. Note this lane carries no owner/management responses and no per-review permalink - both exist only on hotel and restaurant reviews. An attraction with no reviews returns 404 (auto-refunded).",
+    budget_ms: 25000,
     singlePage: "Upstream page size is 20; a deeper `depth` is served by an internal offset fan-out inside one request.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-tripadvisor" },
@@ -10438,6 +13251,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Names the product issue each review raises, at no extra credits; sentiment is free too.", example: "issue" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get TripAdvisor reviews for an attraction",
+      returns: "Returns visitor reviews for a TripAdvisor attraction: star rating, title, full text, reviewer, photos, helpful votes, and publish date.",
+      use_when: "Use it once attractions has given you a url_path. This endpoint carries no owner replies and no per-review link.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10457,11 +13277,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List TripAdvisor experience types for a destination",
     description:
       "Returns the activity taxonomy TripAdvisor uses for a destination, with the number of bookable experiences in each type (for example 'Full-day Tours' 915) and a deep link to that filtered listing. Use it to size a destination's activity market before pulling /v1/tripadvisor/attractions, or to drive a category picker.",
+    budget_ms: 25000,
     singlePage: "A destination's activity taxonomy is one complete set; the upstream exposes no paging on it.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Attractions",
     tags: ["tripadvisor"],
+    purpose: {
+      summary: "List TripAdvisor experience types for a destination",
+      returns: "Returns the activity taxonomy TripAdvisor uses for a destination, with the number of bookable experiences in each type and a link to that listing.",
+      use_when: "Use it to size a destination's activity market before pulling attractions, or to fill a category picker.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10486,12 +13314,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search TripAdvisor cruises",
     description:
       "Searches TripAdvisor cruise sailings for a destination, with filters for departure month, cabin type, and trip length. Returns a unified PlaceList: each sailing carries the ship name, its rating and review count, the departure port, and the `url_path` you pass to /v1/tripadvisor/cruise or /v1/tripadvisor/cruise/reviews.",
+    budget_ms: 25000,
     singlePage: "Upstream multi-pages internally above its default, so `depth` (max 100) is served by one call.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Cruises",
     tags: ["tripadvisor"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search TripAdvisor cruises",
+      returns: "Returns TripAdvisor cruise sailings for a destination with ship name, rating, review count, and departure port, filtered by month, cabin, or length.",
+      use_when: "Use it to find sailings for a region, then chain cruise or cruise/reviews for the ship.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10512,11 +13348,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a TripAdvisor cruise ship",
     description:
       "Returns a unified Place for one TripAdvisor cruise ship: name, description, passenger rating, total review count, and its photo gallery. Get the `url_path` from a /v1/tripadvisor/cruises result. Note a ship has no address, phone or price band, so those leaves are null by design.",
+    budget_ms: 25000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-tripadvisor" },
     group: "Cruises",
     tags: ["tripadvisor"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a TripAdvisor cruise ship",
+      returns: "Returns one TripAdvisor cruise ship: name, description, passenger rating, review count, and photos.",
+      use_when: "Use it after cruises. A ship has no address or price band, so those fields come back empty.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tripadvisor",
@@ -10546,6 +13390,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get TripAdvisor reviews for a cruise ship",
     description:
       "Returns a unified ReviewList of passenger reviews for a TripAdvisor cruise ship, keyed by its `url_path` (`entity_id` on every review). Each review carries the star rating, full text, title, reviewer profile with contribution count, attached photos, helpful-vote count, and the publish date. Get the `url_path` from /v1/tripadvisor/cruises. Note this lane carries no owner/management responses and no per-review permalink - both exist only on hotel and restaurant reviews. A ship with no reviews returns 404 (auto-refunded).",
+    budget_ms: 25000,
     singlePage: "Upstream page size is 20; a deeper `depth` is served by an internal offset fan-out inside one request.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-tripadvisor" },
@@ -10556,6 +13401,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Names the product issue each review raises, at no extra credits; sentiment is free too.", example: "issue" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get TripAdvisor reviews for a cruise ship",
+      returns: "Returns passenger reviews for a TripAdvisor cruise ship: star rating, title, full text, reviewer, photos, helpful votes, and publish date.",
+      use_when: "Use it once cruises has given you a url_path. This endpoint carries no owner replies and no per-review link.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   // --- walmart (5 endpoints) ---
   {
@@ -10576,6 +13428,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Walmart product by id",
     description:
       "Returns full product detail for a Walmart item: title, brand, model, UPC, both descriptions, current and list price, rating with its 1-5 star breakdown, recommended percentage, image gallery, specifications, availability, seller, condition, and return-policy window. Accepts either the numeric item id from a walmart.com/ip/ URL or Walmart's alphanumeric catalog id. For this product's written reviews call GET /v1/walmart/reviews with the same id; for every seller offering it, GET /v1/walmart/offers.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-walmart", fallbackKinds: ["rapidapi-ecommerce"] },
     group: "Products",
@@ -10588,6 +13441,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Walmart product by id",
+      returns: "Returns one Walmart product by id: title, brand, price and list price, rating with its star breakdown, images, specifications, availability, and seller.",
+      use_when: "Use it when you have a Walmart item id and need full product detail. For written reviews use reviews, and for other sellers use offers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "walmart",
@@ -10620,6 +13480,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Walmart product reviews",
     description:
       "Returns written customer reviews for a Walmart product, up to 50 per call, each with the full review text, star rating, author, date, helpful-vote count, verified-purchase flag, and any reviewer photos. Filter to a single star rating with the rating parameter, which is applied exactly. The sort parameter changes which reviews Walmart returns but does NOT currently guarantee the returned page is ordered: measured against the live source, rating_high_low and rating_low_high return the same set, and recent is not strictly newest-first. Sort client-side if you need a guaranteed order. Consecutive pages can also repeat a small number of reviews, because the underlying review feed shifts between calls, so de-duplicate by review id when crawling.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-walmart" },
@@ -10635,6 +13496,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Walmart product reviews",
+      returns: "Returns written customer reviews for a Walmart product, up to 50 per call, each with full text, star rating, author, date, helpful votes, and photos.",
+      use_when: "Use it when you want what shoppers wrote about a Walmart item. Sort the results yourself, since the sort option does not guarantee an order.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "walmart",
@@ -10662,6 +13530,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Walmart products by keyword",
     description:
       "Returns Walmart search results for a keyword: title, product id, URL, image, price, rating, review count, availability, seller, and shipping and pickup flags per product, with optional price, location, and store filters. A small number of rows carry no price even when in stock, in which case product.price.current is null rather than zero; call GET /v1/walmart/product with the returned product id for a guaranteed price. Also serves as the keyword-to-product-id resolver for the rest of the Walmart API.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce", fallbackKinds: ["rapidapi-walmart"] },
@@ -10675,6 +13544,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Walmart products by keyword",
+      returns: "Returns Walmart search results for a keyword, around 40 per page, each with product id, title, URL, image, price, rating, review count, availability, seller, and shipping and pickup flags.",
+      use_when: "Use it to turn a keyword into the product ids the rest of the Walmart API takes. Rows carry prices, and an in-stock row without one reports null rather than zero.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "walmart",
@@ -10703,6 +13579,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Browse Walmart products in a category",
     description:
       "Returns products listed in a Walmart category, up to 100 per call, with title, price, rating, review count, image, availability, and seller. Unlike keyword search this endpoint DOES return real prices, which makes it the better source for price monitoring across a product set. Category ids appear in the category URLs on a product detail response (for example 3944 for Electronics). Two upstream caveats measured against the live source: sort_by is applied loosely and does not guarantee a globally ordered page (sort client-side if you need one), and brand is not populated on category rows, so read it from GET /v1/walmart/product when you need it.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-walmart", fallbackKinds: ["rapidapi-ecommerce"] },
@@ -10716,6 +13593,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "target/category", why: "The same data from target." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Browse Walmart products in a category",
+      returns: "Returns products listed in a Walmart category, up to 100 per call, each with title, real price, rating, review count, image, availability, and seller.",
+      use_when: "Use it to walk or price-monitor a whole Walmart category by its id, since it reports real prices. De-duplicate by product id when paging.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "walmart",
@@ -10735,6 +13619,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get every seller offering a Walmart product",
     description:
       "Returns the marketplace offers for a Walmart item: seller name and id, price, currency, stock status, condition, pickup availability, and the return-policy window per offer, including Walmart's own first-party offer. Use it to see who else sells a product and at what price. The reported offer total can exceed the offers returned; the remainder is not exposed by the upstream.",
+    budget_ms: 20000,
     singlePage: "The upstream returns one fixed offer set per product and exposes no page parameter; additional_offers_available flags offers that are not retrievable through this endpoint.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-walmart" },
@@ -10744,6 +13629,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "US" },
     ],
     responseShape: { root: "data.items[]", itemKey: "seller" },
+    purpose: {
+      summary: "Get every seller offering a Walmart product",
+      returns: "Returns the sellers offering a Walmart item, Walmart included, each with name and id, price, stock status, condition, pickup and return window; the offer total can exceed the rows returned.",
+      use_when: "Use it to compare who else sells one Walmart product and at what price, rather than pulling that product's own detail or reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- target (5 endpoints) ---
   {
@@ -10762,6 +13654,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Target product by TCIN",
     description:
       "Returns full product detail for a Target item: title, brand, description, highlight bullets, current and regular price, average rating with its 1-5 star distribution, written-review count, the full image gallery, colour and size variations, and stock status. Prices are national: Target's product endpoint reports the same price whatever store is asked for, so treat this as catalogue pricing rather than shelf pricing. For this product's written reviews call GET /v1/target/reviews with the same TCIN.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-target" },
     group: "Products",
@@ -10771,6 +13664,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Target product by TCIN",
+      returns: "Returns one Target product by TCIN: title, brand, description, current and regular price, rating with its star breakdown, images, variations, and stock.",
+      use_when: "Use it when you have a TCIN and need full product detail. Prices are national catalogue prices, not the price at a particular store.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "target",
@@ -10799,6 +13699,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Target product reviews",
     description:
       "Returns written customer reviews for a Target product, 10 per page, each with the full review text, star rating, reviewer nickname, submission date, helpful-vote count, verified-purchase flag, and any reviewer photos. Pages do not overlap and the review total is exact, so a full crawl is deterministic: pass the returned cursor back until has_more is false. Page size is fixed by the upstream at 10 and cannot be raised. If you want the star distribution rather than the review text, call GET /v1/target/product instead and read product.ext.rating_distribution, which is one call rather than one per ten reviews.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-target" },
@@ -10813,6 +13714,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Target product reviews",
+      returns: "Returns written customer reviews for a Target product, 10 per page, each with full text, star rating, reviewer nickname, date, helpful votes, and photos.",
+      use_when: "Use it when you want the review text itself. For just the star distribution, one call to the product endpoint is cheaper than paging reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "target",
@@ -10832,6 +13740,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Browse Target products in a category",
     description:
       "Returns products listed in a Target category, 24 per page, each with title, brand, price, regular price, rating, image gallery, highlight bullets, and its TCIN. Unlike Target's keyword search this one paginates, so it is the way to walk a whole category: pass the returned cursor back until has_more is false. Because Target ships no keyword search worth billing for, this plus GET /v1/target/categories is how you discover TCINs. Two things to expect: consecutive pages occasionally repeat a handful of products, because Target's category ordering shifts between calls, so de-duplicate by product.id when crawling; and ratings are present on roughly half of category rows and null on the rest, which reflects Target's own data rather than an omission here.",
+    budget_ms: 25000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-target" },
@@ -10842,6 +13751,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "walmart/category", why: "The same data from walmart." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Browse Target products in a category",
+      returns: "Returns products listed in a Target category, 24 per page, each with title, brand, price, regular price, rating, images, and its TCIN.",
+      use_when: "Use it to walk a whole Target category and discover TCINs, since Target has no keyword search here. De-duplicate by product id when paging.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "target",
@@ -10857,6 +13773,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List the Target category taxonomy",
     description:
       "Returns Target's top-level browse taxonomy: each node's id, display name, parent id, canonical URL, and hero image. Feed a node id into GET /v1/target/category to walk that category's products. This is the entry point for TCIN discovery, since Target ships no keyword search we are willing to bill for. Static reference data, so it is 1 credit and heavily cached.",
+    budget_ms: 20000,
     singlePage: "The upstream returns the COMPLETE top-level taxonomy in one call (29 of 29 nodes, verified live 2026-07-27) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-target" },
@@ -10866,6 +13783,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "List the Target category taxonomy",
+      returns: "Returns Target's top-level browse taxonomy: each category's id, display name, parent id, page URL, and hero image.",
+      use_when: "Use it first to find a category id, then pass that id to the category endpoint to list products and discover TCINs.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "target",
@@ -10883,6 +13807,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find Target stores near a location",
     description:
       "Returns Target stores near a ZIP code, city, or state, each with its store id, name, full address, phone number, distance from the searched location, open/closed status, timezone, and two weeks of daily opening hours. Store data changes rarely, so it is 1 credit and heavily cached. Note that Target's product pricing is national on this API, so a store id here is for store-locator use rather than for localising prices.",
+    budget_ms: 20000,
     singlePage: "The upstream returns one fixed set of nearby stores per location (20 for a ZIP, verified live 2026-07-27) and exposes no page or radius parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-target" },
@@ -10893,6 +13818,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "sephora/stores", why: "The same data from sephora." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Find Target stores near a location",
+      returns: "Returns Target stores near a ZIP code, city, or state: store id, name, address, phone, distance, open or closed status, and daily opening hours.",
+      use_when: "Use it to find stores near a place. It will not change product prices, which are national on this API.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- wayfair (3 endpoints) ---
   {
@@ -10920,6 +13852,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Wayfair products",
     description:
       "Returns Wayfair products matching a keyword, 48 per page by default, each with its SKU, name, brand, current and list price, star rating, review count, product URL, image, a short product description, and attribute highlights such as swivel or adjustable height. Feed a returned SKU into GET /v1/wayfair/product for full detail or GET /v1/wayfair/reviews for customer reviews. Two things to expect when crawling: consecutive pages repeat roughly a quarter of their rows because Wayfair reorders results between calls, so de-duplicate on product.id; and the result total Wayfair reports drifts between pages, so it is not returned here. Paginate until a page comes back empty.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce" },
@@ -10933,6 +13866,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Wayfair products",
+      returns: "Returns Wayfair products matching a keyword, each with its SKU, name, brand, price, rating, review count, image, and a short description.",
+      use_when: "Use it to find SKUs to feed the product and reviews endpoints. Consecutive pages repeat some rows, so de-duplicate by product id when paging.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "wayfair",
@@ -10952,6 +13892,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Wayfair product by SKU",
     description:
       "Returns full product detail for a Wayfair item: name, brand, manufacturer, current price, star rating, written-review count, stock status, the image gallery, colour and size variants, shipping estimate, return window, and a specification table combining Wayfair's highlights with its full dimension list. Note that the review count here counts the selected variant while the count on GET /v1/wayfair/search counts the whole catalogue entry, so the two legitimately differ for the same SKU. For the review text itself call GET /v1/wayfair/reviews.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-ecommerce" },
     group: "Products",
@@ -10964,6 +13905,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Wayfair product by SKU",
+      returns: "Returns one Wayfair product by SKU: name, brand, price, rating, stock status, image gallery, variants, shipping, returns, and a specification table.",
+      use_when: "Use it when you have a SKU and need full detail. The review count here covers the selected variant, not the whole catalogue entry.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "wayfair",
@@ -10995,6 +13943,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Wayfair product reviews",
     description:
       "Returns written customer reviews for a Wayfair product, 10 per page, each with the review text, star rating, reviewer name and location, submission date, verified-purchase flag, and any reviewer photos. Pages do not overlap and the review total is stable across pages, so a full crawl is deterministic: pass the returned cursor back until has_more is false. Wayfair does not publish helpful-vote counts or review headlines, so those fields are always null here.",
+    budget_ms: 28000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-ecommerce" },
@@ -11010,6 +13959,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Wayfair product reviews",
+      returns: "Returns written Wayfair reviews for one SKU, ten per page, each with the text, star rating, reviewer name and location, date, and any photos.",
+      use_when: "Use it to read what buyers actually said about a product. Pages do not overlap and the total is stable, so a full crawl is predictable.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   // --- home_depot (4 endpoints) ---
   {
@@ -11030,6 +13986,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Home Depot product by item id or URL",
     description:
       "Returns full product detail for a Home Depot item: title, brand, model number, UPC, description, highlight bullets, current and original price, star rating, review count, the image gallery, and stock status. It also returns inventory under product.ext.store_inventory, giving the actual unit count at each location that can fulfil the item, which is the field nothing else in this API sells. Home Depot lists one location per fulfilment path, so a row is not always a store: each row carries fulfillment (pickup or delivery), service (for example bopis, express delivery or sth), location_type (store or online), and is_selected_store. One row has is_selected_store true, and that row is the store the request was localised to, echoing the store_id you sent in the same format. Read that flag rather than matching store ids numerically, because a delivery node can share digits with a store number (0121 is not store 121). On the rare response where the flag is null for every row, the selected store is the pickup row whose store_id equals the store_id you sent, compared as an exact string. Pass store_id to localise that inventory; without it Home Depot picks a default store. Prices are Home Depot's online price and did not vary by store in any comparison we have run (four stores in three states on 28/09/2026), so in-store-only shelf markdowns are not in this data. A markdown Home Depot publishes online appears under product.ext.promotion with its label (Clearance or Special Buys), amount_off and percent_off, and price.original is the price before that markdown. When Home Depot withholds a price, price.current is null and product.ext.price_note says why, for example see final price in cart. Get a store id from GET /v1/home_depot/stores. For the review text call GET /v1/home_depot/reviews with the same item id.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-yourhomedepot", fallbackKinds: ["rapidapi-ecommerce"] },
     group: "Products",
@@ -11039,6 +13996,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Home Depot product by item id or URL",
+      returns: "Returns one Home Depot product by item id or URL: title, brand, model number, UPC, price, rating, images, and per-store stock counts.",
+      use_when: "Use it when you have a product page or item id. It is the only endpoint here that reports how many units sit on the shelf at each store.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1392, p95: 3223, p99: 3448, n: 13, provisional: true, low_sample: true },
   },
   {
     platform: "home_depot",
@@ -11066,6 +14031,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Home Depot product reviews",
     description:
       "Returns the ten most relevant written customer reviews for a Home Depot product, each with the review text, star rating, reviewer name and location, submission date, verified-purchaser flag, helpful-vote count, and reviewer photos. This is a single page: the upstream exposes no paging parameter, so there is no cursor to follow, and total reports the full number of reviews on the product so you can see how many exist beyond the ten returned.",
+    budget_ms: 15000,
     singlePage: "The upstream returns one fixed page of 10 reviews and exposes no paging parameter: page, offset and startIndex were each verified live on 2026-09-05 to return the identical first review. total reports the full review count so you can see what is not returned.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-yourhomedepot", fallbackKinds: ["rapidapi-ecommerce"] },
@@ -11080,6 +14046,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Home Depot product reviews",
+      returns: "Returns the ten most relevant written reviews for one item, each with the text, rating, reviewer, date, and helpful votes, plus the full review total.",
+      use_when: "Use it to read what buyers actually said. It is a single page: the total tells you how many reviews exist, and ten of them come back.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "home_depot",
@@ -11100,6 +14073,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Home Depot products by keyword",
     description:
       "Returns Home Depot products matching a keyword, 24 per page, each with its item id, title, brand, model number, current and original price, star rating, review count, image gallery, stock status, and department. Feed a returned item id into GET /v1/home_depot/product for full detail including per-store shelf counts, or GET /v1/home_depot/reviews for the review text. Pass store_id to localise stock: each row's product.ext.store_inventory then lists that store with is_selected_store true, and availability reflects whether any fulfilment path has the item in stock. Get a store id from GET /v1/home_depot/stores. Prices are Home Depot's online price and did not vary by store in any comparison we have run, so in-store-only shelf markdowns are not in this data. A markdown Home Depot publishes online appears under product.ext.promotion with its label (Clearance or Special Buys), amount_off and percent_off, and price.original is the price before that markdown. A null price.current comes with product.ext.price_note, for example see final price in cart. This is also the keyword-to-item-id resolver for the rest of the Home Depot API. It takes no sort or filter parameters and rejects them rather than ignoring them, so filter and sort on the returned rows. total is the real match count and holds steady across pages; paginate on has_more, capped at 30 pages.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-yourhomedepot", fallbackKinds: ["rapidapi-ecommerce"] },
@@ -11110,6 +14084,14 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Home Depot products by keyword",
+      returns: "Returns Home Depot products matching a keyword, 24 per page, each with item id, title, brand, model number, price, rating, review count, images, and stock status.",
+      use_when: "Use it to turn a keyword into item ids. Pass store_id when the price and stock have to match one store; get that id from the stores endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1160, p95: 1992, p99: 2066, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "home_depot",
@@ -11127,6 +14109,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find Home Depot stores near a ZIP code",
     description:
       "Returns Home Depot stores near a US ZIP code, each with its store id, name, full address, phone number, distance in miles, store type, and seven days of opening hours. The store id is the value GET /v1/home_depot/search and GET /v1/home_depot/product take as store_id to localise per-store stock, so this is the endpoint that turns a postcode into a store. Store data changes rarely, so it is 1 credit and heavily cached.",
+    budget_ms: 15000,
     singlePage: "The upstream returns one fixed set of nearby stores per ZIP (20 on 2026-09-05) and exposes no page or radius parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-yourhomedepot" },
@@ -11137,6 +14120,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "sephora/stores", why: "The same data from sephora." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Find Home Depot stores near a ZIP code",
+      returns: "Returns Home Depot stores near a US ZIP code, each with its store id, name, full address, phone, distance in miles, and seven days of opening hours.",
+      use_when: "Use it to turn a postcode into a store id. That id is what search and product take as store_id to localise price and per-store stock.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- ebay (2 endpoints) ---
   {
@@ -11165,6 +14155,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search eBay listings",
     description:
       "Returns eBay listings matching a keyword, 60 per page on an active search, each with its item id, title, price, original price where the listing is discounted, currency, condition, image, seller handle, seller feedback percentage and count, units sold, buying format, and the listing URL. completed_items returns ended listings, and free_shipping restricts results to listings with free delivery. sold_items is temporarily rejected before billing because the upstream now requires a private eBay session cookie, which SocialCrawl does not accept or forward. Feed a returned item id into GET /v1/ebay/product for the full listing including seller reputation depth. When crawling, note that the result total eBay reports is an estimate that changes between pages, so it is not returned here: paginate until a page comes back empty.",
+    budget_ms: 30000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-ecommerce" },
@@ -11178,6 +14169,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search eBay listings",
+      returns: "Returns eBay listings with item ID, price, seller rating, and units sold. completed_items finds ended listings. sold_items returns 400 before billing; it requires a private upstream session cookie.",
+      use_when: "Use it to scan active or ended marketplace listings, then pull full detail by item id. Sold-comps search is temporarily unavailable.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "ebay",
@@ -11197,6 +14195,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an eBay listing by item id",
     description:
       "Returns full detail for a single eBay listing: title, brand, price, original price, currency, condition and condition notes, MPN and UPC, units available, units sold, watchers, and the seller. The seller block is the reason to call this rather than search: product.ext.seller_reputation carries lifetime feedback percentage and count, top-rated status, items sold, join date, and four detailed sub-ratings for description accuracy, shipping cost, shipping speed, and communication. One known gap: eBay's detail response currently returns a corrupt image array, so image_urls is null here. Use the image on the matching GET /v1/ebay/search row, which is unaffected.",
+    budget_ms: 20000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-ecommerce" },
     group: "Products",
@@ -11209,6 +14208,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get an eBay listing by item id",
+      returns: "Returns one eBay listing by item id: title, brand, price, condition, MPN and UPC, quantity available, watchers, and full seller reputation.",
+      use_when: "Use it when the seller matters as much as the item: it carries feedback score, top-rated status, join date, and four detailed sub-ratings.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- etsy (4 endpoints) ---
   {
@@ -11231,6 +14237,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an Etsy listing by id or URL",
     description:
       "Returns one Etsy listing: title, description, price, currency, images, shop name, in-stock flag, and quantity. Pass the numeric listing id or the full etsy.com/listing/{id} URL. Search is not available on this surface yet; start from a known listing id or from GET /v1/etsy/shop/products. Similar listings for the same product: GET /v1/etsy/product/similar.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-etsy" },
     group: "Products",
@@ -11240,6 +14247,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get an Etsy listing by id or URL",
+      returns: "Returns one Etsy listing by id or URL: title, description, price, images, shop name, and whether it is in stock.",
+      use_when: "Use it when you already have a listing id or etsy.com/listing URL. For listings in a shop, start at shop/products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "etsy",
@@ -11262,12 +14276,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List products in an Etsy shop",
     description:
       "Returns one page of listings from an Etsy shop, 36 per page, each with listing id, title, price, original price where discounted, image, shop name, and listing URL. Pass the shop name (AceElegance) or the shop URL. Sort by most_recent (default), price_low, or price_high. The result total Etsy reports equals the page size, so it is not returned: paginate until a page comes back short. Feed a returned listing id into GET /v1/etsy/product for the full listing.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-etsy" },
     group: "Products",
     tags: ["etsy"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List products in an Etsy shop",
+      returns: "Returns one page of listings from an Etsy shop, 36 per page, each with listing id, title, price, image, and shop name.",
+      use_when: "Use it to walk a shop catalogue. Paginate until a page comes back short. Feed a listing id into product for the full listing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "etsy",
@@ -11289,6 +14311,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get listings similar to an Etsy product",
     description:
       "Returns listings Etsy considers similar to a given product, typically around 12 rows, each with listing id, title, price, sale price where discounted, image, shop name, and the shop's aggregate rating. Pass the listing id or the listing URL. This is a single page: there is no cursor.",
+    budget_ms: 15000,
     singlePage: "Upstream similar/v2 has no page or cursor param; it returns one fixed window of similar listings.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-etsy" },
@@ -11299,6 +14322,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/product/similar", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Get listings similar to an Etsy product",
+      returns: "Returns listings Etsy considers similar to a given product, typically around 12 rows, with price, image, shop name, and shop rating.",
+      use_when: "Use it when you have a listing id and want nearby alternatives. This is a single page; there is no cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "etsy",
@@ -11316,6 +14346,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Etsy search suggestions",
     description:
       "Returns Etsy's search autocomplete suggestions for a partial query, the same terms the search box shows. Useful for keyword expansion. Full listing search is not available on this surface yet.",
+    budget_ms: 10000,
     singlePage: "Fixed-window autocomplete: upstream returns a single non-cursored suggestion list.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-etsy" },
@@ -11326,6 +14357,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Etsy search suggestions",
+      returns: "Returns Etsy search autocomplete suggestions for a partial query.",
+      use_when: "Use it to expand a keyword before you have a listing id. Full listing search is not on this surface yet.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- sephora (11 endpoints) ---
   {
@@ -11347,6 +14385,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Sephora product by id or URL",
     description:
       "Returns one Sephora US product: title, brand, description, list price, rating, review count, images, ingredients, size, and in-stock flag. Pass the P-number (P427414) or the full sephora.com/product URL. Optional sku pins a size or colour variant. Optional language is en-US, en-CA, or fr-CA. For written reviews call GET /v1/sephora/reviews with the same product id. For store stock call GET /v1/sephora/availability with the sku.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-sephora" },
     group: "Products",
@@ -11356,6 +14395,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Sephora product by id or URL",
+      returns: "Returns one Sephora product by id or URL: title, brand, description, price, rating, images, ingredients, and whether it is in stock.",
+      use_when: "Use it when you already have a product id (P427414) or a sephora.com/product URL. For discovery, start at search or category.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11387,6 +14433,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Sephora product reviews",
     description:
       "Returns written customer reviews for a Sephora product, 10 per page by default, each with the full review text, star rating, title, reviewer nickname, submission date, and helpful-vote count. The review total is exact. Pass the returned cursor back until has_more is false. Optional sort_by: most_helpful, highest_rating, lowest_rating, oldest, newest. Optional rating keeps only that star value.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11401,6 +14448,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Sephora product reviews",
+      returns: "Returns written customer reviews for a Sephora product, 10 per page, each with text, star rating, title, reviewer nickname, and submission date.",
+      use_when: "Use it when you have a product id and need the review text. The star average is already on GET /v1/sephora/product.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11427,6 +14481,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Sephora products by keyword",
     description:
       "Returns Sephora US products matching a keyword, 60 per page by default, each with product id, title, brand, price range, rating, review count, and image. Pagination is clean: page 2 of moisturizer had 60 new ids and zero overlap with page 1. A query that matches nothing is returned as an empty page and is not billed. min_rating is honoured. new sort returned the same ids as best_selling on the moisturizer probe, so prefer top_rated or price_low when you need a different order.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11437,6 +14492,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Sephora products by keyword",
+      returns: "Returns Sephora products matching a keyword, 60 per page, each with product id, title, brand, price, rating, and image.",
+      use_when: "Use it to find products by name or ingredient. A query that matches nothing comes back empty and is not billed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11456,6 +14518,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Sephora search suggestions",
     description:
       "Returns Sephora search autocomplete suggestions for a partial query, the same terms the search box shows, plus a few matching products. Optional language en-US, en-CA, or fr-CA; fr-CA returns French product names.",
+    budget_ms: 10000,
     singlePage: "Fixed-window autocomplete: upstream returns one typeAheadTerms list and exposes no page parameter.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11466,6 +14529,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Sephora search suggestions",
+      returns: "Returns Sephora search autocomplete suggestions for a partial query, plus a few matching products.",
+      use_when: "Use it to expand a keyword before you run search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11489,6 +14559,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Browse Sephora products in a category",
     description:
       "Returns products in a Sephora category, 60 per page, each with product id, title, brand, price, rating, and image. The category total is exact (Luxury Beauty was 1157). Feed a category id from GET /v1/sephora/categories or GET /v1/sephora/category/data.",
+    budget_ms: 20000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11499,6 +14570,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "walmart/category", why: "The same data from walmart." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Browse Sephora products in a category",
+      returns: "Returns products in a Sephora category, 60 per page, each with product id, title, brand, price, rating, and image.",
+      use_when: "Use it to walk a category. Category ids come from GET /v1/sephora/categories.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "sephora",
@@ -11514,6 +14592,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Sephora root categories",
     description:
       "Returns Sephora's root browse taxonomy: each node's id, display name, and canonical URL. Feed a node id into GET /v1/sephora/category to walk that category's products, or into GET /v1/sephora/category/data for its children. Static reference data, so it is 1 credit and heavily cached.",
+    budget_ms: 15000,
     singlePage: "The upstream returns the complete root taxonomy in one call (13 of 13 nodes, verified live 2026-09-02) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11523,6 +14602,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "List Sephora root categories",
+      returns: "Returns Sephora's root browse taxonomy: each node's id, display name, and canonical URL.",
+      use_when: "Use it as the entry point for category browsing. Feed a node id into category or category/data.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11540,11 +14626,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Sephora category and its children",
     description:
       "Returns one Sephora category: id, display name, SEO copy, and child categories. Feed a child id into GET /v1/sephora/category to walk that slice of the catalogue.",
+    budget_ms: 15000,
     singlePage: "One category node plus its child list in a single call; no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-sephora" },
     group: "Reference",
     tags: ["sephora"],
+    purpose: {
+      summary: "Get a Sephora category and its children",
+      returns: "Returns one Sephora category with its child categories, display name, and SEO copy.",
+      use_when: "Use it when you have a category id and need the children before walking products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "sephora",
@@ -11560,11 +14654,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Sephora brands",
     description:
       "Returns Sephora's brand directory: each brand's id, short name, and canonical URL. Feed a short name (gucci) into GET /v1/sephora/brand/products to walk that brand's products. 372 brands on the 2026-09-02 probe. Static reference data, so it is 1 credit and heavily cached.",
+    budget_ms: 15000,
     singlePage: "The upstream returns the complete brand directory in one call (372 brands, verified live 2026-09-02) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-sephora" },
     group: "Reference",
     tags: ["sephora"],
+    purpose: {
+      summary: "List Sephora brands",
+      returns: "Returns Sephora's brand directory: each brand's id, short name, and canonical URL.",
+      use_when: "Use it to discover brand short names, then feed one into GET /v1/sephora/brand/products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11589,12 +14691,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Sephora products for a brand",
     description:
       "Returns products from one Sephora brand, 60 per page, each with product id, title, brand, price, rating, and image. The brand total is exact (Gucci was 64). Pass the brand short name from GET /v1/sephora/brands, for example gucci.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-sephora" },
     group: "Products",
     tags: ["sephora"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List Sephora products for a brand",
+      returns: "Returns products from one Sephora brand, 60 per page, each with product id, title, brand, price, rating, and image.",
+      use_when: "Use it to walk a brand catalogue. Brand short names come from GET /v1/sephora/brands.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "sephora",
@@ -11614,6 +14724,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find Sephora stores near a coordinate",
     description:
       "Returns Sephora stores near a latitude,longitude pair, each with store id, name, full address, phone, coordinates, distance in miles, and weekly opening hours. Default radius is 50 miles. Store data changes rarely, so it is 1 credit and heavily cached.",
+    budget_ms: 15000,
     singlePage: "The upstream returns one fixed set of nearby stores per coordinate (44 around Palo Alto at 50 miles, verified live 2026-09-02) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-sephora" },
@@ -11624,6 +14735,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "home_depot/stores", why: "The same data from home_depot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Find Sephora stores near a coordinate",
+      returns: "Returns Sephora stores near a latitude,longitude pair, each with id, name, address, phone, coordinates, distance, and weekly hours.",
+      use_when: "Use it as a store locator. Pass lat,lng as location_coordinate. Default radius is 50 miles.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "sephora",
@@ -11646,11 +14764,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Sephora in-store availability for a sku",
     description:
       "Returns store-level stock for one Sephora sku near a coordinate. Each store has id, name, address, distance, and an in-stock flag. Pass the sku from GET /v1/sephora/product (currentSku.skuId) plus a lat,lng. Default radius is 50 miles.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-sephora" },
     group: "Stores",
     tags: ["sephora"],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get Sephora in-store availability for a sku",
+      returns: "Returns store-level stock for one Sephora sku near a coordinate, each store with id, name, distance, and an in-stock flag.",
+      use_when: "Use it when you have a sku from product detail and a lat,lng. National in-stock is already on GET /v1/sephora/product.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- aliexpress (9 endpoints) ---
   {
@@ -11673,6 +14799,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an AliExpress product by id or URL",
     description:
       "Returns one AliExpress product: title, sale price, original price, currency, shop name, images, sold count, and category. Pass the numeric product id or the full aliexpress.com/item/{id} URL. Optional country, currency, and language localise the price. A product that does not exist, or is not sold to that country, comes back 404 and is not billed. There is no product description on this surface. For reviews call GET /v1/aliexpress/reviews. For similar items call GET /v1/aliexpress/product/similar.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-aliexpress" },
     group: "Products",
@@ -11682,6 +14809,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get an AliExpress product by id or URL",
+      returns: "Returns one AliExpress product by id or URL: title, sale price, original price, currency, shop name, images, and sold count.",
+      use_when: "Use it when you already have a product id or an aliexpress.com/item URL. For discovery, start at search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11710,6 +14844,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search AliExpress products",
     description:
       "Returns AliExpress products matching a keyword, 10 per page by default (max 50). Each row has product id, title, sale price, shop name, and image. Pass the returned cursor back until has_more is false. Optional sort_by: price_low, price_high, most_sold, least_sold. Optional min_price and max_price are in the smallest currency unit (cents). A query that matches nothing comes back empty and is not billed.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -11721,6 +14856,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search AliExpress products",
+      returns: "Returns AliExpress products matching a keyword, 10 per page by default, each with product id, title, sale price, shop name, and image.",
+      use_when: "Use it to find products by keyword. A query that matches nothing comes back empty and is not billed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11746,6 +14888,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get similar AliExpress products",
     description:
       "Returns products similar to a source product id, or to a keyword if no product id is passed. 10 per page by default. Product id takes precedence over query when both are set.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -11757,6 +14900,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "gumtree/product/similar", why: "The same data from gumtree." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Get similar AliExpress products",
+      returns: "Returns AliExpress products similar to a source product id, or to a keyword if no product id is passed.",
+      use_when: "Use it after product or search when you want nearby listings.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11789,6 +14939,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get AliExpress product reviews",
     description:
       "Returns written customer reviews for an AliExpress product, 20 per page, each with text, translated text when present, star rating, reviewer name, country, date, and photo URLs. A product with no reviews comes back empty and is not billed. Optional filter: all, 1-5 (star), image, additional, local. Optional sort_by: default or newest. Pair filter=local with country to keep reviews from that country.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -11804,6 +14955,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get AliExpress product reviews",
+      returns: "Returns written customer reviews for an AliExpress product, 20 per page, each with text, star rating, reviewer name, country, date, and photos.",
+      use_when: "Use it when you have a product id and need the review text. A product with no reviews comes back empty and is not billed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11829,10 +14987,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get AliExpress shipping for a product SKU",
     description:
       "Returns shipping fee, origin country, and min/max delivery days for one product SKU and a ship-to country. sku_id comes back on every product row. Optional price is the sale price used for free-shipping thresholds. Default tax_rate is 0.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-aliexpress" },
     group: "Products",
     tags: ["aliexpress"],
+    purpose: {
+      summary: "Get AliExpress shipping for a product SKU",
+      returns: "Returns shipping fee, origin country, and min/max delivery days for one AliExpress SKU and a ship-to country.",
+      use_when: "Use it when you have a product id and a sku_id from product or search and need the shipping quote.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "aliexpress",
@@ -11859,6 +15025,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List hot AliExpress products",
     description:
       "Returns currently hot AliExpress products, optionally filtered by keyword or category. Same row shape as search. 10 per page by default.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -11866,6 +15033,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Search",
     tags: ["aliexpress"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List hot AliExpress products",
+      returns: "Returns currently hot AliExpress products, optionally filtered by keyword or category, each with product id, title, sale price, shop name, and image.",
+      use_when: "Use it to browse currently promoted catalogue items without a precise keyword.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11891,6 +15065,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List AliExpress products in a featured promotion",
     description:
       "Returns products in a named AliExpress promotion. Promotion names come from GET /v1/aliexpress/promo. Same row shape as search.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -11898,6 +15073,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Search",
     tags: ["aliexpress"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List AliExpress products in a featured promotion",
+      returns: "Returns AliExpress products in a named featured promotion, each with product id, title, sale price, shop name, and image.",
+      use_when: "Use it with a promotion name from GET /v1/aliexpress/promo.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11913,6 +15095,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List AliExpress categories",
     description:
       "Returns the AliExpress category tree: parent and subcategory ids and names. Use a category_id on search or search/hot.",
+    budget_ms: 15000,
     singlePage: "The category tree is a single dump (563 rows live). There is no page or cursor param.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-aliexpress" },
@@ -11923,6 +15106,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List AliExpress categories",
+      returns: "Returns the AliExpress category tree: parent and subcategory ids and names.",
+      use_when: "Use it to get a category_id before calling search or search/hot.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "aliexpress",
@@ -11938,12 +15128,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List AliExpress featured promotions",
     description:
       "Returns currently featured promotion names and product counts. Pass promo_name to GET /v1/aliexpress/search/promo.",
+    budget_ms: 15000,
     singlePage: "The featured-promo name list is a single dump (138 rows live). There is no page or cursor param.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-aliexpress" },
     group: "Reference",
     tags: ["aliexpress"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List AliExpress featured promotions",
+      returns: "Returns currently featured AliExpress promotion names and product counts.",
+      use_when: "Use it to get a promotion_name before calling search/promo.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- hm (6 endpoints) ---
   {
@@ -11968,6 +15166,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search H&M products by keyword",
     description:
       "Returns one page of H&M products for a keyword, 36 per page by default, each with product id, name, brand, current and original price, images, colour, sizes, availability, and the product page URL. Sort by relevance (default), newest, price_low, or price_high. Pass language to switch catalogue (en_us default, en_gb, de_de, fr_fr). filters is an H&M facet string from the live payload (colorWithNames, sizes, fits); a guessed filter that the origin cannot parse fails the call rather than returning an empty page. There is no product-detail endpoint on this surface: feed a returned product id into GET /v1/hm/product/suppliers for factory data.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-hm" },
@@ -11978,6 +15177,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search H&M products by keyword",
+      returns: "Returns one page of H&M products for a keyword, 36 per page, each with product id, name, brand, price, images, and availability.",
+      use_when: "Use it to search the H&M catalogue by keyword. Paginate with cursor until a short page. There is no product-detail endpoint; feed a product id into product/suppliers for factory data.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hm",
@@ -11997,6 +15203,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get H&M search suggestions",
     description:
       "Returns H&M search autocomplete suggestions for a partial query, the same terms the search box shows. Pass language to localise (kleid on de_de returns kleider / kleid damen).",
+    budget_ms: 10000,
     singlePage: "Fixed-window autocomplete: upstream returns a single non-cursored suggestion list.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-hm" },
@@ -12007,6 +15214,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get H&M search suggestions",
+      returns: "Returns H&M search autocomplete suggestions for a partial query.",
+      use_when: "Use it to expand a keyword before calling search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hm",
@@ -12026,6 +15240,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List H&M stores in a country",
     description:
       "Returns every H&M store in a market: store code, name, full address, phone, coordinates, and weekly opening hours. Pass the two-letter country code as query (us, gb, de). This is a country dump, not a near-me search, and it is a single page. An unknown country code returns an empty list.",
+    budget_ms: 20000,
     singlePage: "Upstream /stores returns the full country dump in one payload (478 US stores, 181 GB, live 2026-09-02) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-hm" },
@@ -12036,6 +15251,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "home_depot/stores", why: "The same data from home_depot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "List H&M stores in a country",
+      returns: "Returns every H&M store in a country, each with store code, name, address, phone, coordinates, and opening hours.",
+      use_when: "Use it when you have a two-letter country code (us, gb, de). This is a country dump, not a near-me search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hm",
@@ -12051,10 +15273,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List H&M countries and languages",
     description:
       "Returns H&M's market list grouped by region, each country with its two-letter locale, storefront languages, and storefront URL. Use the two-letter locale as query on GET /v1/hm/stores. Search language is a different code (en_us, not us).",
+    budget_ms: 10000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-hm" },
     group: "Reference",
     tags: ["hm"],
+    purpose: {
+      summary: "List H&M countries and languages",
+      returns: "Returns H&M markets grouped by region, with locale, languages, and storefront URL.",
+      use_when: "Use it to discover country codes for stores, or to see which languages a market offers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hm",
@@ -12070,6 +15300,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the H&M category tree",
     description:
       "Returns H&M's website navigation tree: department nodes with child categories, hrefs, and tracking labels. The upstream has no language parameter; the dump is the US tree (/en_us/ hrefs). This is reference taxonomy, not a product listing.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-hm" },
     group: "Reference",
@@ -12078,6 +15309,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "Get the H&M category tree",
+      returns: "Returns H&M's website navigation tree: departments, child categories, and hrefs.",
+      use_when: "Use it as reference taxonomy. It is not a product listing and has no language parameter (US tree).",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hm",
@@ -12097,10 +15335,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get H&M suppliers and factories for a product",
     description:
       "Returns the manufacturing countries, supplier names, factory names, addresses, and worker-count bands H&M publishes for one product. Pass the product id from GET /v1/hm/search. A product id the origin cannot resolve fails the call (it is not an empty list). language does not change the factory list.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-hm" },
     group: "Products",
     tags: ["hm"],
+    purpose: {
+      summary: "Get H&M suppliers and factories for a product",
+      returns: "Returns manufacturing countries, supplier names, factory addresses, and worker-count bands for one H&M product.",
+      use_when: "Use it when you already have a product id from search and want the supply-chain record H&M publishes for that article.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   // --- kohls (5 endpoints) ---
   {
@@ -12124,6 +15370,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Kohl's products by keyword",
     description:
       "Returns one page of Kohl's products for a keyword, 12 per page by default, each with product id, name, current and original price, images, colours, rating, and the product page URL. Sort by featured (default), newest, price_low, price_high, rating, or percent_off. filters is a Kohl's dimension string from the live payload (Color:Black, Brand:Nike, Price:Under $10); combine values with commas. A query the origin cannot match still returns a handful of unrelated popular products rather than an empty page. There is no product-detail endpoint on this surface: feed a returned product id into GET /v1/kohls/reviews or GET /v1/kohls/questions.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-kohls" },
@@ -12134,6 +15381,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Kohl's products by keyword",
+      returns: "Returns one page of Kohl's products for a keyword, 12 per page, each with product id, name, price, images, colours, rating, and the product page URL.",
+      use_when: "Use it to search the Kohl's catalogue by keyword. Paginate with cursor until a short page. There is no product-detail endpoint; feed a product id into reviews or questions.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kohls",
@@ -12163,6 +15417,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Kohl's product reviews",
     description:
       "Returns written customer reviews for a Kohl's product, 8 per page by default, each with the full review text, star rating, title, reviewer nickname, submission date, helpful-vote count, and a verified-purchase flag. The review total is exact. Pass the returned cursor back until has_more is false. A product id the origin does not know returns an empty list and is not billed.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-kohls" },
@@ -12177,6 +15432,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Kohl's product reviews",
+      returns: "Returns written customer reviews for a Kohl's product, 8 per page, each with text, star rating, title, reviewer nickname, and a verified-purchase flag.",
+      use_when: "Use it when you already have a product id from search and want the review corpus. Paginate with cursor. A missing product returns an empty list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kohls",
@@ -12197,11 +15459,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Kohl's product questions and answers",
     description:
       "Returns buyer questions for a Kohl's product, 10 per page by default, each with the question text, asker nickname, submission date, answer count, and any attached answers. The question total is exact. A product id the origin does not know returns an empty list and is not billed.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-kohls" },
     group: "Reviews",
     tags: ["kohls"],
+    purpose: {
+      summary: "Get Kohl's product questions and answers",
+      returns: "Returns buyer questions for a Kohl's product, 10 per page, each with the question text, asker nickname, and any attached answers.",
+      use_when: "Use it when you already have a product id from search and want the Q&A thread. Paginate with cursor. A missing product returns an empty list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kohls",
@@ -12222,6 +15492,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find Kohl's stores near a coordinate",
     description:
       "Returns Kohl's stores within a radius of a latitude,longitude pair, each with store id, name, street address, city, state, postcode, coordinates, and the store page URL. Pass location_coordinate as lat,lng (40.758,-73.9855) or latitude and longitude separately. radius is miles, 1 to 100, default 25. A radius with no stores returns an empty list and is not billed. latitude and longitude are both required; omitting either is a 400 before billing.",
+    budget_ms: 15000,
     singlePage: "The upstream returns every store inside the radius in one call and exposes no page parameter. Live 2026-09-02: 17 stores in 25 miles of Times Square, 92 in 100 miles.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-kohls" },
@@ -12232,6 +15503,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "home_depot/stores", why: "The same data from home_depot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Find Kohl's stores near a coordinate",
+      returns: "Returns Kohl's stores within a radius of a latitude,longitude pair, each with store id, name, address, and coordinates.",
+      use_when: "Use it when you have a coordinate (40.758,-73.9855). This is a near-me search, not a country dump. A radius with no stores returns an empty list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "kohls",
@@ -12247,6 +15525,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the Kohl's category tree",
     description:
       "Returns Kohl's website navigation tree: department nodes with child categories, names, and seoURL hrefs. This is reference taxonomy, not a product listing.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-kohls" },
     group: "Reference",
@@ -12255,6 +15534,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "Get the Kohl's category tree",
+      returns: "Returns Kohl's website navigation tree: departments, child categories, and hrefs.",
+      use_when: "Use it as reference taxonomy. It is not a product listing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- klarna (18 endpoints) ---
   {
@@ -12276,6 +15562,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Klarna product by id or URL",
     description:
       "Returns one Klarna shopping product: title, description, brand, rating, review count, and specifications. This payload has no list price; call GET /v1/klarna/product/offers for merchant prices. Pass the numeric product id plus category_id (cl94), or pass the full shopping URL and both ids are extracted. Ghost ids return 404 and are not billed.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-klarna" },
     group: "Products",
@@ -12288,6 +15575,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Klarna product by id or URL",
+      returns: "Returns one Klarna shopping product by id or URL: title, description, brand, rating, review count, and specifications. List price lives on product/offers.",
+      use_when: "Use it when you already have a product id (3331931731) plus a category id, or a klarna.com shopping URL. For discovery, start at search or category.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12307,6 +15601,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List merchant offers for a Klarna product",
     description:
       "Returns the merchant offers Klarna compared for one product, each with seller name, price, currency, stock status, and shipping cost. AirPods 4 had 40 offers across 19 merchants on 2026-09-02, cheapest Walmart at 110 USD. Ghost ids return 404 and are not billed.",
+    budget_ms: 15000,
     singlePage: "product-page-details returns the full offer set for one product in a single call (40 offers on AirPods 4, 2026-09-02) and exposes no page parameter.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12316,6 +15611,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List merchant offers for a Klarna product",
+      returns: "Returns merchant offers Klarna compared for one product, each with seller name, price, currency, stock status, and shipping cost.",
+      use_when: "Use it when you have a product id and need the current prices across retailers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12335,6 +15637,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Klarna products by keyword",
     description:
       "Returns Klarna shopping products matching a keyword, 20 per call, each with product id, title, category, lowest price, rating, and image. Pagination params are not honoured by upstream. A query that matches nothing is returned as an empty page and is not billed.",
+    budget_ms: 15000,
     singlePage: "Upstream /product-search returns a fixed 20-row page. offset, size, page, and sortType were ignored live on 2026-09-02 (byte-identical 24040B bodies).",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12348,6 +15651,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Klarna products by keyword",
+      returns: "Returns Klarna shopping products matching a keyword, 20 per call, each with product id, title, category, lowest price, rating, and image.",
+      use_when: "Use it to find products by name. A query that matches nothing comes back empty and is not billed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12367,6 +15677,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna search suggestions",
     description:
       "Returns Klarna search autocomplete: matching products plus category and feature suggestions for a partial query.",
+    budget_ms: 10000,
     singlePage: "Autocomplete: one products list plus one suggestions list, no page parameter.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12380,6 +15691,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Klarna search suggestions",
+      returns: "Returns Klarna search autocomplete suggestions for a partial query, plus a few matching products.",
+      use_when: "Use it to expand a keyword before you run search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12410,6 +15728,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna user reviews for a product",
     description:
       "Returns written user reviews aggregated across merchants, 10 per page by default, each with text, star rating, title, reviewer name, source domain, and date. Pagination is clean: page 2 of AirPods 4 had 0 overlapping extracts with page 1. Pass the returned cursor back until has_more is false.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "nextBatchId", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12425,6 +15744,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_shopping/reviews", why: "The same data from google_shopping." },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Klarna user reviews for a product",
+      returns: "Returns written user reviews for a Klarna product, 10 per page, each with text, star rating, title, reviewer name, source, and date.",
+      use_when: "Use it when you have a product id and need the review text. The star average is already on GET /v1/klarna/product.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12455,6 +15781,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna professional reviews for a product",
     description:
       "Returns professional and expert reviews for a Klarna product, 10 per page, each with text, score, source, and date. AirPods 4 had 21 professional reviews; page 2 returned 8 rows and terminated.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "nextBatchId", limitParam: "limit" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12466,6 +15793,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Klarna professional reviews for a product",
+      returns: "Returns professional reviews for a Klarna product, 10 per page, each with text, score, source, and date.",
+      use_when: "Use it when you need expert reviews rather than user reviews.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12485,6 +15819,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna review totals and score distributions",
     description:
       "Returns the review summary for a product: average score, user and professional counts, star distributions, and a first page of each review type. For the full review text use GET /v1/klarna/reviews or GET /v1/klarna/reviews/pro.",
+    budget_ms: 15000,
     singlePage: "One mixed payload of score, distributions, and a first page of user plus pro reviews. Dedicated list endpoints paginate the review bodies.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12493,6 +15828,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna review totals and score distributions",
+      returns: "Returns the review summary for a product: average score, user and professional counts, and star distributions.",
+      use_when: "Use it for totals. For the full review text use reviews or reviews/pro.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12513,6 +15855,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna price history for a product",
     description:
       "Returns historical merchant prices for a product: lowest, highest, currency, per-merchant time series, and the merchant directory. interval is ONE_MONTH, THREE_MONTHS (default), or INFINITE_DAYS.",
+    budget_ms: 15000,
     singlePage: "The upstream returns the full history for the chosen interval in one call (93 points over three months, 723 over INFINITE_DAYS on AirPods 4) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12521,6 +15864,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna price history for a product",
+      returns: "Returns historical merchant prices for a product: lowest, highest, currency, and per-merchant time series.",
+      use_when: "Use it to chart price movement. Current offers are on GET /v1/klarna/product/offers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12541,6 +15891,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Compare two Klarna products",
     description:
       "Returns two Klarna products side by side: title, brand, rating, lowest price, and image. Pass two product ids from search or category.",
+    budget_ms: 15000,
     singlePage: "Compare returns exactly two product cards. No page parameter.",
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12550,6 +15901,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Compare two Klarna products",
+      returns: "Returns two Klarna products side by side: title, brand, rating, lowest price, and image.",
+      use_when: "Use it when you have two product ids from search or category and want a pair comparison.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12575,6 +15933,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Browse Klarna products in a category",
     description:
       "Returns products in a Klarna category, 48 per page by default, each with product id, title, lowest price, rating, and image. Pagination is clean: page 2 of Headphones had 24 new ids and zero overlap with page 1. Feed a category id from GET /v1/klarna/categories.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12588,6 +15947,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "walmart/category", why: "The same data from walmart." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Browse Klarna products in a category",
+      returns: "Returns products in a Klarna category, 48 per page, each with product id, title, lowest price, rating, and image.",
+      use_when: "Use it to walk a category. Category ids come from GET /v1/klarna/categories.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12605,6 +15971,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Klarna root categories",
     description:
       "Returns Klarna's browse taxonomy for a region: each node's id, display name, and children. Feed a node id into GET /v1/klarna/category to walk products, or GET /v1/klarna/categories/children for the next level.",
+    budget_ms: 15000,
     singlePage: "The upstream returns the complete root taxonomy in one call (the USA tree was 398KB on 2026-09-02) and exposes no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12617,6 +15984,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "List Klarna root categories",
+      returns: "Returns Klarna's browse taxonomy for a region: each node's id, display name, and children.",
+      use_when: "Use it as the entry point for category browsing. Feed a node id into category or categories/children.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12636,6 +16010,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna sub-categories",
     description:
       "Returns one Klarna category and its children. t1 (TV and Audio) returned Headphones as cl94. Unknown category ids return 404 and are not billed.",
+    budget_ms: 15000,
     singlePage: "One category node plus its child list in a single call; no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12644,6 +16019,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna sub-categories",
+      returns: "Returns one Klarna category and its children.",
+      use_when: "Use it when you have a category id and need the next level before walking products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12664,6 +16046,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna filters for a category",
     description:
       "Returns the facet groups you can pass as filter on GET /v1/klarna/category (brand, price, features). Headphones had 14 groups on 2026-09-02.",
+    budget_ms: 15000,
     singlePage: "Facet groups for one category in a single call; no page parameter.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12672,6 +16055,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna filters for a category",
+      returns: "Returns the facet groups you can pass as filter on GET /v1/klarna/category.",
+      use_when: "Use it to discover brand and feature filters for a category.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12691,6 +16081,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get popular Klarna search keywords for a category",
     description:
       "Returns popular search keywords for a Klarna category, for example Marantz under t1. Feed a name into GET /v1/klarna/search.",
+    budget_ms: 10000,
     singlePage: "Fixed popular-keyword list per category; no page parameter.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12699,6 +16090,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get popular Klarna search keywords for a category",
+      returns: "Returns popular search keywords for a Klarna category.",
+      use_when: "Use it to seed GET /v1/klarna/search from a category.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12719,6 +16117,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna buying-guide content for a category",
     description:
       "Returns Klarna's buying-guide payload for a category: FAQ, shopping tips, and editorial boards.",
+    budget_ms: 15000,
     singlePage: "FAQ, shopping tips, and boards for one category in a single call.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12727,6 +16126,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna buying-guide content for a category",
+      returns: "Returns Klarna buying-guide content for a category: FAQ, shopping tips, and editorial boards.",
+      use_when: "Use it when you want the editorial copy Klarna shows on a category page.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12750,6 +16156,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List Klarna shopping stores",
     description:
       "Returns Klarna's retailer directory, 24 per page, each with store UUID, display name, Klarna store URL, icons, and checkout flags. Pagination is clean: page 2 had 24 new ids and zero overlap with page 1. USA totalHits was 10000 on 2026-09-02. Optional filters: categories (fashion, travel), cashback, shop_in_app, klarna_at_checkout.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset" },
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12763,6 +16170,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "home_depot/stores", why: "The same data from home_depot." },
     ],
     responseShape: { root: "data.items[]", itemKey: "seller" },
+    purpose: {
+      summary: "List Klarna shopping stores",
+      returns: "Returns Klarna's retailer directory, 24 per page, each with store UUID, display name, Klarna store URL, and checkout flags.",
+      use_when: "Use it to discover store ids, then feed one into GET /v1/klarna/store/products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "klarna",
@@ -12786,6 +16200,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List products from a Klarna store",
     description:
       "Returns products sold by one Klarna retailer, 25 per page by default. Pagination is clean: Walmart page 2 had 25 new ids and zero overlap with page 1. Unknown store ids return an empty page and are not billed.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12795,6 +16210,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List products from a Klarna store",
+      returns: "Returns products sold by one Klarna retailer, 25 per page, each with product id, title, lowest price, rating, and image.",
+      use_when: "Use it when you have a store UUID from GET /v1/klarna/stores.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "klarna",
@@ -12814,6 +16236,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Klarna filters for a store page",
     description:
       "Returns the facet groups for one Klarna store (brands and other filters). Feed values into GET /v1/klarna/store/products.",
+    budget_ms: 15000,
     singlePage: "Facet dump for one store in a single call (Walmart was 219KB / 1000 brand counts).",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-klarna" },
@@ -12822,6 +16245,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "usa" },
     ],
+    purpose: {
+      summary: "Get Klarna filters for a store page",
+      returns: "Returns the facet groups for one Klarna store.",
+      use_when: "Use it to discover brand filters before calling store/products.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   // --- gumtree (11 endpoints) ---
   {
@@ -12850,6 +16280,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Gumtree UK listings",
     description:
       "Returns Gumtree UK classifieds matching a keyword, about 22 per page, each with ad id, title, price in GBP, location, category, seller type (private or trade), image, and listing URL. Pass a gumtree.com/search URL as url to replay an existing web search (location slugs default to a 15-mile radius unless the URL carries a distance). Price, seller_type, and attributes filters only apply when category_id is also set. Paginate with page or the universal cursor until hasNextPage is false. Feed a returned ad id into GET /v1/gumtree/product for the full listing.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -12860,6 +16291,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Search Gumtree UK listings",
+      returns: "Returns Gumtree UK classifieds matching a keyword or a gumtree.com/search URL, about 22 per page, each with ad id, title, GBP price, location, category, seller type, and listing URL.",
+      use_when: "Use it to find UK second-hand, vehicle, or property ads by keyword. Feed a returned ad id into product for the full listing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -12878,6 +16316,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Gumtree listing by ad id or URL",
     description:
       "Returns one Gumtree listing: title, description, price, images, category, location with coordinates, seller name, and the seller ids needed for GET /v1/gumtree/seller. Pass the numeric ad id or the full gumtree.com/p/.../{id} URL. Asking prices, not sold prices. published_at is not returned because Gumtree only exposes relative age.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-gumtree" },
     group: "Products",
@@ -12887,6 +16326,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "amazon/product", why: "The same data from amazon." },
     ],
     responseShape: { root: "data.product" },
+    purpose: {
+      summary: "Get a Gumtree listing by ad id or URL",
+      returns: "Returns one Gumtree listing by ad id or URL: title, description, price, images, category, location, seller name, and the seller ids needed for seller lookups.",
+      use_when: "Use it when you already have an ad id or a gumtree.com/p listing URL. Search first if you only have a keyword.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -12905,6 +16351,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get listings similar to a Gumtree ad",
     description:
       "Returns listings Gumtree considers similar to a given ad, typically around 6 rows, each with ad id, title, price, image, and listing URL. Location and category are often null on this path. This is a single page: there is no cursor.",
+    budget_ms: 15000,
     singlePage: "Upstream /similar-listings has no page or cursor param; it returns one fixed window of similar ads.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -12915,6 +16362,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "aliexpress/product/similar", why: "The same data from aliexpress." },
     ],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "Get listings similar to a Gumtree ad",
+      returns: "Returns listings Gumtree considers similar to a given ad, typically around 6 rows, with price, image, and listing URL.",
+      use_when: "Use it when you have an ad id and want nearby alternatives. This is a single page; there is no cursor.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -12934,6 +16388,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Gumtree seller profile",
     description:
       "Returns a public Gumtree seller: display name, average rating, rating count, membership caption, and last-active caption. Both seller_id and public_id are required; they come back on GET /v1/gumtree/product as product.ext.gumtree.user_id and public_user_id. A missing seller is 404 and is not billed.",
+    budget_ms: 15000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-gumtree" },
     group: "Sellers",
@@ -12943,6 +16398,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/seller", why: "The same data from g2." },
     ],
     responseShape: { root: "data.seller" },
+    purpose: {
+      summary: "Get a Gumtree seller profile",
+      returns: "Returns a public Gumtree seller profile: display name, rating, membership caption, and last-active caption.",
+      use_when: "Use it with the seller_id and public_id from a product response. A missing seller is 404.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "gumtree",
@@ -12963,12 +16425,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a Gumtree seller's active ads",
     description:
       "Returns one page of a seller's active listings, about 20 per page, each with ad id, title, price, image, and listing URL. Category and location are often null on this path. Both seller_id and public_id are required. The upstream count equals the page size, so it is not returned: paginate until a page comes back short.",
+    budget_ms: 15000,
     pagination: { style: "page", nativeParam: "page" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
     group: "Sellers",
     tags: ["gumtree"],
     responseShape: { root: "data.items[]", itemKey: "product" },
+    purpose: {
+      summary: "List a Gumtree seller's active ads",
+      returns: "Returns one page of a seller's active Gumtree ads, about 20 per page, each with ad id, title, price, image, and listing URL.",
+      use_when: "Use it to walk a dealer or private seller's inventory. Paginate until a page comes back short.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "commerce_catalog", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "gumtree",
@@ -12988,6 +16458,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Gumtree search suggestions",
     description:
       "Returns Gumtree search autocomplete suggestions for a partial query, each with the matching category and a ready-made search query string. Useful for keyword expansion before GET /v1/gumtree/search.",
+    budget_ms: 10000,
     singlePage: "Fixed-window autocomplete: upstream returns a single non-cursored suggestion list.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -12998,6 +16469,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Gumtree search suggestions",
+      returns: "Returns Gumtree search autocomplete suggestions for a partial query, each with a matching category.",
+      use_when: "Use it to expand a keyword before calling search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -13013,6 +16491,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get trending Gumtree searches",
     description:
       "Returns the search terms currently trending on Gumtree UK, a demand signal that cannot be derived from listings. Typically around 30 strings.",
+    budget_ms: 10000,
     singlePage: "Upstream returns one fixed list of currently trending search terms.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -13022,6 +16501,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/trending", why: "The same data from tiktok." },
       { id: "google_trends/trending", why: "The same data from google_trends." },
     ],
+    purpose: {
+      summary: "Get trending Gumtree searches",
+      returns: "Returns the search terms currently trending on Gumtree UK.",
+      use_when: "Use it as a demand signal. Listings are supply; trending searches are what people are looking for right now.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -13039,6 +16525,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the Gumtree category tree",
     description:
       "Returns Gumtree's category hierarchy: id, text, seo slug, parent, and children. Omit category_id for the full tree. Pass a category id or SEO slug (cars) to get that node's subtree. Use the ids as category_id on GET /v1/gumtree/search and GET /v1/gumtree/filters.",
+    budget_ms: 15000,
     singlePage: "Category tree is a single dump, optionally scoped to one subtree.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -13048,6 +16535,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "Get the Gumtree category tree",
+      returns: "Returns Gumtree's category tree: id, name, SEO slug, parent, and children.",
+      use_when: "Use it to pick a category_id for search and filters. Omit category_id for the full tree.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -13065,6 +16559,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Gumtree filters for a category",
     description:
       "Returns the filters available on a Gumtree category (price, condition, brand, mileage, bedrooms, and so on, depending on the category), each with a name you can pass as attributes on GET /v1/gumtree/search.",
+    budget_ms: 10000,
     singlePage: "Filter definitions for one category are a single dump.",
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -13073,6 +16568,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "content_analysis/filters", why: "The same data from content_analysis." },
     ],
+    purpose: {
+      summary: "Get Gumtree filters for a category",
+      returns: "Returns the filters available on a Gumtree category, with the names to pass as attributes on search.",
+      use_when: "Use it after categories when you need brand, condition, mileage, or bedroom filters for a search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "gumtree",
@@ -13092,6 +16594,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Autocomplete Gumtree locations",
     description:
       "Returns Gumtree location matches for a place name, postcode, or outcode, each with location id, name, type, and coordinates. Feed the id into GET /v1/gumtree/search as location_id.",
+    budget_ms: 10000,
     singlePage: "Location autocomplete returns a short non-cursored suggestion list.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
@@ -13102,6 +16605,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "app_store/locations", why: "The same data from app_store." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Autocomplete Gumtree locations",
+      returns: "Returns Gumtree location matches for a place name or postcode, each with location id and coordinates.",
+      use_when: "Use it to resolve a place name into a location_id for search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "gumtree",
@@ -13121,12 +16631,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Find the nearest Gumtree location",
     description:
       "Returns the Gumtree location closest to a latitude,longitude pair: location id, name, type (LOCATION or POSTCODE), and coordinates. Feed the id into GET /v1/gumtree/search as location_id.",
+    budget_ms: 10000,
     singlePage: "Reverse geocode returns one nearest Gumtree location.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-gumtree" },
     group: "Locations",
     tags: ["gumtree"],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Find the nearest Gumtree location",
+      returns: "Returns the Gumtree location closest to a latitude,longitude pair.",
+      use_when: "Use it when you have coordinates and need a location_id for search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- yelp (5 endpoints) ---
   {
@@ -13146,6 +16664,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Yelp business by encid",
     description:
       "Returns a unified Place for one Yelp business: name, alias URL, unrounded star rating on a 5-star scale, exact review count, price level, address, coordinates, categories, photos, and timezone. Identify the business by its 22-character Yelp encid (`id`). A Yelp URL works only when the /biz/ segment is that encid; alias slugs return 404 (auto-refunded). Phone is not present on the upstream payload. To find an encid, start from GET /v1/yelp/search.",
+    budget_ms: 15000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "rapidapi-yelp" },
     group: "Business",
@@ -13154,6 +16673,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google/business/info", why: "The same data from google." },
     ],
     responseShape: { root: "data.place" },
+    purpose: {
+      summary: "Get a Yelp business by encid",
+      returns: "Returns one Yelp business by its 22-character encid: name, unrounded rating, review count, price level, address, coordinates, categories, photos, and timezone.",
+      use_when: "Use it when you already have a Yelp encid. Alias slugs return not found. GET /v1/yelp/search finds businesses by term and location.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "yelp",
@@ -13182,6 +16708,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Yelp reviews for a business",
     description:
       "Returns a unified ReviewList of customer reviews for a Yelp business, keyed by the same 22-character encid used on /v1/yelp/business/info. Each page has 10 reviews with cursor pagination, ISO timestamps, owner replies, photo URLs, language, and HELPFUL vote counts. Page 2 does not overlap page 1. A business that does not exist returns 404 (auto-refunded). A business with no reviews returns an empty page and is not billed.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "rapidapi-yelp" },
@@ -13192,6 +16719,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "label", benefit: "Names the product issue each review raises, at no extra credits; sentiment is free too.", example: "issue" },
     ],
     responseShape: { root: "data.items[]", itemKey: "review" },
+    purpose: {
+      summary: "Get Yelp reviews for a business",
+      returns: "Returns customer reviews for a Yelp business by encid: 10 per page, cursor, owner replies, photos, language, and HELPFUL votes.",
+      use_when: "Use it after business/info to page the review thread. Page 2 does not overlap page 1.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "yelp",
@@ -13214,6 +16748,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Yelp businesses",
     description:
       "Searches Yelp businesses by term and location. Returns a unified PlaceList: name, rating, review count, price level, address, coordinates, categories, and photos when the provider returns rows. Sort by recommended, rating, or review_count. ads=true includes sponsored results. Page with cursor from next_cursor. If the provider reports a non-zero total with no rows, the call fails and is refunded. Search cards may carry an alias URL; only the 22-character encid resolves on GET /v1/yelp/business/info.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-yelp" },
@@ -13224,6 +16759,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search Yelp businesses",
+      returns: "Returns Yelp businesses matching a term and location as a PlaceList with name, rating, review count, and location fields when the provider returns rows. Sort, ads, and cursor are optional.",
+      use_when: "Use it to find businesses before business/info. query and location are required. If the provider reports a non-zero total with no rows, the call fails and is refunded.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "yelp",
@@ -13246,12 +16788,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Yelp businesses with full cards",
     description:
       "Same search as GET /v1/yelp/search, on the full-search path that is documented to return fuller business cards. Same required query + location, and the same optional cursor, sort (recommended | rating | review_count), and ads. Returns a unified PlaceList. If the provider reports a non-zero total with no rows, the call fails and is refunded.",
+    budget_ms: 15000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-yelp" },
     group: "Search",
     tags: ["yelp"],
     responseShape: { root: "data.items[]", itemKey: "place" },
+    purpose: {
+      summary: "Search Yelp businesses with full cards",
+      returns: "Returns the same PlaceList as GET /v1/yelp/search on the full-search path, documented to carry fuller business cards. Same query, location, sort, ads, and cursor.",
+      use_when: "Use it when you want the fuller search card. Same required params as /v1/yelp/search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "yelp",
@@ -13270,6 +16820,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Yelp search suggestions",
     description:
       "Returns Yelp typeahead rows for a query in a location: category, common, chain, and business suggestions, each with a title, type, and optional subtitle, thumbnail, and redirect URL. Business rows carry alias URLs, which do not resolve on GET /v1/yelp/business/info. Category redirect URLs may be incomplete.",
+    budget_ms: 15000,
     singlePage: "Fixed-window autocomplete: upstream returns a single non-cursored suggestion list.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-yelp" },
@@ -13280,8 +16831,15 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/search/suggestions", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get Yelp search suggestions",
+      returns: "Returns Yelp typeahead rows for a query in a location: category, common, chain, and business suggestions.",
+      use_when: "Use it to autocomplete a search box. Business rows carry alias URLs, which do not resolve on business/info.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
-  // --- utility (6 endpoints) ---
+  // --- utility (12 endpoints) ---
   {
     platform: "utility",
     resource: "endpoints",
@@ -13291,6 +16849,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "platform", type: "string", description: "Filter the catalog to a single platform slug (e.g. tiktok)", example: "tiktok" },
       { name: "search", type: "string", description: "Keyword search over endpoint paths, summaries, parameter names and descriptions, and tags, best match first (data.ranking says keyword)" },
       { name: "method", type: "enum", enumValues: ["GET", "POST", "PATCH", "DELETE"], description: "Filter by HTTP method (GET, POST, PATCH or DELETE)" },
+      { name: "fingerprint", type: "boolean", description: "Set to 1 to return only the registry fingerprint (a hash of every endpoint's params, prices and contract facts) and the platform and endpoint counts, to check whether a bundled copy of the catalog is current" },
     ],
     oneOfGroups: [],
     creditTier: "standard",
@@ -13305,6 +16864,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Browse Endpoint Catalog",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "List every available endpoint",
+      returns: "Returns a catalogue of every endpoint you can call: path, method, platform, credit cost, required and optional parameters, and a link to its usage guide.",
+      use_when: "Use it to discover what is available or filter by platform. For one endpoint's full instructions, call the endpoint guide. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "utility",
@@ -13329,6 +16895,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Endpoint Usage Guide",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "How to use any endpoint",
+      returns: "Returns a full usage guide for one endpoint: parameters with examples, credit cost, caching, paging, a sample call, and how often each field was filled in the last 7 days.",
+      use_when: "Use it when you know which endpoint you want and need to call it correctly. Identify it by id or by path. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "utility",
@@ -13351,6 +16924,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "Browse Capabilities",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "List the parameters that work across endpoints",
+      returns: "Returns every parameter that works across endpoints (label presets, relevance, include, since, trim and more) with what it does, what it costs, and every endpoint that supports it.",
+      use_when: "Use it when you know what you need done (judge sentiment, keep only relevant rows, poll only new posts) but not which endpoints can do it. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "utility",
@@ -13367,12 +16947,207 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Analytics",
     summary: "Plan the calls for a job",
     description:
-      "Turn a job written in plain words (\"track mentions of Acme on TikTok and Reddit\", \"a creator's profile, posts and comments\") into the exact calls to make, in order: method, path, the parameters your question filled, the ones still missing, which step's rows fill a later step, the credit price of each call, and a curl for each with every unknown value left as a {placeholder}. Four jobs are planned today (brand monitoring, one creator, a topic search, a saved search on a monitor); a one-call question returns that one call. A question outside those returns uncertain with no steps instead of a guessed chain, and anything the API cannot return (a follower history, a new-post webhook) is listed under cannot. Nothing is run. Free to call.",
+      "Turn a job written in plain words (\"track mentions of Acme on TikTok and Reddit\", \"a creator's profile, posts and comments\") into the exact calls to make, in order: method, path, the parameters your question filled, the ones still missing, which step's rows fill a later step, the credit price of each call, and a curl for each with every unknown value left as a {placeholder}. Jobs are planned from the task-recipe catalog (GET /v1/utility/recipes: comment exports, creator vetting, review comparisons, monitors, crawls and more) plus brand monitoring, one creator, a topic search and a saved search on a monitor; a one-call question returns that one call, and a job that combines several sources no recipe covers is planned as a chain (one call per source, a monitor per call when it repeats). A request to act on an account (post, reply, like, follow, delete) or about billing returns no steps. Every plan carries total: the whole job's credits (paging and per-row fan-out included, for the recipe's stated size) from the same pricing the API bills with. A question outside those returns uncertain with no steps instead of a guessed chain, and anything the API cannot return (a follower history, a new-post webhook) is listed under cannot. Beta: recipe matches are reliable; confirm a single-endpoint or multi-source plan with utility/find. Nothing is run. Free to call.",
     cache: { category: "analytics", ttlSeconds: 0 },
     upstream: { kind: "registry" },
     actionLabel: "Call Planner",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "Plan the calls for a job",
+      returns: "Returns the calls for a job you describe in plain words, in order: each path, the parameters your words filled, the ones still missing, its price, and a curl with unknown values left as placeholders.",
+      use_when: "Use it before writing an integration, when you know the job but not the endpoints. It plans and never runs anything. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "resolve",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "input", type: "string", description: "One URL, @handle, platform:handle or id. Provide this or inputs, not both", example: "https://www.tiktok.com/@charlidamelio/video/7234567890123456789" },
+      { name: "inputs", type: "string", description: "Up to 100 values separated by commas or newlines, answered in order. Provide this or input, not both", example: "instagram:nasa,https://www.youtube.com/@MrBeast,B08N5WRWNW" },
+    ],
+    oneOfGroups: [["input", "inputs"]],
+    csvConstraints: { "inputs": { max: 100 } },
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "Identify a URL, handle or id",
+    description:
+      "Turn a pasted URL, @handle, platform:handle (\"tiktok:charlidamelio\") or bare id into the platform, what it is (profile, post, video, product, repo and so on), its canonical handle, id or URL, and every endpoint that accepts it, with the parameter to pass and the credit price of each, cheapest first. Tracking parameters, mobile hosts, trailing slashes and a leading @ are cleaned off. Nothing is fetched, so a short link (vm.tiktok.com, youtu.be-style redirects, pin.it) is recognised but flagged rather than followed, and a bare name with no platform comes back ambiguous with a pointer to the paid prism/find-accounts. Pass one value as input or up to 100 as inputs (comma or newline separated). Free to call.",
+    cache: { category: "analytics", ttlSeconds: 1800 },
+    upstream: { kind: "registry" },
+    actionLabel: "Resolve Input",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "Identify a URL, handle or id",
+      returns: "Returns what a pasted URL, @handle or id is: platform, kind (profile, post, video, product, repo), canonical handle or id, and each endpoint that accepts it with its parameter and price.",
+      use_when: "Use it before calling anything with a link or name you were given, or to split a mixed list by platform. It fetches nothing. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "estimate",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "id", type: "string", description: "The endpoint to price, as platform/resource (tiktok/post/comments) or its /v1 path, optionally with its query string. Provide this or plan", example: "tiktok/post/comments" },
+      { name: "method", type: "enum", enumValues: ["GET", "POST", "PATCH", "DELETE"], description: "HTTP method, when the endpoint takes more than one. Defaults to GET when offered" },
+      { name: "params", type: "string", description: "The endpoint's own params, as a URL-encoded query string (url=...&label=spam) or a JSON object. Optional: they may also be sent directly on this URL; these win on a conflict", example: "url=https://www.tiktok.com/@stoolpresidente/video/7623818255903329566&label=spam" },
+      { name: "body", type: "string", description: "A batch endpoint's JSON body, as JSON or base64url JSON (for example {\"urls\":[...]} for prism/post-stats)" },
+      { name: "items", type: "integer", minimum: 1, maximum: 100000, description: "Rows you want. Converted to pages with the endpoint's verified page size; warns pages_unknown when it has none" },
+      { name: "plan", type: "string", description: "Several calls at once, as base64url JSON (or JSON): {calls:[{id, params, repeat?, items?}], fan_out?:[{from, each, to}]}, or a utility/plan answer's steps. Provide this or id" },
+    ],
+    oneOfGroups: [["id", "plan"]],
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "Quote the credit cost of a call or a plan",
+    description:
+      "Quote what a call will cost before you make it: the exact credits the API holds up front (expected_max, the most it can cost), the lowest possible charge for a successful call (expected_min; unused hold is refunded), the formula, and the params that change the price (levers). The quote comes from the same pricing the API bills with, so it never differs from the real charge. Pass the endpoint as id and its params on this same URL as you would send them (id=tiktok/post/comments&url=...&label=spam), or URL-encoded in params (a query string or a JSON object), which wins on a conflict; a batch endpoint takes its JSON body as body. Add items=N to turn N rows into pages on an endpoint with a known page size. For several calls at once, pass plan: base64url JSON of {calls:[{id, params, repeat}], fan_out:[{from, each, to}]}, or the steps of a utility/plan answer as they are, for per-call and total holds. A request the API would reject comes back valid:false at 0 credits. Nothing is fetched. Free to call.",
+    cache: { category: "analytics", ttlSeconds: 0 },
+    upstream: { kind: "registry" },
+    actionLabel: "Estimate Cost",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "Quote the credit cost of a call or a plan",
+      returns: "Returns the exact credits a call holds up front, the range it settles in, the formula, and the params that change the price, for one call or a whole plan with fan-out.",
+      use_when: "Use it before a paid or multi-step job to quote the cost, or to compare cheaper param choices. It runs nothing. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "explain-error",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "status", type: "integer", minimum: 100, maximum: 599, description: "The HTTP status of the failed response. Optional when the body carries error.status", example: "400" },
+      { name: "body", type: "string", description: "The pasted response body: the JSON error envelope (URL-encoded or base64url) or plain text. Up to 8,000 characters. Provide this or status", example: "{\"success\":false,\"error\":{\"type\":\"INVALID_REQUEST\",\"message\":\"Unknown query parameter 'handel'. Did you mean 'handle'?\",\"status\":400,\"details\":{\"unknown_parameters\":[\"handel\"],\"suggestions\":{\"handel\":\"handle\"}}}}" },
+      { name: "request", type: "string", description: "The request that failed, as a URL or /v1 path with its query string. Lets the answer return a corrected request. Credentials in it are dropped", example: "/v1/tiktok/profile?handel=nasa" },
+    ],
+    oneOfGroups: [["body", "status"]],
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "Explain a failed API response",
+    description:
+      "Paste a failed response (its status and body) and get back the fault in plain words, the steps that fix it, a corrected request when the error's own details allow one, whether retrying the same request can succeed, and the docs link. Covers bad or misnamed parameters (including a value sent as a parameter name), missing parameters, invalid values, wrong paths, auth, credits, key limits, rate limits, upstream failures and not-found. Pass the body as JSON or base64url JSON (up to 8,000 characters) and, optionally, the request you sent as request (API keys in it are dropped). The answer is computed from the error type and details the API returned; nothing is fetched. Free to call.",
+    cache: { category: "analytics", ttlSeconds: 0 },
+    upstream: { kind: "registry" },
+    actionLabel: "Explain Error",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "Explain a failed API response",
+      returns: "Returns the fault in plain words, the steps that fix it, a corrected request when the error's details allow one, whether retrying can succeed, and the docs link.",
+      use_when: "Use it when a call failed and you have the status and body, instead of guessing at the fix. It fetches nothing. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "docs-search",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "query", type: "string", description: "What to look up, in a few words or a question. Provide this or q", example: "how does cursor pagination work" },
+      { name: "q", type: "string", description: "Short alias for query. Provide this or query" },
+      { name: "platform", type: "string", description: "Scope the search to one platform slug" },
+      { name: "limit", type: "integer", minimum: 1, maximum: 10, description: "Sections to return, 1 to 10 (default 5)", example: "3" },
+    ],
+    oneOfGroups: [["query", "q"]],
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "Search the docs",
+    description:
+      "Search the developer docs and endpoint reference for a question and get the best-matching sections, ranked, each with a title, a link to its Markdown twin with an anchor (fetch the .md to read just that page), the page URL and a short snippet. Covers authentication, credits and refunds, pagination, errors, rate limits, caching, monitors, universal search and every endpoint. Pass platform to scope it to one platform, and limit for how many sections (default 5, up to 10). Free to call.",
+    cache: { category: "analytics", ttlSeconds: 1800 },
+    upstream: { kind: "registry" },
+    actionLabel: "Search Docs",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "Search the docs",
+      returns: "Returns the best-matching documentation sections for a question, ranked, each with a title, a Markdown link with an anchor, the page URL and a short snippet.",
+      use_when: "Use it to find the one docs page that answers a question about auth, credits, errors, rate limits or an endpoint, then read just that page. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "find",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "task", type: "string", description: "The job in plain words, in any language. Up to 600 characters are read. Provide this or query", example: "last 200 comments on https://www.tiktok.com/@stoolpresidente/video/7623818255903329566" },
+      { name: "query", type: "string", description: "Alias for task. Provide this or task" },
+      { name: "platform", type: "string", description: "Keep the answer on one platform slug (tiktok, instagram, ...). Omit to search every platform" },
+    ],
+    oneOfGroups: [["task", "query"]],
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "Find the endpoint for a task",
+    description:
+      "Describe what you want in plain words, in any language (\"last 200 comments on this TikTok <url>\", \"German Instagram creators about matcha\") and get the three endpoints most likely to do it, best first: each with its method and path, the parameters your words already filled (only values you typed, never made up), the ones still missing, the credits that one call would hold (null with a note when it cannot be quoted yet), a confidence and a one-line reason, plus a few alternatives. Act on the top result only when uncertain is false. When no endpoint matches what the task means, or the matcher is unavailable, the results are keyword guesses and uncertain is always true. A request to act on an account (post, reply, like, follow, message, delete), about your own account or customers, or about billing returns no results (reason not_a_data_job) and the nearest reads as alternatives. Pass platform to keep the answer on one platform. Nothing is run. Free to call.",
+    cache: { category: "analytics", ttlSeconds: 0 },
+    upstream: { kind: "registry" },
+    actionLabel: "Find Endpoint",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "Find the endpoint for a task",
+      returns: "Returns the three endpoints most likely to do a task you describe, best first: the parameters your words filled, the ones still missing, one call's credits and a confidence.",
+      use_when: "Use it as the first step when you know the job but not the endpoint. It runs nothing, and says uncertain when you should check before calling. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "utility",
+    resource: "recipes",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "id", type: "string", description: "One recipe id (export-tiktok-comments). Omit for the whole catalog", example: "export-tiktok-comments" },
+    ],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 0,
+    pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },
+    archetype: "Analytics",
+    summary: "List task recipes with their cost",
+    description:
+      "The catalog of task recipes: common jobs (export a video's comments, vet a creator, compare a product's reviews across retailers, watch a competitor's uploads, crawl a site to markdown, and more) as the cheapest chain of calls, with the inputs each needs, which step's rows feed the next (bind), which steps page or run once per row (repeat), any setup call (a monitor, a cohort), pitfalls, cheaper and deeper alternatives, and cost: the whole job's credits for the stated size, computed from current prices, with exact false when a page count had to be guessed. A recipe monitor also shows per_run, one scheduled run. Pass id for one recipe; a utility/plan job id (creator_profile) returns the recipe that documents it. Free to call.",
+    cache: { category: "analytics", ttlSeconds: 1800 },
+    upstream: { kind: "registry" },
+    actionLabel: "Task Recipes",
+    group: "Developer Experience",
+    tags: ["utility"],
+    purpose: {
+      summary: "List task recipes with their cost",
+      returns: "Returns the task recipes: each job's chain of calls with its inputs, binds, paging and setup, pitfalls, alternatives, and the whole job's credit cost for its stated size.",
+      use_when: "Use it to copy a proven multi-step job and see what it costs before you build it. It runs nothing. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "utility",
@@ -13395,6 +17170,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "API Quickstart",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "Get started in one call",
+      returns: "Returns everything needed for a first call: how to authenticate, the base URL, the response shape, credit billing, error codes, rate limits, and a sample.",
+      use_when: "Use it when you are setting up for the first time and want the rules of the API in one response. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "utility",
@@ -13418,6 +17200,13 @@ export const ENDPOINTS: Endpoint[] = [
     actionLabel: "AI Agent Context",
     group: "Developer Experience",
     tags: ["utility"],
+    purpose: {
+      summary: "AI-agent context payload",
+      returns: "Returns SocialCrawl's reference text for AI agents, for the whole API or a single platform, as markdown or as a structured object.",
+      use_when: "Use it when an agent should learn the API in one call instead of reading the documentation site. Free to call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "discovery_catalog", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   // --- linktree (1 endpoint) ---
   {
@@ -13444,6 +17233,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkme/page", why: "The same data from linkme." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Linktree page",
+      returns: "Returns a Linktree page's display name, bio, avatar, and every link on the page with its title and destination URL.",
+      use_when: "Use it for linktr.ee pages; lnk.bio, Linkme, Komi, and Pillar pages each have their own endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- linkbio (1 endpoint) ---
   {
@@ -13470,6 +17266,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkme/page", why: "The same data from linkme." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Linkbio page",
+      returns: "Returns a lnk.bio page's display name, bio, avatar, and every link on the page with its title and destination URL.",
+      use_when: "Use it for lnk.bio pages; Linktree, Linkme, Komi, and Pillar pages each have their own endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- linkme (1 endpoint) ---
   {
@@ -13496,6 +17299,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkbio/page", why: "The same data from linkbio." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Linkme profile",
+      returns: "Returns a Linkme page's display name, bio, avatar, and every link on the page with its title and destination URL.",
+      use_when: "Use it for link.me pages; Linktree, lnk.bio, Komi, and Pillar pages each have their own endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- komi (1 endpoint) ---
   {
@@ -13522,6 +17332,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkbio/page", why: "The same data from linkbio." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Komi page",
+      returns: "Returns a Komi page's display name, bio, avatar, and every link on the page with its title and destination URL.",
+      use_when: "Use it for komi.io pages; Linktree, lnk.bio, Linkme, and Pillar pages each have their own endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- pillar (1 endpoint) ---
   {
@@ -13548,6 +17365,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkbio/page", why: "The same data from linkbio." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get Pillar page",
+      returns: "Returns a Pillar page's display name, bio, avatar, and every link on the page with its title and destination URL.",
+      use_when: "Use it for pillar.io pages; Linktree, lnk.bio, Linkme, and Komi pages each have their own endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- polymarket (1 endpoint) ---
   {
@@ -13576,6 +17400,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "perplexity/research", why: "The same data from perplexity." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Polymarket prediction markets: multi-query research",
+      returns: "Returns Polymarket prediction markets about a topic, ranked by how well they match: event title, market questions, outcome prices, volume, and end date.",
+      use_when: "Use it to get a focused feed of markets on a subject. It runs several searches for you and drops results that are not about the topic.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   // --- hackernews (4 endpoints) ---
   {
@@ -13628,6 +17459,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Hacker News",
+      returns: "Returns Hacker News stories matching a query, each with title, link, author, points, comment count, and post time. Tags can widen it to comments.",
+      use_when: "Use it to find discussions by keyword, then pass a story id to the story endpoint for its details or its comments.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "hackernews",
@@ -13649,6 +17487,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "hackernews" },
     tags: ["hackernews"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Hacker News story",
+      returns: "Returns one Hacker News story by id: title, author, points, publish time, the discussion permalink at url, and the submitted article link at content.media_urls.",
+      use_when: "Use it when you have a story id and want the story itself. The discussion comes from the story comments endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "hackernews",
@@ -13671,6 +17516,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "hackernews" },
     tags: ["hackernews"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get comments on a Hacker News story",
+      returns: "Returns the comment tree for a Hacker News story: each comment's id, author, text, points, time posted, and its nested replies.",
+      use_when: "Use it when you want the discussion under a story rather than the story's own details. The whole tree arrives in one call, nested replies included, so there is no cursor to follow.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "hackernews",
@@ -13696,6 +17548,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Hacker News user profile",
+      returns: "Returns a Hacker News user's public profile: id, username, bio, karma, and the date the account was created.",
+      use_when: "Use it to check who someone is on Hacker News. The site has no follower or post counts, so those come back empty.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- quora (7 endpoints) ---
   {
@@ -13717,6 +17576,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora questions",
     description:
       "Returns Quora questions matching a keyword: title, URL, answer count, follower count, and publish time. Filter by recency with time. For written answers to a topic call GET /v1/quora/answers with the same query.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13728,6 +17588,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Quora questions",
+      returns: "Returns Quora questions matching a keyword: title, URL, answer count, follower count, and publish time.",
+      use_when: "Use it to find questions on a topic. For the written answers themselves, call the answers endpoint with the same query.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13745,6 +17612,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Quora question",
     description:
       "Returns one Quora question from its URL: title, body text, and published date. Quora questions rarely have a separate body; content.text is the title. For written answers call GET /v1/quora/answers with a keyword.",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "apify-quora" },
     group: "Posts",
@@ -13754,6 +17622,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Quora question",
+      returns: "Returns one Quora question from its URL: title, body text, and published date.",
+      use_when: "Use it when you have a question URL and need the title, text, and publish time.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13774,6 +17649,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora answers",
     description:
       "Returns Quora answers matching a keyword, including the answer text, author name and credential, upvotes, views, and the parent question title.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13784,6 +17660,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/answers", why: "The same data from prism." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Quora answers",
+      returns: "Returns Quora answers matching a keyword, including answer text, author credential, upvotes, and views.",
+      use_when: "Use it when you need the answer body, not just the question title.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13804,6 +17687,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora space posts",
     description:
       "Returns posts from Quora Spaces matching a keyword: URL, author, upvotes, comments, and publish time. Post body text is often absent from this search surface.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13811,6 +17695,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Search",
     tags: ["quora"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Quora space posts",
+      returns: "Returns posts from Quora Spaces matching a keyword: URL, author, upvotes, and publish time.",
+      use_when: "Use it to find Space posts. Question-and-answer threads are on search and answers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13831,6 +17722,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora profiles",
     description:
       "Returns Quora profiles matching a keyword: display name, profile URL, credential, follower count, and avatar.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13841,6 +17733,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "prism/profiles", why: "The same data from prism." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Quora profiles",
+      returns: "Returns Quora profiles matching a keyword: display name, URL, credential, follower count, and avatar.",
+      use_when: "Use it to find people or topic accounts on Quora before reading their answers.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13861,6 +17760,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora Spaces",
     description:
       "Returns Quora Spaces matching a keyword: name, URL, description, member count, and icon. Row shape follows the space search record.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13868,6 +17768,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Search",
     tags: ["quora"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Quora Spaces",
+      returns: "Returns Quora Spaces matching a keyword: name, URL, description, and member count.",
+      use_when: "Use it to discover Spaces, then search posts inside a topic with the posts endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "quora",
@@ -13888,6 +17795,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Quora topics",
     description:
       "Returns Quora topics matching a keyword: name, URL, follower count, and topic photo.",
+    budget_ms: 25000,
     singlePage: "Upstream has no cursor. maxItemsPerQuery is a cap, probed 2026-09-01: limit=1 and limit=10 honoured, no page token in the schema or body.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13895,6 +17803,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Search",
     tags: ["quora"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Quora topics",
+      returns: "Returns Quora topics matching a keyword: name, URL, follower count, and topic photo.",
+      use_when: "Use it to resolve a topic name to a URL before searching questions in that area.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- douyin (8 endpoints) ---
   {
@@ -13918,6 +17833,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Douyin videos",
     description:
       "Returns Douyin videos matching a keyword: caption, creator, likes, comments, shares, saves, hashtags, music, cover image and duration. Chinese, English and mixed queries all work. Douyin does not publish view counts outside its own app, so post.engagement.views is always null on every Douyin endpoint. For creators rather than videos call GET /v1/douyin/search/users.",
+    budget_ms: 28000,
     singlePage: "Upstream has no cursor. maxResultsPerQuery is a cap, probed 2026-09-08: limit=1 and limit=5 honoured, no page token in the schema or the body. Deeper reads raise limit, up to 25.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -13929,6 +17845,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Douyin videos",
+      returns: "Returns Douyin videos matching a keyword with caption, creator, likes, comments, shares, saves, hashtags, music and cover image.",
+      use_when: "Use it to track a topic or brand across Douyin. For the creators behind the videos, call the creator search instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -13948,6 +17871,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Douyin creator profile",
     description:
       "Returns one Douyin creator: nickname, Douyin ID, bio, avatar, follower and following counts, total likes received, video count, IP region and verification status. Accepts a profile URL, a bare sec_uid, or the numeric user ID. This is the cheapest way to track a follower count on Douyin. For the creator's videos call GET /v1/douyin/profile/posts.",
+    budget_ms: 40000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-douyin" },
     group: "Profiles",
@@ -13957,6 +17881,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Douyin creator profile",
+      returns: "Returns one Douyin creator with nickname, bio, avatar, follower and following counts, total likes received, video count and IP region.",
+      use_when: "Use it to track a creator's follower count over time. It is the cheapest Douyin call, because it fetches no videos.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -13979,6 +17910,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a Douyin creator's videos",
     description:
       "Returns a Douyin creator's recent videos with caption, likes, comments, shares, saves, hashtags, music and cover image, newest first. Narrow the window with recent_days, or drop pinned posts with exclude_pinned to read genuine recent activity. Douyin publishes no view counts, so post.engagement.views is null.",
+    budget_ms: 40000,
     singlePage: "Upstream has no cursor. maxResultsPerQuery is a cap, probed 2026-09-08: limit=1 and limit=5 honoured, no page token in the schema or the body. Deeper reads raise limit, up to 25.",
     emptyOn404: true,
     cache: { category: "profile", ttlSeconds: 900 },
@@ -13990,6 +17922,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Douyin creator's videos",
+      returns: "Returns a Douyin creator's recent videos, newest first, with engagement counts, hashtags, music and cover image.",
+      use_when: "Use it to read a creator's posting cadence. Set exclude_pinned to true so an old pinned video does not distort recent activity.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -14007,6 +17946,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Douyin video",
     description:
       "Returns one Douyin video from its URL or aweme ID: caption, creator, likes, comments, shares, saves, hashtags, music, duration, dimensions, cover image and the tagged place when the creator added one. Richer than a search row: this surface carries the creator's total likes and video count, plus the point-of-interest block. Douyin publishes no view counts, so post.engagement.views is null.",
+    budget_ms: 40000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "apify-douyin" },
     group: "Posts",
@@ -14016,6 +17956,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Douyin video",
+      returns: "Returns one Douyin video with caption, creator, engagement counts, hashtags, music, duration, dimensions and the tagged place when there is one.",
+      use_when: "Use it when you already have a video URL and want the full record. Search rows carry less: no place and no creator totals.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -14035,6 +17982,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Douyin video comments",
     description:
       "Returns top-level comments on a Douyin video: text, commenter, like count, reply count, the commenter's IP region, and whether the creator liked the comment. Top-level only. To read a thread call GET /v1/douyin/comment/replies with the comment ID from these rows.",
+    budget_ms: 40000,
     singlePage: "Upstream has no cursor. maxCommentsPerPost is a cap, probed 2026-09-08: limit=4 and limit=8 honoured exactly, no page token in the schema or the body. Deeper reads raise limit, up to 100.",
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -14046,6 +17994,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get Douyin video comments",
+      returns: "Returns top-level comments on a Douyin video with text, commenter, like count, reply count and the commenter's IP region.",
+      use_when: "Use it to read audience reaction to a video. To open one thread, call the replies endpoint with that comment id.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -14067,6 +18022,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get replies to a Douyin comment",
     description:
       "Returns the reply thread under one Douyin comment: text, replier, like count, IP region and verification. Every row carries comment.parent_id set to the comment you asked about, so a thread reassembles without guesswork. Get the comment ID from GET /v1/douyin/post/comments.",
+    budget_ms: 40000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -14074,6 +18030,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Comments",
     tags: ["douyin"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get replies to a Douyin comment",
+      returns: "Returns the reply thread under one Douyin comment, each row carrying the parent comment id so a thread reassembles exactly.",
+      use_when: "Use it when a comment shows a non-zero reply count and you need the conversation, not just the opening line.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "douyin",
@@ -14096,6 +18059,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Douyin creators",
     description:
       "Returns Douyin creators matching a keyword: nickname, Douyin ID, bio, follower count, total likes received, avatar, profile URL and verification label. Filter by follower band or by account type to shortlist creators for outreach. This lane paginates: pass the returned cursor to walk deeper.",
+    budget_ms: 40000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -14107,6 +18071,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "twitter/search/users", why: "The same data from twitter." },
     ],
     responseShape: { root: "data.items[]", itemKey: "author" },
+    purpose: {
+      summary: "Search Douyin creators",
+      returns: "Returns Douyin creators matching a keyword with nickname, Douyin ID, bio, follower count, total likes received and verification label.",
+      use_when: "Use it to shortlist creators for outreach. Narrow by follower band or account type before you spend calls on full profiles.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "douyin",
@@ -14122,6 +18093,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the Douyin hot-search board",
     description:
       "Returns the live Douyin hot-search board (抖音热搜): roughly 50 trending topics with rank, hot value, view count, video count and the time the topic broke. This is the highest-signal short-form trend surface in mainland China. The whole board is returned in one call for one flat price.",
+    budget_ms: 40000,
     singlePage: "The hot-search board is a fixed ranked list of roughly 50 topics with no pagination of any kind. Probed 2026-09-08: the upstream row cap is inert and the full board returns every time.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -14133,6 +18105,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_trends/trending", why: "The same data from google_trends." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get the Douyin hot-search board",
+      returns: "Returns the live Douyin hot-search board with rank, topic, hot value, view count, video count and the time each topic broke.",
+      use_when: "Use it to see what mainland China is watching right now. One call returns the whole ranking, already ordered by rank.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   // --- github (12 endpoints) ---
   {
@@ -14159,6 +18138,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a GitHub user profile",
+      returns: "Returns a GitHub user's public profile: login, name, avatar, bio, follower and following counts, public repository count, and account creation date.",
+      use_when: "Use it when you have a username and want a snapshot of the person before listing their repositories.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14180,6 +18166,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a GitHub repository",
+      returns: "Returns a GitHub repository's details: full name, description, stars, forks, open issues, watchers, main language, and creation date.",
+      use_when: "Use it for a quick overview of one repository. For its README, releases, or issues, call those endpoints instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14208,6 +18201,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a GitHub user's repositories",
+      returns: "Returns the public repositories a GitHub user owns, each with name, description, main language, star and fork counts, and created and last-pushed dates.",
+      use_when: "Use it to list everything a user has published. For one repository in more detail, call the repo endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14229,6 +18229,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a repository's README",
+      returns: "Returns a GitHub repository's README as plain file content, ready to read or feed to a model.",
+      use_when: "Use it when you want a project's own write-up in full rather than the summary fields on the repo endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14254,6 +18261,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a repository's releases",
+      returns: "Returns a repository's most recent releases, newest first, each with its tag, name, release notes, publish date, prerelease flag, and downloadable files.",
+      use_when: "Use it to track what a project has shipped and to read its release notes.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14285,6 +18299,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a repository's issues (and PRs)",
+      returns: "Returns a repository's issues, each with title, body, author, labels, state, and dates. Pull requests appear in this list too and are marked as such.",
+      use_when: "Use it to list or filter one project's issues by state, label, or date. Keep only issues or only pull requests with the type filter.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14306,6 +18327,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a single issue or pull request",
+      returns: "Returns one GitHub issue or pull request: title, body, author, labels, state, reaction counts, comment count, and dates.",
+      use_when: "Use it when you have the link to a single issue or pull request. The discussion comes from the issue comments endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14332,6 +18360,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "github" },
     tags: ["github"],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get comments on an issue or pull request",
+      returns: "Returns the comments on a GitHub issue or pull request, oldest first, each with its id, author, body, reaction count, and time posted.",
+      use_when: "Use it to read the discussion thread on one issue or pull request rather than the item itself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14363,6 +18398,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search GitHub issues and pull requests",
+      returns: "Returns issues and pull requests from across GitHub that match a query, plus the total number of matches, using GitHub's own search syntax.",
+      use_when: "Use it to find issues across many repositories at once. To list them inside a single repository, use the repo issues endpoint.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14383,6 +18425,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "github" },
     tags: ["github"],
+    purpose: {
+      summary: "Top feature request and top complaint for a repository",
+      returns: "Returns two issues for a repository: the top feature request, picked by reactions, and the top complaint, picked by how much it is being discussed.",
+      use_when: "Use it for a fast read on what users most want and most dislike, without paging through the whole issue list.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14403,6 +18452,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "github" },
     tags: ["github"],
+    purpose: {
+      summary: "Full project dossier for a repository",
+      returns: "Returns one bundle for a repository: its details, a README excerpt, the latest three releases, the top feature request, and the top complaint.",
+      use_when: "Use it when a single call should give you enough to summarise a project, instead of calling repo, README, releases, and issues separately.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "github",
@@ -14425,6 +18481,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "github" },
     tags: ["github"],
+    purpose: {
+      summary: "User contribution velocity dossier",
+      returns: "Returns a GitHub user's contribution picture: pull requests opened and merged, the outside repositories they contribute to, and their own repositories.",
+      use_when: "Use it to judge how active a developer is and where they work. The depth setting controls how many repositories get extra detail.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   // --- tavily (4 endpoints) ---
   {
@@ -14465,6 +18528,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "web/search", why: "The same data from web." },
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
+    purpose: {
+      summary: "Tavily web search with optional LLM-generated answer",
+      returns: "Returns ranked web search results for a query, and optionally a written answer put together from the top sources.",
+      use_when: "Use it when you want search results you can narrow by domain, date, or topic, with a short written answer alongside them if you ask for one.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tavily",
@@ -14488,12 +18558,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Extract clean content from one or more URLs",
     description:
       "Pulls clean, AI-ready text out of one or more URLs via Tavily's extractor. Pass a single URL or a comma-separated list (max 20). Returns extracted content per URL alongside any URLs that failed extraction. Use `extract_depth=advanced` for harder pages (paywalls, JS-heavy SPAs).",
+    budget_ms: 25000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "tavily", fallbackKinds: ["firecrawl"] },
     tags: ["tavily"],
     related: [
       { id: "web/extract", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "Extract clean content from one or more URLs",
+      returns: "Returns clean, readable text pulled from one or more URLs, up to 20 at a time, plus a list of any URLs that could not be read.",
+      use_when: "Use it when you already know which pages you want to read, rather than searching for them or walking a whole site.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tavily",
@@ -14529,6 +18607,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "web/map", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "Map a website's sitegraph",
+      returns: "Returns the list of URLs found on a website starting from one page, without the content of those pages.",
+      use_when: "Use it when you only need to know what pages a site has. Use crawl instead when you also want each page's content.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "tavily",
@@ -14565,6 +18650,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "web/crawl", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "Crawl a website with LLM-driven path selection",
+      returns: "Returns pages found by following links from a starting URL, each with its extracted text content.",
+      use_when: "Use it when you want the content of many pages on a site. Plain-language instructions steer which paths get followed.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   // --- naver (14 endpoints) ---
   {
@@ -14592,6 +18684,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Naver Blog",
+      returns: "Returns Naver Blog posts matching a query: post title, link, a text snippet, the blogger's name and blog link, and the publish date.",
+      use_when: "Use it for long form Korean blog writing, which is where most Korean product reviews and how to guides live.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14618,6 +18717,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Naver News",
+      returns: "Returns Korean news articles from Naver News: headline, the publisher's own URL, the Naver hosted URL, a snippet, and the publish date.",
+      use_when: "Use it for Korean press coverage; for news in other markets and languages use google_news/search instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14644,6 +18750,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Naver Encyclopedia",
+      returns: "Returns entries from Naver's Knowledge Encyclopedia: entry title, link, a summary description, and a thumbnail image.",
+      use_when: "Use it for curated reference definitions, as opposed to kin/search which returns questions asked by the public.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14670,6 +18783,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Naver Cafe articles",
+      returns: "Returns posts from Naver Cafe communities: post title, link, a text snippet, and the name and URL of the cafe that hosts it.",
+      use_when: "Use it for Korean community discussion; many cafes are members only, so a link may show only a teaser.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14696,6 +18816,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Naver KnowledgeiN (지식iN)",
+      returns: "Returns question and answer threads from Naver KnowledgeiN, each with the thread title, link, and a snippet of the question or answer.",
+      use_when: "Use it to read the real questions Korean users ask about a topic, in their own words.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14721,6 +18848,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Naver Local (장소 검색)",
+      returns: "Returns Korean places from Naver Maps: name, link, category, phone number, district and street addresses, and map coordinates.",
+      use_when: "Use it for Korean business listings, capped at 5 results per call; for Google listings use google/business/info.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14748,6 +18882,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Naver Image",
+      returns: "Returns images from Naver's crawl of the Korean web, each with a title, the full image URL, a thumbnail URL, and the image's width and height.",
+      use_when: "Use it to find Korean web images for a query; it returns the image files, not the pages hosting them.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14774,6 +18915,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "naver" },
     tags: ["naver"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Naver Web (웹문서)",
+      returns: "Returns general Korean web pages from Naver's own index, each with a page title, link, and a text snippet.",
+      use_when: "Use it for broad Korean web results; google/search does the same job for the global web.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14794,6 +18942,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "naver" },
     tags: ["naver"],
+    purpose: {
+      summary: "Correct a mistyped Korean search query (오타변환)",
+      returns: "Returns Naver's suggested spelling correction for a mistyped Korean query as a single `errata` string. An empty string means the query was already correct.",
+      use_when: "Use it to fix Korean typos before running a search, since Korean mistypes come from wrong jamo keys and edit-distance checks miss them.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14814,6 +18969,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "naver" },
     tags: ["naver"],
+    purpose: {
+      summary: "Check whether a Korean search term is adult-only (성인 검색어 판별)",
+      returns: "Returns `adult` as the string `\"1\"` when Naver classifies the term as adult-only, `\"0\"` when it does not. Both are strings, not booleans.",
+      use_when: "Use it to moderate user-supplied Korean search input, or to filter a keyword list before you publish it.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "other", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14843,6 +19005,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "naver-datalab" },
     tags: ["naver"],
+    purpose: {
+      summary: "Get Naver search-volume trend for Korean keywords (검색어트렌드)",
+      returns: "Returns one search-interest series for up to 20 Korean keywords, summed together, as `results[].data[]` `{period, ratio}` pairs. `ratio` is a 0-100 index scoped to your window, not a count.",
+      use_when: "Use it for Korean search demand over time, the Naver equivalent of Google Trends. To compare two terms against each other, call it once per term.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14872,6 +19041,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "naver-datalab" },
     tags: ["naver"],
+    purpose: {
+      summary: "Get Naver Shopping click trend for a category (쇼핑인사이트)",
+      returns: "Returns a click-share time series for up to 3 Naver Shopping categories as `results[].data[]` `{period, ratio}` pairs. `breakdown` splits one category by device, gender, or age.",
+      use_when: "Use it for Korean shopping demand trends by category. It partly covers the gap left by Naver retiring its Shopping search corpus, though it gives trends, not product listings or prices.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14902,6 +19078,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "naver-datalab" },
     tags: ["naver"],
+    purpose: {
+      summary: "Get Naver Shopping click trend for keywords inside a category (쇼핑인사이트)",
+      returns: "Returns a click-share series per keyword, up to 5, inside ONE Naver Shopping category, as `results[].data[]` `{period, ratio}` pairs. `breakdown` splits one keyword by demographic.",
+      use_when: "Use it to see which product term is gaining share inside a category, rather than comparing whole categories.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "naver",
@@ -14933,6 +19116,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["naver", "prism"],
+    purpose: {
+      summary: "One query across the Korean internet (5 Naver corpora) + optional digest.",
+      returns: "Returns one query run across five Naver corpora at once, news, blog, cafe, KnowledgeiN, and web, plus per corpus counts and the most recent blog posts.",
+      use_when: "Use it for a single read on the Korean internet instead of calling the five search endpoints yourself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- rumble (5 endpoints) ---
   {
@@ -14962,6 +19152,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Rumble videos",
+      returns: "Returns Rumble videos and shorts matching a keyword, each with title, URL, thumbnail, channel, publish date, and view count.",
+      use_when: "Use it to find videos across all of Rumble, passing the returned cursor for the next page; channel/videos covers one named channel.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "rumble",
@@ -14989,6 +19186,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/channel/videos", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List videos for a Rumble channel",
+      returns: "Returns a Rumble channel's own details plus its videos and shorts, with a cursor for the next page.",
+      use_when: "Use it to walk one channel's uploads by handle or URL; search looks across every channel by keyword instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "rumble",
@@ -15013,6 +19217,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/video", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Rumble video",
+      returns: "Returns one Rumble video's title, description, thumbnail, channel, publish date, view count, likes, dislikes, captions, and media details.",
+      use_when: "Use it when you have a video URL and want that one video in full, rather than a list from search or channel/videos.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "rumble",
@@ -15036,6 +19247,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "youtube/video/transcript", why: "The same data from youtube." },
     ],
+    purpose: {
+      summary: "Get a Rumble video transcript",
+      returns: "Returns the spoken text of a Rumble video when captions are published; when Rumble has none the transcript is empty and nothing is charged.",
+      use_when: "Use it when you need what was said in a video; video gives you its title, description, and counts but no transcript.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "rumble",
@@ -15061,6 +19279,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "youtube/video/comments", why: "The same data from youtube." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "List top-level comments on a Rumble video",
+      returns: "Returns all top-level comments on a Rumble video, each with text, author, when it was posted, like and dislike counts, and reply count.",
+      use_when: "Use it to read a video's comment section, which arrives complete in one response, though replies are not expanded.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
   },
   // --- bluesky (4 endpoints) ---
   {
@@ -15089,6 +19314,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Bluesky profile",
+      returns: "Returns a Bluesky account's public profile: display name, description, avatar, follower, following and post counts, join date, and verified status.",
+      use_when: "Use it when you have a handle such as espn.com and want the account snapshot before pulling its posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "bluesky",
@@ -15116,6 +19348,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "truthsocial/user/posts", why: "The same data from truthsocial." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Bluesky user's posts",
+      returns: "Returns a Bluesky user's feed of posts, each with its text, author, attachments, and reply, repost, like and quote counts.",
+      use_when: "Use it for an account's recent posts, passing either handle or user_id, which on Bluesky is the did identifier.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "bluesky",
@@ -15141,6 +19380,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Bluesky post",
+      returns: "Returns one Bluesky post's text, author, attachments, reply, repost, like and quote counts, along with the replies underneath it.",
+      use_when: "Use it when you have a post URL and want that post plus its reply thread in a single call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "bluesky",
@@ -15173,6 +19419,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Bluesky posts",
+      returns: "Returns up to 100 public Bluesky posts matching a keyword, each with its text, author, like, reply and repost counts, and post link.",
+      use_when: "Use it to find what people post about a topic, newest first or top ranked, filtered by date, language or author; set until to the oldest date to go further back.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   // --- spotify (6 endpoints) ---
   {
@@ -15199,6 +19452,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "apple_music/artist", why: "The same data from apple_music." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Spotify artist",
+      returns: "Returns a Spotify artist's details: id, name, follower count, monthly listeners, genres, and related artists.",
+      use_when: "Use it when you have an artist id or URL and want the artist itself rather than one of their tracks or albums.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "spotify",
@@ -15224,6 +19484,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "apple_music/track", why: "The same data from apple_music." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Spotify track",
+      returns: "Returns one Spotify track: its name, the artists on it, album and cover art, duration, play count, and sharing links.",
+      use_when: "Use it for a single song; album returns the record it sits on and artist returns the performer.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "spotify",
@@ -15249,6 +19516,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "apple_music/album", why: "The same data from apple_music." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Spotify album",
+      returns: "Returns one Spotify album: title, artists, release date, cover art, copyright info, and the tracks on it.",
+      use_when: "Use it for a whole record; when you care about one song only, track gives that song's own detail.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "spotify",
@@ -15275,6 +19549,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Spotify",
+      returns: "Returns Spotify playlists matching a search query, and playlists only: tracks, artists, albums, and podcasts do not come back as results today.",
+      use_when: "Use it to find playlists by keyword, and to look up a known track, album, artist, or podcast, call those endpoints with an id or URL instead.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "spotify",
@@ -15297,6 +19578,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["spotify"],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Spotify podcast",
+      returns: "Returns one Spotify podcast show: its id, name, description, and cover art, addressed by a Spotify /show/ URL or id since Spotify calls podcasts shows.",
+      use_when: "Use it for the show itself; for the episodes inside it, use podcast/episodes.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "spotify",
@@ -15321,6 +19609,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "scrapecreators" },
     tags: ["spotify"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Spotify podcast's episodes",
+      returns: "Returns a Spotify podcast's episodes, each with a title, release date, duration, cover art, and a short preview audio URL.",
+      use_when: "Use it after podcast to list what a show has published, paging through with the cursor from the previous response.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   // --- apple_music (5 endpoints) ---
   {
@@ -15350,6 +19645,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search Apple Music",
+      returns: "Returns Apple Music search results for a query, optionally restricted by type such as song, album, or artist.",
+      use_when: "Use it to find a catalog item by keyword, then call artist, album, or track with an id or URL for the full record.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "apple_music",
@@ -15375,6 +19677,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "spotify/artist", why: "The same data from spotify." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get an Apple Music artist",
+      returns: "Returns an Apple Music artist's details: id, name, artwork, and the artist URL.",
+      use_when: "Use it when you have an artist id or URL and want the artist itself rather than one of their tracks or albums.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "apple_music",
@@ -15400,6 +19709,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "spotify/album", why: "The same data from spotify." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get an Apple Music album",
+      returns: "Returns one Apple Music album: title, artist, artwork, track count, and the album URL.",
+      use_when: "Use it for a whole record; when you care about one song only, track gives that song's own detail.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "apple_music",
@@ -15425,6 +19741,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "spotify/track", why: "The same data from spotify." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get an Apple Music track",
+      returns: "Returns one Apple Music track: title, artist, duration, preview audio URL, and the track URL.",
+      use_when: "Use it for a single song; album returns the record it sits on and artist returns the performer.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "apple_music",
@@ -15444,6 +19767,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the Apple Music charts for a country",
     description:
       "Returns what a country is playing most on Apple Music right now: the Top Songs, Top Albums, Top Music Videos or Top Playlists chart, with no keyword in. Each item is a Post: `content.text` is the title, `author.username` the artist, `url` the Apple Music link and `content.thumbnail_url` the artwork. The chart position is on `ext.trend`: `rank` (1 is the top), `country_code`, `chart` and Apple's own `chart_title` and `updated_at`. `ext.apple_music` carries `kind`, `release_date`, `artist_id`, `artist_url`, `genres` and `content_advisory`. `published_at` is the release date at midnight UTC. Playlists have no artist or release date, so those are null. The item ids work with /v1/apple_music/track and /v1/apple_music/album for the full record. A country Apple Music does not publish a chart for is a free 400. Exact repeats within an hour are served from cache at 0 credits.",
+    budget_ms: 25000,
     singlePage: "One ranked chart per country and type with no second page. The chart is at most 100 deep; `limit` sets how many positions ship.",
     cache: { category: "analytics", ttlSeconds: 3600 },
     upstream: { kind: "apple-rss-charts" },
@@ -15453,6 +19777,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "country", benefit: "Results for one country.", example: "de" },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Get the Apple Music charts for a country",
+      returns: "Returns a country's Apple Music chart for songs, albums, music videos or playlists, ranked from the top, with artist, artwork, release date and genres.",
+      use_when: "Use it to see what a market is playing right now without naming a track, or to track chart positions country by country over time.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   // --- search (5 endpoints) ---
   {
@@ -15487,6 +19818,14 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "meta" },
     family: "prism",
     tags: ["search"],
+    purpose: {
+      summary: "Universal social search across 14 platforms",
+      returns: "Returns one ranked, clustered result set for a query run in parallel across Reddit, X, YouTube, TikTok, Instagram and more, with top comments and each post's stance and relevance attached.",
+      use_when: "Use it when you want a topic's coverage everywhere at once instead of calling each platform's search endpoint yourself.",
+      not_for: "Not for a platform you already know, whose own search endpoint is direct, nor for forums only (search/forums), news only (search/news) or creator discovery (search/creators).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 29448, p95: 37382, p99: 37567, n: 9, provisional: true, low_sample: true },
   },
   {
     platform: "search",
@@ -15518,6 +19857,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "meta" },
     family: "prism",
     tags: ["search"],
+    purpose: {
+      summary: "Fused forum search across Reddit, Hacker News, and Naver 지식iN/카페, with top comments inline on hero threads by default.",
+      returns: "Returns one merged, clustered list of discussion threads from Reddit, Hacker News, and Korean forums, with top comments on the main threads clipped to 300 characters.",
+      use_when: "Use it when you want what real people are asking and answering; search/everywhere also covers video, code, and social posts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "search",
@@ -15549,6 +19895,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "meta" },
     family: "prism",
     tags: ["search"],
+    purpose: {
+      summary: "Fused creator discovery across TikTok, Threads, and Instagram, ranked by relevance, followers, and verification. YouTube, X, and Facebook people are opt-in via sources=.",
+      returns: "Returns one ranked list of creators matching a niche across TikTok, Threads, and Instagram, fused by handle with follower and verification scores, and each account's kind (person, brand, media).",
+      use_when: "Use it to find creators about a topic in one call; search/everywhere covers posts, not profile search.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "search",
@@ -15617,6 +19970,14 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "relevance", benefit: "Drops rows that are not about your query, at no extra credits; relevance=score keeps them and adds a score.", example: "filter" },
       { name: "since", benefit: "Returns only posts after this date, so a daily poll pays only for the pages with new posts.", example: "2026-09-01" },
     ],
+    purpose: {
+      summary: "One query, each platform's own search results, in one call at each platform's own price.",
+      returns: "Returns each chosen platform's own search results for one query in one list, tagged by platform and deduped by URL, with each platform's own endpoint for going further.",
+      use_when: "Use it instead of calling several platforms' search endpoints yourself; for a ranked, summarised answer use search/everywhere.",
+      not_for: "Not for a ranked, clustered answer with comments attached (search/everywhere), forum threads (search/forums) or news (search/news).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 9600, p95: 9600, p99: 9600, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "search",
@@ -15654,6 +20015,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "finance/news", why: "The same data from finance." },
     ],
+    purpose: {
+      summary: "Planned multi-country news search: one query, localized and fanned out across two independent news indexes in a single call.",
+      returns: "Returns one deduplicated list of news articles for a query from the Google News editions of the countries you pick, in each one's language, grouped into stories about the same event.",
+      use_when: "Use it for news coverage across several countries at once; for one topic across social platforms use search/everywhere.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   // --- prism (46 endpoints) ---
   {
@@ -15679,6 +20047,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Universal post/product URL dispatcher: any post, video, product or repo link → the right detail endpoint's unified response.",
+      returns: "Returns the data behind any social or shopping link you paste in: the post, profile, video, or product that URL points to, in one response.",
+      use_when: "Use it when you have a URL but do not know which platform endpoint fits, so you can skip writing your own link parsing and routing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "composite_dispatcher", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15710,6 +20085,14 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Every comment on a post, replies nested, server-paginated to completion.",
+      returns: "Returns every comment on a TikTok, YouTube, Facebook, Reddit, Hacker News, or Instagram post, paged to the end, with replies nested where the platform allows.",
+      use_when: "Use it to collect a whole comment thread in one request instead of looping the per-platform comments endpoint and stitching the pages together.",
+      not_for: "Not for judged or filtered comments (label, fit, exclude), which tiktok/post/comments, youtube/video/comments and instagram/post/comments offer.",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 4462, p95: 6650, p99: 6912, n: 4, provisional: true, low_sample: true },
   },
   {
     platform: "prism",
@@ -15739,6 +20122,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Brand mention volume time-series, sentiment split, top sources, and recent mentions for one keyword.",
+      returns: "Returns mention volume over time for one keyword, plus the positive and negative split, the sites talking most, and a sample of recent mentions.",
+      use_when: "Use it for a single keyword's tracking view, where you want the trend, the sentiment, and real examples together rather than three separate searches.",
+      not_for: "Not for comparing brands (prism/share-of-voice), @handle or link mentions on social platforms (prism/mentions) or paging through every web mention (content_analysis/search).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15770,6 +20160,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Consumer-demand nowcast: app-review velocity, web mention slope, Reddit velocity, and commerce review levels, fused into a published demand index.",
+      returns: "Returns a consumer demand read for a keyword from web mention trend, Reddit posting speed, and product review levels, plus app review velocity when you supply an app id, with the maths shown.",
+      use_when: "Use it to gauge whether interest in a product is rising, instead of pulling app, web, Reddit, and shopping data separately and building your own index.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15800,6 +20197,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Campaign tracker: pre/during/post volume lift, cross-platform engagement, and ranked top amplifiers for a hashtag or phrase.",
+      returns: "Returns a campaign report for a hashtag or phrase: volume before, during, and after your window, engagement by platform, and the accounts amplifying it most.",
+      use_when: "Use it to measure whether a campaign lifted conversation, instead of running separate trend, search, and creator lookups and lining the dates up yourself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15831,6 +20235,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism", "geo", "ai-search"],
+    purpose: {
+      summary: "AI Share-of-Voice / GEO monitoring: prompt set x reruns to per-brand appearance-% per AI engine plus a cited-domain ranking.",
+      returns: "Returns how often your brand and rivals appear in AI assistant answers for a set of prompts, per engine, plus a ranking of the sites those answers cite.",
+      use_when: "Use it to track brand visibility inside AI search, which no per-platform endpoint covers, and to see which sites you need to be mentioned on.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15858,6 +20269,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Crisis post-mortem: a who-said-what-first timeline across web, Reddit, Hacker News, and social, with an origin, peak, propagation sequence, and a grounded narrative.",
+      returns: "Returns a timeline of a brand crisis across the web, Reddit, Hacker News, and social: where it started, when it peaked, how it spread, and a written summary.",
+      use_when: "Use it after an incident to reconstruct who said what first, instead of pulling each source separately and sorting the events by hand.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15886,6 +20304,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Stateless crisis breach check: a z-score on daily mention volume and negative share, with on-breach confirmation and a severity grade.",
+      returns: "Returns a calm, watch, alert, or crisis status for a brand by comparing today's mention volume and negative share against its recent daily baseline.",
+      use_when: "Use it as a recurring check for a sudden spike in negative chatter; when it does trigger, run crisis-postmortem for the full timeline.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15914,6 +20339,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Developer-brand health: a devtool's repo dossier + Hacker News reaction + Reddit chatter + dev-blog echo, in one call.",
+      returns: "Returns a health snapshot for a developer tool: its GitHub repository details, Hacker News reaction, Reddit chatter, blog coverage, and a summary label.",
+      use_when: "Use it to judge a dev tool's momentum in one request rather than querying GitHub, Hacker News, Reddit, and web search and merging the results.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15942,6 +20374,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Ranked feed of public conversations where people seek alternatives to or are switching from a competitor.",
+      returns: "Returns a ranked feed of public posts and comments where people ask for alternatives to a competitor or say they are switching away from it.",
+      use_when: "Use it to find buying-intent conversations without writing and scoring your own searches across the web, Reddit, and Hacker News.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -15971,6 +20410,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Buyer leads from the comments under the posts a keyword search returns, opening only the posts worth opening.",
+      returns: "Returns buyer leads found in the comments of TikTok posts that match your search and your offer, each citing its comment and post, plus the posts opened and skipped and the credits spent.",
+      use_when: "Use it when your leads sit in the comments rather than the posts, so you pay for the comments of the posts likely to hold buyers instead of every post.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16000,6 +20446,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A brand's earned-media footprint: news + tech-press + fresh-web clips, deduped and ranked, with an outlet-coverage rollup.",
+      returns: "Returns a deduplicated, ranked feed of news, tech press, and fresh web articles mentioning a brand, plus which outlets covered it most.",
+      use_when: "Use it for press coverage tracking in one call, and add a competitor to see which outlets covered them and not you.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16029,6 +20482,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A Truth Social handle's pulse: profile, recent posts, per-post detail drill, and the news echo, in one call.",
+      returns: "Returns a Truth Social account's profile, recent posts, full detail on the top ones, and news coverage of it, with an activity and sentiment read.",
+      use_when: "Use it to monitor one Truth Social account in a single request, since the platform has no search and you would otherwise chain profile, post, and news calls.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16057,6 +20517,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "How a launch landed: the Hacker News reaction (top threads + comments), the dev-blog echo, and an optional repo dossier.",
+      returns: "Returns how a launch was received: the top Hacker News threads and their comments, the blog coverage it got, and optionally the GitHub repository behind it.",
+      use_when: "Use it right after a launch to gather the reaction in one call; devtool-pulse is the ongoing health view, this one covers a single moment.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16084,6 +20551,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "How much two TikTok creators' commenter audiences overlap. Jaccard, shared-fan count, and a confidence label.",
+      returns: "Returns how much two TikTok creators' commenting audiences overlap: shared people, an overlap score, counts unique to each, and a confidence label.",
+      use_when: "Use it to check for duplicate reach before booking both creators, since no single endpoint compares two creators' audiences.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16115,6 +20589,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A brand's cross-source reputation. Trustpilot + app stores + Google Business + web sentiment, blended into one weighted score with themed pros/cons.",
+      returns: "Returns a brand's blended reputation score from Trustpilot, both app stores, Google Business, and web sentiment, with themed pros, cons, and quotes.",
+      use_when: "Use it for an overall read on how a company is seen; product-reviews is the version for one specific product rather than the company.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16144,6 +20625,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A company's employer brand: what people say about working there across Reddit, the web, YouTube, Naver, and the company's own LinkedIn voice.",
+      returns: "Returns what people say about working at a company across Reddit, news, and YouTube, plus the tone of its own LinkedIn posts when you supply linkedin_url.",
+      use_when: "Use it to compare a company's employer messaging with what staff and candidates actually say, without querying each of those surfaces yourself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16172,6 +20660,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "The real questions a topic's audience asks: harvested from Reddit + YouTube threads and clustered by intent (who/what/why/how/vs).",
+      returns: "Returns the real questions people ask about a topic, taken from Reddit and YouTube threads and grouped by intent such as who, what, why, how, and comparisons.",
+      use_when: "Use it to build content briefs or FAQs from the audience's own wording rather than searching each platform and reading threads yourself.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16201,6 +20696,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A product's reviews across Amazon + Google Shopping + Trustpilot, folded into a cross-marketplace rating + themed pros/cons report.",
+      returns: "Returns one product's reviews from Amazon, Google Shopping, and Trustpilot with a rating per source, a retailer comparison, and the themes moving the rating.",
+      use_when: "Use it to judge a single product across shops in one call; reputation covers a whole company, and review-integrity tests whether the ratings look genuine.",
+      not_for: "Not for one shop's individual reviews (amazon/reviews, google_shopping/reviews, trustpilot/reviews), a company's standing (prism/reputation) or app reviews (prism/app-reviews).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16230,6 +20732,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "One app across Google Play + the App Store: resolved, title-matched, and compared into a cross-store rating + listing report.",
+      returns: "Returns one app's Google Play and App Store listings side by side: rating, installs, price, the gap between stores, and how confident the match is.",
+      use_when: "Use it to compare an app across both stores in one call, with a guard so two apps sharing a name are not treated as the same app.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16256,6 +20765,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A GitHub org's footprint: its top repos each expanded into a full dossier (releases, issue load, top request/complaint), rolled up.",
+      returns: "Returns a GitHub organization's footprint: its most starred repositories, each with releases, open issue load, and its top feature request and complaint.",
+      use_when: "Use it to size up a whole organization in one call instead of listing the repositories and then pulling a report for each one.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16282,6 +20798,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Vet a creator before partnering: engagement quality, commenter authenticity, posting cadence, and controversy signals, optionally across platforms.",
+      returns: "Returns vetting signals for a creator: engagement rate, comment and commenter quality, posting frequency, and news or forum controversy judged item by item, with namesakes excluded and flags sourced.",
+      use_when: "Use it before a paid partnership to get authenticity and risk signals together, rather than pulling profile, posts, comments, and news separately.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16316,6 +20839,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Screen a person's public social profiles for adverse posts, with every flag citing its post, for human review.",
+      returns: "Returns the posts on a person's own public profiles that need review, each citing its post with a probability per category and a severity level, plus counts per category.",
+      use_when: "Use it in background or KYC screening to find adverse posts across a candidate's profiles without reading every post by hand. Your reviewer makes the call.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16345,6 +20875,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Turn a person's or a company's name into ranked candidate accounts on Instagram, TikTok, X and LinkedIn, with a match level per platform, for human review.",
+      returns: "Returns the candidate public accounts for a person's or a company's name on Instagram, TikTok, X and LinkedIn, ranked per platform, each platform with a match level that includes an explicit none.",
+      use_when: "Use it when you have a name but no handles and want a shortlist to review, instead of searching each platform and comparing profiles by hand. It never states who runs an account; your reviewer decides.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16372,6 +20909,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Public posts and comments that mention a handle or contain a link, from the first page of each search that can find them.",
+      returns: "Returns public posts and comments that mention a handle or contain a link, from the first page of each search that can find them.",
+      use_when: "Use it to find public mentions of an account or a link when you do not already know the post. It is a first page, not an index.",
+      not_for: "Not for brand-wide volume, trend or sentiment, since it reads only the first page of each search (prism/brand-mentions, content_analysis/search).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16399,6 +20943,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Check a creator post against a campaign brief: talking points, forbidden claims, and disclosure.",
+      returns: "Returns a pass or review verdict for one creator post against your brief, with a coverage score and quote per talking point, any forbidden claims, and whether a disclosure is present.",
+      use_when: "Use it to check creator posts against a campaign brief instead of watching each video by hand. A missing transcript is reported and never treated as a pass.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16422,6 +20973,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Which hook works for this creator, measured against their own posts.",
+      returns: "Returns how each hook on one creator's recent posts compares with that creator's own median. A small bucket leaves the median empty.",
+      use_when: "Use it to see which hook works for this creator. Each post is divided by that creator's own median.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16449,6 +21007,13 @@ export const ENDPOINTS: Endpoint[] = [
     featuredParams: [
       { name: "region", benefit: "Results for one market.", example: "US" },
     ],
+    purpose: {
+      summary: "How early a term appeared on each platform, before Trends and before ads.",
+      returns: "Returns the first relevant post date per platform for one term, when Trends started, whether ads exist, and the gap in days.",
+      use_when: "Use it to see whether a term appeared before search trends and before ads. A different subject that shares the words is not the first sighting.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16474,6 +21039,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "What is rising in one country today, with no keyword in: breakout TikTok posts, sounds, hashtags, and Google searches.",
+      returns: "Returns what is rising in one country with no keyword: TikTok posts far above their author's usual views, the most used sounds, TikTok's hashtag board and Google trending searches.",
+      use_when: "Use it to scan a country for trends before you have a term to search. The board is computed on each call and keeps no history.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16499,6 +21071,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Language mix of the people commenting on a creator's recent posts, beside the follower sample on TikTok.",
+      returns: "Returns the language mix of comments on a creator's recent posts, with the sample size, the abstain count, a 90% interval and up to three verbatim comments per language. On TikTok the follower sample sits beside it, each with its own count.",
+      use_when: "Use it when you need the language of the people who comment, next to the follower sample, instead of reading the comment pages and counting by hand.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "audience_graph", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16526,6 +21105,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "What the world is talking about that Korea isn't (and vice versa): the global vs Korean (Naver) conversation gap for a brand/topic.",
+      returns: "Returns the gap between global and Korean talk about a topic: which Naver surfaces carry it, a channel by channel map, and translated example quotes.",
+      use_when: "Use it to see whether a brand's Korean conversation matches its global one, a comparison no single search endpoint gives you.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16556,6 +21142,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Engagement-weighted Share of Voice across 2-5 brands, with web+social split, emotion overlay, and ESOV.",
+      returns: "Returns share of voice across two to five brands weighted by engagement, split into web and social, with an emotion breakdown and a per brand trend.",
+      use_when: "Use it to compare brands against each other in one call, where brand-mentions covers a single keyword with no competitive split.",
+      not_for: "Not for one keyword's trend and sentiment (prism/brand-mentions), and it needs two to five brands, so not for a single brand.",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16582,6 +21175,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Cross-source review integrity verdict (statistical, deterministic).",
+      returns: "Returns a graded verdict on whether a product's reviews look trustworthy, comparing its ratings across Amazon, Google Shopping, Trustpilot, and the open web.",
+      use_when: "Use it when you suspect inflated or paid reviews; product-reviews tells you what buyers said, this tells you whether to believe the ratings.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16611,6 +21211,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "quora/answers", why: "The same data from quora." },
     ],
+    purpose: {
+      summary: "Multi-engine AI consensus: one question → Perplexity + Grok + Tavily answers verbatim, merged citations, and an agreement matrix.",
+      returns: "Returns your question answered by several AI search engines, each kept word for word, with their citations merged and a map of where they agree and disagree.",
+      use_when: "Use it when one AI answer is not enough and you want a second and third opinion, plus the sources they share, from a single request.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16639,6 +21246,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "One video URL → detail + stats + transcript + top comments + commenter sample, across YouTube/TikTok/Rumble/Instagram.",
+      returns: "Returns everything about one video URL: its details and stats, comments, an optional transcript, and, on TikTok and Instagram, profiles for a few of the commenters.",
+      use_when: "Use it to build a full picture of a YouTube, TikTok, Rumble, or Instagram video in one call instead of chaining detail, comments, and transcript calls.",
+      not_for: "Not for only a video's details (youtube/video, tiktok/post) or only its whole comment thread (prism/comments).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16667,6 +21281,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "One person's public posts across X, Threads, Bluesky, and Truth Social, time-merged.",
+      returns: "Returns one person's recent posts from X, Threads, Bluesky, and Truth Social in a single time-ordered feed, plus which of those they are actually on.",
+      use_when: "Use it to follow someone across microblogs in one call; creator-card returns their profile stats, this returns what they actually posted.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16701,6 +21322,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/app-reviews", why: "The same data from google_play." },
       { id: "app_store/app-reviews", why: "The same data from app_store." },
     ],
+    purpose: {
+      summary: "Cross-store app review intelligence (Google Play + App Store): translated, clustered, sentiment-scored.",
+      returns: "Returns Google Play and App Store reviews together: rating summaries, topic clusters, sentiment over time, feature requests, and how often the developer replies.",
+      use_when: "Use it to read an app's feedback in one call; apps-lookup compares the two store listings, this covers what reviewers actually wrote.",
+      not_for: "Not for one store's raw review rows (google_play/app-reviews, app_store/app-reviews) or a shop product's reviews (prism/product-reviews).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16728,6 +21356,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "One handle, unified author cards across TikTok, Instagram, YouTube, X (and more).",
+      returns: "Returns one profile card per platform for a single handle: followers, verified status, bio, and ids, with null on platforms where the handle does not exist.",
+      use_when: "Use it to look up the same handle everywhere at once; handle-audit adds scoring and collection estimates, this just returns the profiles.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16771,6 +21406,13 @@ export const ENDPOINTS: Endpoint[] = [
       "`score_with_domain_relevance` is 0.7 x `score` + 0.3 x `domain_relevance.score`, and `verdict_with_domain_relevance` applies the same thresholds to it. `score`, `verdict`, the five base components, their weights and `evidence_fingerprint` never read the subject.",
       "`domain_relevance` is null with a `_warnings` entry when fewer than 3 posts could be judged (`domain_relevance_insufficient_sample`) or the judging step did not answer (`domain_relevance_unavailable`). It is a judged estimate to review, not a measurement. Without `relevant_to` none of these fields is present.",
     ],
+    purpose: {
+      summary: "Should you pull this handle? One call scores a handle across platforms, ranks the best ones, and projects the data volume + credit cost to pull it.",
+      returns: "Returns a scored audit of a handle across platforms: a verdict, per platform scores, follower and activity signals, and an estimate of the data volume and credits a full pull would cost.",
+      use_when: "Use it to vet a creator or brand name across platforms in one call instead of checking each network separately.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16796,6 +21438,14 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Up to 100 mixed-platform post URLs → current engagement per URL, failed URLs refunded.",
+      returns: "Returns current view, like, comment, share, and save counts for a batch of post links from mixed platforms, one row per URL in the order you sent them.",
+      use_when: "Use it to refresh engagement across many posts at once, with each link isolated so one dead URL never fails the rest of the batch.",
+      not_for: "Not for one post's full detail, caption and author (tiktok/post, youtube/video).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 970, p95: 1018, p99: 1022, n: 2, provisional: true, low_sample: true },
   },
   {
     platform: "prism",
@@ -16819,6 +21469,14 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "Re-check up to 25 known comments in one call: per-item results, failed items refunded.",
+      returns: "Returns the current state of comments you already know about, one result per item, each marked found, not found, errored, or deferred.",
+      use_when: "Use it for recurring tracking of specific comments, since one request re-checks your whole list instead of a separate lookup per comment.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+    latency_ms: { p50: 1331, p95: 1331, p99: 1331, n: 1, provisional: true, low_sample: true },
   },
   {
     platform: "prism",
@@ -16848,6 +21506,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "quora/profiles", why: "The same data from quora." },
     ],
+    purpose: {
+      summary: "Up to 50 (platform, handle) pairs → one canonical Author per row, failed handles refunded.",
+      returns: "Returns a profile for each platform and handle pair you send, in the order you sent them, with a status per row and the same shape as the single profile call.",
+      use_when: "Use it to vet many handles at once instead of calling the profile endpoint per handle; creator-card is for one handle across several platforms.",
+      not_for: "Not for one handle across several platforms (prism/creator-card), or a single profile where its own endpoint is simpler (tiktok/profile, instagram/profile).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16880,6 +21545,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "web/jobs", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "Up to 5,000 profiles or post URLs in one background job, at the batch endpoints' own prices.",
+      returns: "Starts a background job over up to 5,000 profiles or post URLs and returns its job id right away, holding the price of every row up front.",
+      use_when: "Use it when a handle or URL list is too long for one call to prism/profiles or prism/post-stats; read the rows later from the job.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16908,6 +21580,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "web/jobs", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "List the API key's background jobs, newest first.",
+      returns: "Lists the background jobs created with your API key, newest first, each with its status, row counts, and credits held and charged.",
+      use_when: "Use it to find a job id you did not keep, or to see which jobs are still running.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "job_lifecycle", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "prism",
@@ -16938,6 +21617,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "web/jobs/{job_id}", why: "The same data from web." },
     ],
+    purpose: {
+      summary: "Status and results of one background job.",
+      returns: "Returns one background job's status, summary, and its finished rows, a few chunks per page, each row as the batch endpoint returns it.",
+      use_when: "Use it to poll a job you started with POST /v1/prism/jobs and to read its rows page by page.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "job_lifecycle", job_family: "api_catalog_and_account", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "prism",
@@ -16963,6 +21649,13 @@ export const ENDPOINTS: Endpoint[] = [
     upstream: { kind: "prism" },
     family: "prism",
     tags: ["prism"],
+    purpose: {
+      summary: "A bounded read-only walk over SocialCrawl endpoints that turns a research goal into a trail of searches, profiles and comments.",
+      returns: "Returns a trail of read-only searches, profile opens, and comment pulls for a research goal, plus why the walk stopped and the credits used.",
+      use_when: "Use it when you have a research goal and want a bounded walk across TikTok and Instagram instead of chaining those calls yourself. Unused budget is refunded.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "cross_platform_composite", takes_item_id_from_another_endpoint: false },
   },
   // --- content_analysis (10 endpoints) ---
   {
@@ -16996,6 +21689,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "web/search", why: "The same data from web." },
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
+    purpose: {
+      summary: "Search web citations of a keyword with per-mention sentiment",
+      returns: "Returns pages across news, blogs, shops, and message boards that mention your keyword, each scored for sentiment and emotional tone.",
+      use_when: "Use it to read the individual mentions and page through them; for one roll-up per keyword use summary instead.",
+      not_for: "Not for a roll-up or a trend (content_analysis/summary, content_analysis/phrase-trends) or for social posts and comments (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17022,6 +21722,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-content-analysis" },
     tags: ["content_analysis"],
+    purpose: {
+      summary: "Aggregate mention summary for a keyword",
+      returns: "Returns one roll-up of every web mention of a keyword: total count, top domains, sentiment splits, and breakdowns by page type, country, and language.",
+      use_when: "Use it to size and characterize a brand's web presence in one call, before pulling individual mentions with search.",
+      not_for: "Not for individual mentions (content_analysis/search), a trend over time (content_analysis/phrase-trends) or social posts and comments (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17046,6 +21753,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-content-analysis" },
     tags: ["content_analysis"],
+    purpose: {
+      summary: "Sentiment breakdown for a keyword",
+      returns: "Returns two sentiment breakdowns of a keyword's web mentions: positive, negative, and neutral, plus six emotional axes such as anger, happiness, and love.",
+      use_when: "Use it when sentiment is the only thing you need; use summary when you also want domains, categories, and country breakdowns.",
+      not_for: "Not for domain, country or language breakdowns (content_analysis/summary) or social posts and comments (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17069,6 +21783,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-content-analysis" },
     tags: ["content_analysis"],
+    purpose: {
+      summary: "Rating histogram for a keyword",
+      returns: "Returns a ten bucket histogram of the ratings found in a keyword's web mentions, with sentiment, domains, and categories for each bucket.",
+      use_when: "Use it for products and review heavy terms where you want to see how sentiment differs between well rated and badly rated mentions.",
+      not_for: "Not for overall sentiment (content_analysis/sentiment), individual reviews (amazon/reviews, google_shopping/reviews, trustpilot/reviews) or social posts (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17096,6 +21817,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-content-analysis" },
     tags: ["content_analysis"],
+    purpose: {
+      summary: "Keyword mention volume + sentiment over time",
+      returns: "Returns a time series of how often a keyword was mentioned on the web and how sentiment moved, one row per day, week, or month.",
+      use_when: "Use it to track a keyword over a date range; summary gives the same picture as a single snapshot with no time axis.",
+      not_for: "Not for a single snapshot with no time axis (content_analysis/summary), a whole category (content_analysis/category-trends) or social posts (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17122,6 +21850,13 @@ export const ENDPOINTS: Endpoint[] = [
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-content-analysis" },
     tags: ["content_analysis"],
+    purpose: {
+      summary: "Category mention volume + sentiment over time",
+      returns: "Returns the same mention volume and sentiment time series as phrase-trends, but for a whole content category code rather than a keyword.",
+      use_when: "Use it to trend an entire category such as apparel; look the code up first with the categories endpoint.",
+      not_for: "Not for a keyword's trend (content_analysis/phrase-trends); it needs a code from content_analysis/categories. Not for social posts (search/everywhere).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "content_analysis",
@@ -17144,6 +21879,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/languages", why: "The same data from google_play." },
       { id: "app_store/languages", why: "The same data from app_store." },
     ],
+    purpose: {
+      summary: "List supported Content Analysis languages",
+      returns: "Returns the languages the content analysis endpoints support, each with its name and ISO code.",
+      use_when: "Use it to find the code to filter by, or to read the language field returned on mentions.",
+      not_for: "Not for mention data, because it is a lookup list (content_analysis/search, content_analysis/summary).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17166,6 +21908,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_play/locations", why: "The same data from google_play." },
       { id: "app_store/locations", why: "The same data from app_store." },
     ],
+    purpose: {
+      summary: "List supported Content Analysis locations",
+      returns: "Returns the locations the content analysis endpoints support.",
+      use_when: "Use it to read the country field returned on mentions, or to check which locations are covered.",
+      not_for: "Not for mention data, because it is a lookup list (content_analysis/search, content_analysis/summary).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17188,6 +21937,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "g2/categories", why: "The same data from g2." },
       { id: "google_play/categories", why: "The same data from google_play." },
     ],
+    purpose: {
+      summary: "List the Content Analysis category taxonomy",
+      returns: "Returns the full content category taxonomy, each entry with its code, name, and parent code.",
+      use_when: "Use it to look up a category_code for category-trends, and to decode the numeric category values on mentions.",
+      not_for: "Not for mention data, because it is a lookup list (content_analysis/search, content_analysis/summary).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "content_analysis",
@@ -17209,6 +21965,13 @@ export const ENDPOINTS: Endpoint[] = [
     related: [
       { id: "gumtree/filters", why: "The same data from gumtree." },
     ],
+    purpose: {
+      summary: "List the filterable fields for Content Analysis",
+      returns: "Returns the fields you are allowed to filter on and the value type each one accepts.",
+      use_when: "Use it to build a valid filters expression before calling search, summary, or sentiment.",
+      not_for: "Not for mention data, because it is a lookup list (content_analysis/search, content_analysis/summary).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   // --- on_page (1 endpoint) ---
   {
@@ -17229,6 +21992,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Run an on-page SEO audit for one URL",
     description:
       "Returns a technical on-page audit for one URL: title, meta, heading counts, on-page score, checks (HTTPS, canonical, broken links), and page timing. One credit per call.",
+    budget_ms: 20000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "dfs-on-page" },
     tags: ["on_page"],
@@ -17236,6 +22000,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linktree/page", why: "The same data from linktree." },
       { id: "linkbio/page", why: "The same data from linkbio." },
     ],
+    purpose: {
+      summary: "Run an on-page SEO audit for one URL",
+      returns: "Returns a technical on-page SEO audit for one URL: title, meta, heading counts, on-page score, checks, and page timing.",
+      use_when: "Use it to audit a single public URL in one call rather than crawling a whole site.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "web_and_seo", takes_item_id_from_another_endpoint: false },
   },
   // --- jobs (11 endpoints) ---
   {
@@ -17261,6 +22032,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search LinkedIn job listings",
     description:
       "Returns LinkedIn job listings matching a keyword and optional location, date, employment type, experience, workplace, or company-id filters. Each row has job id, title, company, location, posting date, and listing URL. Pass an id to GET /v1/jobs/linkedin for the full description. Page 2 with the cursor from page 1.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17271,6 +22043,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "date_posted", benefit: "Only posts from this time window.", example: "week" },
     ],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "Search LinkedIn job listings",
+      returns: "Returns LinkedIn job listings matching a keyword, each with job id, title, company, location, posting date, and listing URL.",
+      use_when: "Use it to search LinkedIn openings with location, date, employment type, experience, workplace, or company-id filters, then pass an id to linkedin.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17288,11 +22067,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a LinkedIn job listing by id",
     description:
       "Returns one LinkedIn job: title, company, location, employment type, seniority, applicant count, description, and listing URL. Use an id from GET /v1/jobs/linkedin/search.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.job" },
+    purpose: {
+      summary: "Get a LinkedIn job listing by id",
+      returns: "Returns one LinkedIn job listing: title, company, location, employment type, seniority, applicant count, description, and listing URL.",
+      use_when: "Use it after linkedin/search, passing a job id from that list to read the complete description.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "jobs",
@@ -17310,12 +22097,20 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Resolve LinkedIn organization ids",
     description:
       "Returns LinkedIn companies and schools matching a name, each with a display name and numeric id. Pass those ids as organization_ids on GET /v1/jobs/linkedin/search to filter listings by employer.",
+    budget_ms: 15000,
     singlePage: "Fixed-window lookup: upstream returns one non-cursored page of organization ids.",
     cache: { category: "search", ttlSeconds: 120 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Resolve LinkedIn organization ids",
+      returns: "Returns LinkedIn companies and schools matching a name, each with a display name and numeric organization id.",
+      use_when: "Use it first to turn an employer name into the organization_ids filter that linkedin/search accepts.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17339,6 +22134,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Indeed job listings",
     description:
       "Returns Indeed job listings matching a keyword, country, and optional city, sort, and radius. Each row includes title, company, location, description, and apply URL. country_code is required on page 1 (ISO 3166-1 alpha-2). Page 2 with the cursor from page 1.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17346,6 +22142,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "Search Indeed job listings",
+      returns: "Returns Indeed job listings matching a keyword and country, each with title, company, location, description, and apply URL.",
+      use_when: "Use it to search Indeed in a given country, optionally narrowing by city, sort, and radius, then pass an id to indeed. country_code is required on page 1.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17363,11 +22166,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get an Indeed job listing by id",
     description:
       "Returns one Indeed job: title, company, location, description, and apply URL. Use an id from GET /v1/jobs/indeed/search.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.job" },
+    purpose: {
+      summary: "Get an Indeed job listing by id",
+      returns: "Returns one Indeed job listing: title, company, location, description, and apply URL.",
+      use_when: "Use it after indeed/search, passing a job id from that list to read the full description.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "jobs",
@@ -17390,6 +22201,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Bing job listings",
     description:
       "Returns aggregated job listings from Bing matching a keyword and location, with optional date, employment type, and remote-only filters. Each row has title, company, location, and the original job board. List rows do not include an apply URL; pass an id to GET /v1/jobs/bing for the description and apply link. location is required on page 1.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17400,6 +22212,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "date_posted", benefit: "Only posts from this time window.", example: "week" },
     ],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "Search Bing job listings",
+      returns: "Returns aggregated job listings matching a keyword and location, each with title, company, location, and the original job board.",
+      use_when: "Use it to search across boards in one call, then pass an id to bing for the description and apply URL. location is required on page 1.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17417,11 +22236,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Bing job listing by id",
     description:
       "Returns one Bing-aggregated job: title, company, location, employment type, description, and apply URL. Use an id from GET /v1/jobs/bing/search.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.job" },
+    purpose: {
+      summary: "Get a Bing job listing by id",
+      returns: "Returns one aggregated job listing: title, company, location, employment type, description, and apply URL.",
+      use_when: "Use it after bing/search, passing a job id from that list to read the description and apply link.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "jobs",
@@ -17446,6 +22273,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Xing job listings",
     description:
       "Returns Xing job listings matching a keyword, with optional German-language location, date, employment type, career level, remote option, and minimum yearly salary filters. Rows often include a salary range. Page 2 with the cursor from page 1.",
+    budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17456,6 +22284,13 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "date_posted", benefit: "Only posts from this time window.", example: "week" },
     ],
     responseShape: { root: "data.items[]", itemKey: "job" },
+    purpose: {
+      summary: "Search Xing job listings",
+      returns: "Returns Xing job listings matching a keyword, each with title, company, location, employment type, and often a salary range.",
+      use_when: "Use it to search the German-language job market with location, date, career level, remote, and minimum-salary filters, then pass an id to xing.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17473,11 +22308,19 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Xing job listing by id",
     description:
       "Returns one Xing job: title, company, location, employment type, remote option, salary range, description, and apply URL. Use an id from GET /v1/jobs/xing/search.",
+    budget_ms: 15000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
     responseShape: { root: "data.job" },
+    purpose: {
+      summary: "Get a Xing job listing by id",
+      returns: "Returns one Xing job listing: title, company, location, employment type, remote option, salary range, description, and apply URL.",
+      use_when: "Use it after xing/search, passing a job id from that list to read the full description and salary.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: true },
   },
   {
     platform: "jobs",
@@ -17496,10 +22339,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Suggest job titles for a salary lookup",
     description:
       "Returns known job titles matching a query in a country, each with a listing count. Use a returned title as query on GET /v1/jobs/salary.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
+    purpose: {
+      summary: "Suggest job titles for a salary lookup",
+      returns: "Returns known job titles matching a query in a country, each with how many listings use that title.",
+      use_when: "Use it first to turn a loose query into a title that salary will accept.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reference_lists", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "jobs",
@@ -17518,10 +22369,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get salary ranges for a job title and country",
     description:
       "Returns min, max, mean, and median pay for a job title in a country, broken out hourly, daily, weekly, monthly, and yearly, plus the local currency. Use GET /v1/jobs/salary/titles first when the title is uncertain.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-jobs" },
     group: "Jobs",
     tags: ["jobs"],
+    purpose: {
+      summary: "Get salary ranges for a job title and country",
+      returns: "Returns min, max, mean, and median pay for a job title in a country, broken out hourly, daily, weekly, monthly, and yearly, plus the local currency.",
+      use_when: "Use it after salary/titles when you have a known title and want the pay band for that country.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "jobs_and_hiring", takes_item_id_from_another_endpoint: false },
   },
   // --- us_congress_trades (19 endpoints) ---
   {
@@ -17551,6 +22410,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search US Congress stock trades",
     description:
       "Returns STOCK Act disclosures across the House and Senate. Filter by ticker (AAPL or AAPL:US), politician last name, party, chamber, sector, transaction type, and publication date range. Sort by publication date, trade date, disclosed value, or reporting gap. Page with offset. Each row has the politician, issuer, ticker, buy/sell/exchange, disclosed value, dates, and reporting gap in days.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17558,6 +22418,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Trades",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search US Congress stock trades",
+      returns: "Returns STOCK Act disclosures across the House and Senate, filterable by ticker, politician, party, chamber, sector, and date.",
+      use_when: "Use it to search congressional trades. For one member pass handle to politician/trades; for one stock pass keyword to ticker/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17576,6 +22443,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Latest US Congress trades (48 hours)",
     description:
       "Returns STOCK Act disclosures published in the last 48 hours, newest first. Same row shape as GET /v1/us_congress_trades/trades. For a 7-day window use trades/recent.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17583,6 +22451,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Trades",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Latest US Congress trades (48 hours)",
+      returns: "Returns STOCK Act disclosures published in the last 48 hours, newest first.",
+      use_when: "Use it for the newest filings. For a 7-day window call trades/recent; for filters call trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17601,6 +22476,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Recent US Congress trades (7 days)",
     description:
       "Returns STOCK Act disclosures published in the last 7 days, newest first. Same row shape as GET /v1/us_congress_trades/trades. For the last 48 hours use trades/latest.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17608,6 +22484,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Trades",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Recent US Congress trades (7 days)",
+      returns: "Returns STOCK Act disclosures published in the last 7 days, newest first.",
+      use_when: "Use it for a week of filings. For 48 hours call trades/latest; for filters call trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17628,6 +22511,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List members of Congress who have disclosed trades",
     description:
       "Returns a directory of politicians with at least one STOCK Act disclosure: first name, last name, party, and state. Filter by party or USPS state. Pass last name as handle to GET /v1/us_congress_trades/politician.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17635,6 +22519,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Members",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List members of Congress who have disclosed trades",
+      returns: "Returns politicians who have disclosed at least one trade: first name, last name, party, and state.",
+      use_when: "Use it to find a last name, then pass that handle to politician or politician/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17652,10 +22543,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a politician's trading summary",
     description:
       "Returns aggregated STOCK Act stats for one politician by last name: party, state, trade count, buy vs sell, disclosed value, average reporting gap, top tickers, and top sectors. Pass the same handle to GET /v1/us_congress_trades/politician/trades for the filings themselves.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-us-congress" },
     group: "Members",
     tags: ["us_congress_trades"],
+    purpose: {
+      summary: "Get a politician's trading summary",
+      returns: "Returns aggregated trading stats for one politician: counts, disclosed value, reporting gap, top tickers, and top sectors.",
+      use_when: "Use it when you have a last name and want the summary. For the filings themselves call politician/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17678,6 +22577,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List trades for one politician",
     description:
       "Returns every STOCK Act disclosure for one politician, keyed by last name. Same row shape as GET /v1/us_congress_trades/trades. Sort by publication date, trade date, value, or reporting gap.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17685,6 +22585,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Members",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List trades for one politician",
+      returns: "Returns every STOCK Act disclosure for one politician, keyed by last name.",
+      use_when: "Use it after members or politician when you want that member's filings, not the summary.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17702,10 +22609,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get congressional trading stats for a ticker",
     description:
       "Returns aggregated STOCK Act stats for one stock: trade count, buy vs sell, disclosed value, unique politicians, and the members who trade it most. Accepts a bare ticker (AAPL) or AAPL:US. Pass the same keyword to GET /v1/us_congress_trades/ticker/trades for the filings.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-us-congress" },
     group: "Tickers",
     tags: ["us_congress_trades"],
+    purpose: {
+      summary: "Get congressional trading stats for a ticker",
+      returns: "Returns aggregated congressional trading stats for one stock: counts, buy vs sell, value, and top politicians.",
+      use_when: "Use it when you have a ticker and want the rollup. For the filings themselves call ticker/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17731,6 +22646,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List congressional trades for a ticker",
     description:
       "Returns STOCK Act disclosures for one stock. Filter by chamber, party, transaction type, and date range. Accepts a bare ticker (AAPL) or AAPL:US.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17738,6 +22654,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Tickers",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List congressional trades for a ticker",
+      returns: "Returns STOCK Act disclosures for one stock, filterable by chamber, party, transaction type, and date.",
+      use_when: "Use it after ticker or stats/tickers when you want every filing on that symbol.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17758,6 +22681,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List trades from a state's congressional delegation",
     description:
       "Returns STOCK Act disclosures filed by members from one US state. Pass the two-letter USPS code (CA, TX, NY).",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -17765,6 +22689,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Members",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "List trades from a state's congressional delegation",
+      returns: "Returns STOCK Act disclosures filed by members from one US state.",
+      use_when: "Use it when you have a USPS state code and want that delegation's filings.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17780,10 +22711,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Dataset summary",
     description:
       "Returns high-level STOCK Act coverage: total trades, total politicians, earliest and latest trade dates, and last updated time.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-us-congress" },
     group: "Stats",
     tags: ["us_congress_trades"],
+    purpose: {
+      summary: "Dataset summary",
+      returns: "Returns dataset coverage: total trades, total politicians, and the earliest and latest trade dates.",
+      use_when: "Use it first to see how large the corpus is before paging trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17799,6 +22738,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Compare trade counts by party",
     description:
       "Returns total disclosed trades grouped by party (democrat, republican, other).",
+    budget_ms: 15000,
     singlePage: "Party totals are one dump (3 rows live). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17806,6 +22746,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Compare trade counts by party",
+      returns: "Returns disclosed-trade counts grouped by party.",
+      use_when: "Use it to compare Democrat vs Republican filing volume. For the ratio with values call stats/buy-sell.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17821,6 +22768,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Trade counts by industry sector",
     description:
       "Returns disclosed-trade counts grouped by issuer sector (information-technology, financials, health-care, and the rest of the GICS-style set).",
+    budget_ms: 15000,
     singlePage: "Sector totals are one dump (11 rows live). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17828,6 +22776,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Trade counts by industry sector",
+      returns: "Returns disclosed-trade counts grouped by issuer sector.",
+      use_when: "Use it to see which industries Congress trades. Pass a sector slug into trades as a filter.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17845,6 +22800,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Most-traded issuers in Congress",
     description:
       "Returns companies ranked by disclosed congressional trade count, including Treasuries and private issuers that have no ticker.",
+    budget_ms: 15000,
     singlePage: "Top-N issuer dump (limit 1-50). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17852,6 +22808,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Most-traded issuers in Congress",
+      returns: "Returns companies ranked by disclosed congressional trade count, including Treasuries.",
+      use_when: "Use it to find the most-traded issuers. Issuers without a ticker will not resolve on ticker/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17869,6 +22832,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Most-active congressional traders",
     description:
       "Returns politicians ranked by disclosed trade count, with party.",
+    budget_ms: 15000,
     singlePage: "Top-N politician dump (limit 1-50). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17876,6 +22840,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Most-active congressional traders",
+      returns: "Returns politicians ranked by disclosed trade count, with party.",
+      use_when: "Use it to find the most-active traders, then pass the last name as handle to politician/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17894,6 +22865,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Most-traded tickers in Congress",
     description:
       "Returns stock tickers ranked by disclosed congressional trade count, with buy vs sell split. Optionally restrict to buys or sells.",
+    budget_ms: 15000,
     singlePage: "Top-N ticker dump (limit 1-50). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17901,6 +22873,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Most-traded tickers in Congress",
+      returns: "Returns stock tickers ranked by disclosed congressional trade count, with buy vs sell split.",
+      use_when: "Use it to find the most-traded symbols, then pass keyword to ticker or ticker/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17919,6 +22898,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Congressional trade volume over time",
     description:
       "Returns disclosed trade counts, buy vs sell, and total value grouped by day, week, or month over a lookback window.",
+    budget_ms: 15000,
     singlePage: "Volume series is one dump for the requested days/period. There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17926,6 +22906,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Congressional trade volume over time",
+      returns: "Returns disclosed trade counts, buy vs sell, and value grouped by day, week, or month.",
+      use_when: "Use it to chart filing volume over a lookback window. For a single snapshot call stats.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17944,6 +22931,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Tickers with unusual congressional activity",
     description:
       "Returns tickers whose recent disclosed-trade count is well above their historical average, with the politicians involved.",
+    budget_ms: 15000,
     singlePage: "Unusual-activity dump (limit 1-50). There is no page or cursor param.",
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -17951,6 +22939,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Tickers with unusual congressional activity",
+      returns: "Returns tickers whose recent disclosed-trade count is well above their historical average.",
+      use_when: "Use it to spot spikes, then pass the ticker as keyword to ticker/trades.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17970,10 +22965,18 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Congressional buy vs sell ratio",
     description:
       "Returns buy vs sell counts, disclosed value, and the ratio, with optional party and sector filters plus a by-party and by-sector breakdown.",
+    budget_ms: 15000,
     cache: { category: "analytics", ttlSeconds: 1800 },
     upstream: { kind: "rapidapi-us-congress" },
     group: "Stats",
     tags: ["us_congress_trades"],
+    purpose: {
+      summary: "Congressional buy vs sell ratio",
+      returns: "Returns buy vs sell counts, disclosed value, and the ratio, with optional party and sector filters.",
+      use_when: "Use it when you want the ratio and value split, not just party counts from stats/party.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "us_congress_trades",
@@ -17993,6 +22996,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Politicians ranked by late STOCK Act filings",
     description:
       "Returns politicians ranked by average days between the trade date and the public filing, with max gap and trade count. Filter by chamber.",
+    budget_ms: 15000,
     pagination: { style: "offset", nativeParam: "offset", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "analytics", ttlSeconds: 1800 },
@@ -18000,6 +23004,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Stats",
     tags: ["us_congress_trades"],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Politicians ranked by late STOCK Act filings",
+      returns: "Returns politicians ranked by average days between the trade date and the public filing.",
+      use_when: "Use it to find late STOCK Act filers. Filter by chamber; pass a last name to politician for the summary.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
   },
   // --- producthunt (1 endpoint) ---
   {
@@ -18026,6 +23037,13 @@ export const ENDPOINTS: Endpoint[] = [
     group: "Launches",
     tags: ["producthunt"],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List current Product Hunt launches",
+      returns: "Returns the launches Product Hunt is featuring now, with product name, tagline, product page URL, maker name and post dates.",
+      use_when: "Use it to spot new products in a category before they spread, or to check whether a problem already has a fresh launch.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   // --- xiaohongshu (6 endpoints) ---
   {
@@ -18050,6 +23068,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Search Xiaohongshu notes",
     description:
       "Returns Xiaohongshu notes matching a keyword. Each row has a title, a short summary in post.content.text (post.ext.text_truncated is true; the full body is on GET /v1/xiaohongshu/post), the creator, likes, comments, saves, shares and a cover image. Xiaohongshu does not publish view counts, so post.engagement.views is null. Pass the returned cursor to read the next page.",
+    budget_ms: 40000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -18061,6 +23080,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "tiktok/search", why: "The same data from tiktok." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "Search Xiaohongshu notes",
+      returns: "Returns Xiaohongshu notes matching a keyword, with title, summary, creator, likes, comments, saves, shares and cover image.",
+      use_when: "Use it to find a topic on Xiaohongshu. Search text is a short summary, so open the note when you need the full body.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "xiaohongshu",
@@ -18078,6 +23104,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get the Xiaohongshu hot search board",
     description:
       "Returns the live Xiaohongshu hot search board: ranked topics with a hot value. There is no next page. A lower limit returns the top of the same board, and you are charged for the topics returned.",
+    budget_ms: 40000,
     singlePage: "The hot search board is one ranked list of about 20 topics. max_items caps how many of those topics come back and there is no next page. Probed 23/09/2026: limit 5 returned 5, limit 50 returned the whole board of 20, page_has_more false.",
     emptyOn404: true,
     cache: { category: "search", ttlSeconds: 120 },
@@ -18089,6 +23116,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "google_trends/trending", why: "The same data from google_trends." },
     ],
     responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Get the Xiaohongshu hot search board",
+      returns: "Returns the live Xiaohongshu hot search board with rank, topic and hot value.",
+      use_when: "Use it to see what Xiaohongshu is searching right now. A lower limit returns the top of the same board.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "xiaohongshu",
@@ -18107,6 +23141,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Xiaohongshu creator",
     description:
       "Returns one Xiaohongshu creator: display name, RedNote id (author.username), bio, avatar, followers, following, notes posted, likes received and the IP province. Accepts a profile URL or the user id carried on a note as post.ext.author_id. The RedNote id is not a lookup key. For the creator's notes call GET /v1/xiaohongshu/profile/posts.",
+    budget_ms: 40000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "apify-xiaohongshu" },
     group: "Profiles",
@@ -18116,6 +23151,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/profile", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.author" },
+    purpose: {
+      summary: "Get a Xiaohongshu creator",
+      returns: "Returns one Xiaohongshu creator with RedNote id, bio, avatar, followers, following, notes posted and likes received.",
+      use_when: "Use it to read a creator before you pull their notes. Pass a profile URL or the user id from a note.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "xiaohongshu",
@@ -18136,6 +23178,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "List a Xiaohongshu creator's notes",
     description:
       "Returns a Xiaohongshu creator's notes, newest first. Each row has a title, a short summary (post.ext.text_truncated is true) and engagement counts. Pinned notes set post.flags.pinned. Pass the returned cursor to read further. Xiaohongshu does not publish view counts, so post.engagement.views is null.",
+    budget_ms: 40000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "profile", ttlSeconds: 900 },
@@ -18147,6 +23190,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "linkedin/profile/posts", why: "The same data from linkedin." },
     ],
     responseShape: { root: "data.items[]", itemKey: "post" },
+    purpose: {
+      summary: "List a Xiaohongshu creator's notes",
+      returns: "Returns a Xiaohongshu creator's notes, newest first, with title, summary, engagement and cover image.",
+      use_when: "Use it to read what a creator has published. Summaries are truncated, so open a note for the full text.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_feed", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "xiaohongshu",
@@ -18164,6 +23214,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get a Xiaohongshu note",
     description:
       "Returns one Xiaohongshu note from its URL or note id: full body, images or video, creator, likes, comments, saves, shares and the IP province. post.ext.text_truncated is false. Search rows are only a summary. Xiaohongshu does not publish view counts, so post.engagement.views is null.",
+    budget_ms: 40000,
     cache: { category: "post", ttlSeconds: 600 },
     upstream: { kind: "apify-xiaohongshu" },
     group: "Posts",
@@ -18173,6 +23224,13 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.post" },
+    purpose: {
+      summary: "Get a Xiaohongshu note",
+      returns: "Returns one Xiaohongshu note with its full body, images or video, creator and engagement counts.",
+      use_when: "Use it when you already have a note URL or note id. Search rows only carry a short summary.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "content_item_detail", takes_item_id_from_another_endpoint: false },
   },
   {
     platform: "xiaohongshu",
@@ -18194,6 +23252,7 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Get Xiaohongshu note comments",
     description:
       "Returns top level comments on a Xiaohongshu note: text, commenter, likes, reply count, pin flag and the commenter's IP province. Reply threads are not expanded on this call. Pass the returned cursor to read the next page.",
+    budget_ms: 40000,
     pagination: { style: "cursor", nativeParam: "cursor", limitParam: "limit" },
     emptyOn404: true,
     cache: { category: "comments", ttlSeconds: 300 },
@@ -18205,6 +23264,191 @@ export const ENDPOINTS: Endpoint[] = [
       { id: "instagram/post/comments", why: "The same data from instagram." },
     ],
     responseShape: { root: "data.items[]", itemKey: "comment" },
+    purpose: {
+      summary: "Get Xiaohongshu note comments",
+      returns: "Returns top level comments on a Xiaohongshu note with text, commenter, likes, reply count and IP province.",
+      use_when: "Use it to read reaction to a note. Reply threads are a separate read and are not included here.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "engagement_thread", takes_item_id_from_another_endpoint: false },
+  },
+  // --- economy (5 endpoints) ---
+  {
+    platform: "economy",
+    resource: "consumer-spend",
+    method: "GET",
+    params: [
+      { name: "country_code", required: true, description: "One or more ISO 3166-1 alpha-2 country codes, comma-separated (up to 10), e.g. `DE,FR,GR`. `EU27` returns the European Union total.", example: "DE,FR" },
+    ],
+    optionalParams: [
+      { name: "category", type: "string", description: "Spending categories, comma-separated. Any of total, food, alcohol_tobacco, clothing, housing, furnishings, health, transport, communication, recreation, education, restaurants_hotels, miscellaneous. Defaults to all thirteen.", example: "transport,food" },
+      { name: "from_year", type: "integer", minimum: 1990, maximum: 2100, description: "First year to return. Defaults to five years before the current year.", example: "2020" },
+      { name: "to_year", type: "integer", minimum: 1990, maximum: 2100, description: "Last year to return. Defaults to the latest year Eurostat has.", example: "2024" },
+      { name: "unit", type: "enum", enumValues: ["eur_millions", "eur_per_capita", "share_of_total"], description: "`eur_millions` (current prices, million euro, the default), `eur_per_capita` (current prices, euro per person) or `share_of_total` (percentage of total household spending).", example: "eur_millions" },
+    ],
+    oneOfGroups: [],
+    csvConstraints: { "country_code": { max: 10, enumValues: ["BE", "BG", "CZ", "DK", "DE", "EE", "IE", "GR", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "HU", "MT", "NL", "AT", "PL", "PT", "RO", "SI", "SK", "FI", "SE", "NO", "CH", "GB", "ME", "MK", "AL", "RS", "IS", "BA", "TR", "XK", "EU27", "EL", "UK"] }, "category": { enumValues: ["total", "food", "alcohol_tobacco", "clothing", "housing", "furnishings", "health", "transport", "communication", "recreation", "education", "restaurants_hotels", "miscellaneous"] } },
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "ladder" },
+    archetype: "Analytics",
+    summary: "Get household spending by country and category",
+    description:
+      "Returns annual household final consumption expenditure per country and spending category, from Eurostat, the statistical office of the European Union. Categories are the twelve top-level COICOP divisions (food, housing, transport, restaurants_hotels and so on) plus `total`. Pick a unit: `eur_millions` for the size of the market, `eur_per_capita` to compare countries of different size, or `share_of_total` for the percentage of all household spending. Results come back as `data.series[]`, one per country and category, each with `points[]` of `{ year, value }`. A year Eurostat has not published for a country is `null`, never 0, and the latest years are often provisional. Covers EU and EEA countries and some candidates; the latest published year differs by country, so recent years can be `null` for some of them. `country_code` takes ISO codes (`GR` for Greece, `GB` for the United Kingdom, `EU27` for the union) and Eurostat's own `EL` and `UK` spellings. The response also carries `dataset` (id, label, last update), `unit` and a `source_note`.",
+    budget_ms: 15000,
+    cache: { category: "analytics", ttlSeconds: 86400 },
+    upstream: { kind: "eurostat" },
+    tags: ["economy"],
+    purpose: {
+      summary: "Get household spending by country and category",
+      returns: "Returns yearly household spending for each country and category, such as food, housing or transport, in euro millions, per person or as a share of the total.",
+      use_when: "Use it to compare how much people in different countries spend on a product category, or to see how a country's spending mix changes year to year.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "economy",
+    resource: "tourism-spend",
+    method: "GET",
+    params: [
+      { name: "country_code", required: true, description: "One or more ISO 3166-1 alpha-2 country codes of the travellers' home country, comma-separated (up to 10), e.g. `DE,FR`. `EU27` returns the European Union total.", example: "DE,FR" },
+    ],
+    optionalParams: [
+      { name: "category", type: "string", description: "Spending categories, comma-separated. Any of total, transport, restaurants, accommodation, package, other, durables. Defaults to all seven.", example: "total,accommodation,transport" },
+      { name: "purpose", type: "enum", enumValues: ["total", "personal", "business"], description: "Trip purpose: `total` (default), `personal` or `business`.", example: "business" },
+      { name: "destination", type: "enum", enumValues: ["world", "domestic", "foreign"], description: "Where the trip went: `world` (default, all trips), `domestic` or `foreign`." },
+      { name: "measure", type: "enum", enumValues: ["total", "per_trip", "per_night"], description: "`total` spend (default), the average `per_trip` or the average `per_night`.", example: "total" },
+      { name: "from_year", type: "integer", minimum: 1990, maximum: 2100, description: "First year to return. Defaults to five years before the current year.", example: "2022" },
+      { name: "to_year", type: "integer", minimum: 1990, maximum: 2100, description: "Last year to return. Defaults to the latest year Eurostat has." },
+    ],
+    oneOfGroups: [],
+    csvConstraints: { "country_code": { max: 10, enumValues: ["BE", "BG", "CZ", "DK", "DE", "EE", "IE", "GR", "ES", "FR", "HR", "IT", "CY", "LV", "LT", "LU", "HU", "MT", "NL", "AT", "PL", "PT", "RO", "SI", "SK", "FI", "SE", "NO", "CH", "GB", "ME", "MK", "AL", "RS", "EU27", "EL", "UK"] }, "category": { enumValues: ["total", "transport", "restaurants", "accommodation", "package", "other", "durables"] } },
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "ladder" },
+    archetype: "Analytics",
+    summary: "Get travel spending by country and category",
+    description:
+      "Returns annual spending by a country's residents on tourism trips of one night or more, broken down by what the money went on, from Eurostat, the statistical office of the European Union. Categories are `total` (excluding durables), `transport`, `restaurants`, `accommodation`, `package` (package arrangements), `other` and `durables`. Filter by `purpose` (`personal` or `business`), by `destination` (`domestic`, `foreign` or `world`), and choose whether to read the `total` spend or the average `per_trip` or `per_night`. Values are in euro (not millions). Results come back as `data.series[]`, one per country and category, each with `points[]` of `{ year, value }`. A year Eurostat has not published for a country is `null`, never 0. The response echoes the `purpose`, `destination` and `measure` that were applied, plus `dataset`, `unit` and a `source_note`. This is spending by residents of the reporting country (the demand side), not spending received by a destination.",
+    budget_ms: 15000,
+    cache: { category: "analytics", ttlSeconds: 86400 },
+    upstream: { kind: "eurostat" },
+    tags: ["economy"],
+    purpose: {
+      summary: "Get travel spending by country and category",
+      returns: "Returns yearly spending by a country's residents on trips of one night or more, split into transport, accommodation, restaurants and other categories, in euro.",
+      use_when: "Use it to see where travel money goes and how business and personal trips differ, then compare countries or years.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "economy",
+    resource: "government-spend",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "naics", type: "string", description: "Industry filter: one or more NAICS codes, comma-separated (up to 20). Each code must be 2, 4 or 6 digits, and a shorter code matches the whole family, so `4811` covers scheduled air transportation and `48` covers all transportation.", example: "4811" },
+      { name: "psc", type: "string", description: "Product or service code filter: one or more codes, comma-separated (up to 20), 1 to 4 characters each. A shorter code matches the family, so `V` is all transportation, travel and relocation services and `V301` is travel agent services." },
+      { name: "keyword", type: "string", description: "Free-text match against award descriptions, 3 to 120 characters. Use it for a topic such as `travel` that no single industry code captures." },
+      { name: "from_date", type: "string", description: "Start of the window, `YYYY-MM-DD`, no earlier than 2007-10-01. Defaults to the first day of the last full US federal fiscal year (1 October). Send only this and the window runs to today.", example: "2024-10-01" },
+      { name: "to_date", type: "string", description: "End of the window, `YYYY-MM-DD`. Defaults to the last day of the last full US federal fiscal year (30 September). Send only this and the window starts one year earlier.", example: "2025-09-30" },
+      { name: "geo", type: "enum", enumValues: ["state", "county", "country"], description: "Geography layer: `state` (default), `county` or `country`." },
+      { name: "scope", type: "enum", enumValues: ["place_of_performance", "recipient_location"], description: "`place_of_performance` (default) places spending where the work is done. `recipient_location` places it where the recipient is based." },
+      { name: "award_type", type: "enum", enumValues: ["contracts", "grants", "all"], description: "`contracts` (default) is purchase orders, delivery orders, definitive contracts and blanket purchase agreement calls. `grants` is grants and cooperative agreements. `all` is every award type." },
+    ],
+    oneOfGroups: [],
+    csvConstraints: { "naics": { max: 20 }, "psc": { max: 20 } },
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "ladder" },
+    archetype: "Analytics",
+    summary: "Get US federal spending by state, county or country",
+    description:
+      "Returns how much the US federal government spent, by geography, for an industry, a product or service, or a topic. Data comes from USAspending.gov, the official US government source for federal spending. Narrow it with `naics` (industry), `psc` (product or service code) and `keyword`, or send none to see all spending. The window defaults to the last full US federal fiscal year and any window since 2007-10-01 is allowed. `award_type` is `contracts` by default, with `grants` and `all` available. `geo` picks the layer: `state` (USPS codes, with DC and territories), `county` (5 digit FIPS codes) or `country` (ISO alpha-3 codes, which is how foreign place of performance appears). `scope` chooses whether spending is placed where the work is done (`place_of_performance`, the default) or where the recipient is based (`recipient_location`). Amounts are US dollars of federal obligations recorded in the window. The response is `data.regions[]`, sorted by amount, largest first, each `{ code, name, amount, population, per_capita }` (the last two when the source publishes them), plus `data.total_amount`, `data.geo_layer` and a `data.filters` echo of what was applied. A combination with no spending returns 404 and is not billed.",
+    budget_ms: 20000,
+    cache: { category: "analytics", ttlSeconds: 21600 },
+    upstream: { kind: "usaspending" },
+    tags: ["economy"],
+    purpose: {
+      summary: "Get US federal spending by state, county or country",
+      returns: "Returns US federal spending by state, county or country for an industry, product code or topic, with a total and per-region amounts sorted largest first.",
+      use_when: "Use it to see where federal money goes for an industry such as air travel, or to compare regions on spend.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "finance_and_markets", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "economy",
+    resource: "government-contracts",
+    method: "GET",
+    params: [],
+    optionalParams: [
+      { name: "recipient", type: "string", description: "Company or organisation name to match, up to 120 characters, for example `Lockheed Martin`. Matched as text against the recipient name, so a short name also finds related entities." },
+      { name: "keyword", type: "string", description: "Free-text match against award descriptions, 3 to 120 characters. Use it for a topic such as `travel` that no single industry code captures." },
+      { name: "naics", type: "string", description: "Industry filter: one or more NAICS codes, comma-separated (up to 20). Each code must be 2, 4 or 6 digits, and a shorter code matches the whole family, so `4811` covers scheduled air transportation and `48` covers all transportation.", example: "4811" },
+      { name: "psc", type: "string", description: "Product or service code filter: one or more codes, comma-separated (up to 20), 1 to 4 characters each. A shorter code matches the family, so `V` is all transportation, travel and relocation services and `V301` is travel agent services." },
+      { name: "from_date", type: "string", description: "Start of the window, `YYYY-MM-DD`, no earlier than 2007-10-01. Defaults to the first day of the last full US federal fiscal year (1 October). Send only this and the window runs to today." },
+      { name: "to_date", type: "string", description: "End of the window, `YYYY-MM-DD`. Defaults to the last day of the last full US federal fiscal year (30 September). Send only this and the window starts one year earlier." },
+      { name: "type", type: "enum", enumValues: ["purchase_order", "delivery_order", "definitive_contract", "bpa_call", "all"], description: "Limit to one award type: `purchase_order`, `delivery_order`, `definitive_contract` or `bpa_call`. `all` (default) returns all four.", example: "purchase_order" },
+      { name: "sort", type: "enum", enumValues: ["amount", "start_date", "end_date", "recipient"], description: "Sort field: `amount` (default), `start_date`, `end_date` or `recipient`." },
+      { name: "order", type: "enum", enumValues: ["asc", "desc"], description: "`desc` (default) or `asc`." },
+      { name: "limit", type: "integer", minimum: 1, maximum: 100, description: "Awards per page, 1 to 100. Defaults to 25.", example: "10" },
+      { name: "page", type: "integer", minimum: 1, description: "Page number, starting at 1. The universal `cursor` returned in `pagination.next_cursor` is the simpler way to continue." },
+    ],
+    oneOfGroups: [["recipient", "keyword", "naics", "psc"]],
+    csvConstraints: { "naics": { max: 20 }, "psc": { max: 20 } },
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "ladder" },
+    archetype: "SearchResult",
+    summary: "Search US federal contract awards",
+    description:
+      "Searches individual US federal contract awards (purchase orders, delivery orders, definitive contracts and blanket purchase agreement calls) from USAspending.gov, the official US government source for federal spending. Send at least one of `recipient` (a company name, matched as text), `keyword` (matched against the award description), `naics` or `psc`. The window defaults to the last full US federal fiscal year, and it matches awards with activity in that window, so `start_date` can be earlier and `amount` is the total value obligated to the award so far, not spend inside the window. Results come back under `data.items[]`, each `{ award_id, generated_id, type, recipient_name, recipient_uei, amount, awarding_agency, awarding_sub_agency, naics, psc, description, start_date, end_date, place_of_performance: { state, city, country }, url }`. `type` is `purchase_order`, `delivery_order`, `definitive_contract` or `bpa_call`. A foreign award has a null `place_of_performance.state`. Sorted by `amount`, largest first, unless you set `sort` and `order`. Paginate with `page` (1 based) or the universal `cursor`; the response's `pagination` block carries `has_more` and `next_cursor`. The source publishes no match count, so `data.total` appears on the last page only. No match is a 200 with an empty `items` and is not billed.",
+    budget_ms: 20000,
+    pagination: { style: "page", nativeParam: "page", limitParam: "limit" },
+    cache: { category: "search", ttlSeconds: 120 },
+    upstream: { kind: "usaspending" },
+    tags: ["economy"],
+    responseShape: { root: "data.items[]" },
+    purpose: {
+      summary: "Search US federal contract awards",
+      returns: "Returns individual US federal contract awards with recipient, amount, awarding agency, NAICS and PSC codes, dates and place of performance, one page at a time.",
+      use_when: "Use it to find purchase orders and contracts for a company, keyword, industry or product code; use government-spend for totals by place.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "search_discovery", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "economy",
+    resource: "imports",
+    method: "GET",
+    params: [
+      { name: "company", required: true, description: "The US importer's company name, as a brand ('Nike') or as it appears on shipping documents ('Nike Usa'). Endings such as Inc, LLC and USA are ignored when matching. 1 to 200 characters.", example: "Nike" },
+    ],
+    optionalParams: [
+      { name: "limit", type: "integer", minimum: 1, maximum: 50, description: "How many recent shipments to return, newest first, from 1 to 50. Defaults to 25. The price is the same for any value.", example: "10" },
+    ],
+    oneOfGroups: [],
+    creditTier: "premium",
+    creditCost: 20,
+    pricing: { cost: 20, tier: "premium", ladderCost: 10, model: "flat", description: "20 credits per call, whatever the limit. A company with no US import records returns 404 and costs 0 credits, and a cached repeat within 24 hours costs 0 credits." },
+    archetype: "Analytics",
+    summary: "Get a US importer's suppliers and shipments",
+    description:
+      "Returns what a US company imports by sea, from public US customs bill-of-lading records. Response is `{ company, top_suppliers, hs_codes, recent_shipments, matches, selection }`. `company` carries the importer's name, country, address, website, lifetime and last-12-month shipment counts, first and most recent shipment dates (ISO), supplier count and the other names it files under. `top_suppliers` lists up to 25 overseas suppliers by shipment count, each with country, lifetime and 12-month shipments, total weight in kilograms and the HS headings it ships; a supplier `name` (and a shipment's `supplier`) is null where the manifests do not name the shipper, and those counts are kept. `hs_codes` lists up to 25 four-digit HS headings by shipment count, each with its chapter. `recent_shipments` lists the latest bills of lading, newest first: date, bill number, supplier, supplier country, product description, weight in kilograms, container count, quantity and unit, and the ocean route (for example 'Asia, Pacific'). `hs_code` on a shipment is filled only when the shipper wrote a tariff number into the manifest text, which is uncommon; use `hs_codes` for the product mix. Ports of loading and discharge are not published per shipment. A brand often files under several names (a parent, a US subsidiary, a fulfilment site), so the answer is chosen in three steps and `selection` says which one applied. `name_match`: the filer whose name equals yours, ignoring spacing and endings such as Inc, LLC and USA, with the most shipments ('Nike' returns 'Nike Usa' rather than a small entity called 'Nike', and 'Walmart' returns 'Wal Mart'). `partial_match`: otherwise, the filer with the most shipments whose name contains yours as whole words ('Peloton' returns 'Peloton Interactive'). `largest_search_hit`: otherwise, the candidate with the most shipments. Every candidate is listed in `matches` with its shipment count and last shipment date, and the one answered has `selected: true`; to target a different one, call again with its exact `name`. Only US imports by ocean freight are covered, so air freight, exports and non-US trade are absent, and some importers have their manifests withheld by request. A name with no US import records returns 404 and costs 0 credits. A billed call typically takes 8 to 12s and can reach about 25s, so set a client timeout of at least 45s. Exact repeats are served from a 24-hour cache at 0 credits.",
+    budget_ms: 38000,
+    cache: { category: "analytics", ttlSeconds: 86400 },
+    upstream: { kind: "apify-importyeti" },
+    tags: ["economy"],
+    purpose: {
+      summary: "Get a US importer's suppliers and shipments",
+      returns: "Returns a US importer's sea-freight customs record: its top overseas suppliers with shipment counts, its main HS product headings and its latest bills of lading.",
+      use_when: "Use it to see which overseas suppliers a US brand or retailer buys from, what it imports and how recently, from public customs filings.",
+      not_for: null,
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "entity_profile", takes_item_id_from_another_endpoint: false },
   },
 ];
 

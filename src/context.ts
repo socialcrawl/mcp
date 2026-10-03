@@ -5,6 +5,12 @@ export interface ApiContext {
   apiKey: string;
   /** SocialCrawl API origin, no trailing slash. */
   baseUrl: string;
+  /**
+   * Ask the user to approve a spend (MCP elicitation). Set by `createServer`;
+   * "unsupported" when the client cannot be asked, so the caller falls back to
+   * the `confirm: true` round trip.
+   */
+  confirm?: (message: string) => Promise<"accepted" | "declined" | "unsupported">;
 }
 
 /**

@@ -6,6 +6,106 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Version 2.0.0 (package.json, `SERVER_VERSION`, server.json). Everything below ships in it.
+
+### Added: resources, templates, completions and prompts (MCP-05)
+
+- 7 static resources: `socialcrawl://guide` (the skill body), `recipes` (JSON with typed inputs and computed cost), `pricing`, `errors`, `llms`, `quickstart`, `capabilities`.
+- Resource templates: `platform/{platform}` (endpoint table), `endpoint/{platform}/{+resource}` (the same contract text as `socialcrawl_endpoint`), `schema/{archetype}`, `example/{platform}/{+resource}` (redacted two-row sample, 448 endpoints) and the existing `results/{request_id}`.
+- Completions for `platform`, `resource` (for the platform already chosen) and `archetype`.
+- 41 prompts: every recipe with up to three inputs (`brand_listening`, `bulk_url_stats`, ...) plus `creator_discovery`, `competitor_monitor`, `compare_reviews` and `comment_export`. Each expands into the recipe's calls with your values filled in, the computed cost and the pitfalls.
+- `npm run generate:data` also writes `src/data/{recipes,guide,examples}.ts` from the sibling codebase (`packages/social-api/scripts/export-recipes.ts`, the skill's `SKILL.md` and `errors.md`, `src/docs/examples/`). Adds about 1.9 MB to `dist/`, nearly all of it samples.
+- OAuth: `resources/*`, `prompts/*` and `completion/complete` need only a valid token (only `tools/call` is scope-gated).
+
+### Breaking: seven tools instead of eleven (MCP-04)
+
+The tool surface is consolidated so an agent can route fast: `tools/list` drops from about 12,800 tokens (11 tools) to about 4,750 (7 tools, chars / 4). Set `SOCIALCRAWL_LEGACY_TOOLS=1` to also register the nine retired names as thin wrappers over the same modules, for this major version.
+
+| 1.x tool | 2.0 tool |
+|----------|----------|
+| `socialcrawl_list_platforms` | `socialcrawl_find` with no arguments |
+| `socialcrawl_list_endpoints` (`platform`) | `socialcrawl_find` with `platform`; `socialcrawl_endpoint` with the platform slug |
+| `socialcrawl_list_endpoints` (`search`) | `socialcrawl_find` with `task` |
+| `socialcrawl_pricing` (`action: "endpoint"`) | `socialcrawl_estimate` with `id: "platform/resource"`, `params`, `calls` |
+| `socialcrawl_pricing` (`overview` / `platform`) | `socialcrawl_estimate` with no `id` / a platform slug as `id` |
+| `socialcrawl_pricing` (`hydration` / `judgments`) | `socialcrawl_endpoint` with `id: "hydration"` / `"judgments"` |
+| `socialcrawl_discover` (`endpoint`) | `socialcrawl_endpoint` |
+| `socialcrawl_discover` (`catalog`, `plan`) | `socialcrawl_find`; `socialcrawl_estimate` with `plan` |
+| `socialcrawl_discover` (`freshness`, `status`) | `socialcrawl_account` with `view: "freshness"` / `"status"` |
+| `socialcrawl_discover` (`quickstart`, `capabilities`, `llms`) | legacy flag only; now also resources `socialcrawl://quickstart`, `socialcrawl://capabilities`, `socialcrawl://llms` |
+| `socialcrawl_list_endpoints` filters `method`, `maxCost`, `hydrating`, `detail` | legacy flag only; `socialcrawl_find` ranks by task, `socialcrawl_endpoint` shows one contract |
+| `socialcrawl_pricing` `list` (rank/filter endpoints by price) | legacy flag only; the `pricing` topic (`socialcrawl_endpoint` `id: "pricing"`) has the full tables |
+| `socialcrawl_get_docs` | `socialcrawl_endpoint` with the topic as `id` (and `page`) |
+| `socialcrawl_check_balance` | `socialcrawl_account` (`requestId` is now `request_id`) |
+| `socialcrawl_monitors` | `socialcrawl_manage` with `area: "monitors"` (fields in `input`, monitor id in `id`) |
+| `socialcrawl_web` | `socialcrawl_manage` with `area: "web"` (`input` and `id` as before) |
+| `socialcrawl_cohorts` | `socialcrawl_manage` with `area: "cohorts"` (`id` is the cohort id, or the query id for `query_*`) |
+| `socialcrawl_request`, `socialcrawl_collect` | unchanged names; `platform` is a plain string (the 67-value enum is gone) with a did-you-mean |
+
+Job poll hints (`structuredContent.job.poll`): a Prism job names `socialcrawl_request` (`GET prism/jobs/{job_id}`, callable with the spend scope alone); a web job names `socialcrawl_manage` (`area: "web"`, action `job_get`). OAuth scopes: `find`, `endpoint`, `estimate`, `account` need `socialcrawl:read`; `request` and `collect` need `spend`; `manage` needs `spend` + `manage`. The 1.x names keep their 1.x scopes.
+
+### Changed (review fixes)
+
+- **`fields` paths are root-qualified** (identity is kept under every row root, as the API does, and a path that matches nothing is named in a warning even when the others match), as `socialcrawl_endpoint` lists them (`post.id,post.content.text,post.engagement.*`, `comment.text,comment.engagement.likes`); the tool descriptions, instructions and Getting Started say so. Local projection always keeps identity (`id`, `url`, and `<root>.id` / `<root>.url`), never re-projects rows the API already projected (rows holding only the requested roots plus identity), and warns, naming the row root, when the paths match nothing. A path that names a key keeps its whole subtree even when a child of it is also named.
+- **CSV and summary read canonical rooted rows.** The leading CSV columns are taken under the row's root (`comment.id`, `comment.url`, `comment.text`, `comment.author.username`, `comment.published_at`, then `comment.engagement.*`); `format=summary` computes engagement stats on `<root>.engagement.*`.
+- **Contracts say how much is known about the fields.** `outputs.source` (`field_map`, `inferred_sample`, `unknown`) is in the structured contract; an unknown field list reads "Fields not published yet — see the sample response (`socialcrawl://example/<platform>/<resource>`) or call it once with a small limit"; an inferred one says "inferred from a sample".
+- **Live contract.** `socialcrawl_endpoint` reads the Phase-1 contract at `data.contract` (`purpose`, `outputs`, `cost`, `paging`, `latency_ms` with `recommended_timeout_s`, `next` with `to` / `bind`, `freshness`) as well as the older top-level `credits` / `links`. Bundled and live paging share one schema (`style`, `page_size`, `page_size_max`, `max_pages`, `per_n_items`, `cursor_param`, `limit_param`, `note`); next steps are `{ id, why, bind? }`. Malformed blocks and rows are skipped, never thrown on.
+- **Ranking.** A named platform's endpoints now come before cross-platform hits (precedence, not a boost); a mistyped platform name is recognised (edit distance 1-2, same first letter, only for words the catalogue does not know: "tiktk", "instagarm"); `android` / `play store` name Google Play, `iphone` / `ios` the App Store, `maps` Google (business), `trends` Google Trends; a named family member beats its parent (`google_trends` over `google`, TikTok Shop over TikTok), and a soft alias yields to a platform named outright; "who <verb>ed" looks for the people who did it (retweeters, likers); collection words (feed, history, ...) ask for a list and detail words (details, info) for the single object; -ing / -ed folding; `tweet` / `tweets` and `stock` / `ticker` name Twitter / Finance while staying search words; `r/<name>` names Reddit and fills `subreddit`; generic verbs (search, find, ...) count little outside the id, and "search" / "mentioning" prefer a `.../search` endpoint; plural or "list" queries prefer list endpoints; batch-by-id POSTs only when asked. New held-out fixture `src/search/__fixtures__/rank-heldout.json` (45 phrasings): top-1 95.6%, top-3 100%; the 50 original cases still pass.
+- **Discovery routes.** When `/v1/utility/{find,resolve,plan,endpoint,estimate}` is not deployed (the router's 404 `ENDPOINT_NOT_FOUND` naming that route's own path), the route is skipped for 10 minutes per base URL. A deployed route's 404 for an unknown id ("Unknown endpoint '<id>'") never marks it, so one bad id cannot turn live answers off for other calls or users. Each of these calls times out after 5 s. A multi-step task ("... and then ...", "for each ...") asks `/v1/utility/plan` before the local ranker. A live ranking that names an endpoint this server does not bundle says so. A plan quote shows each call's `hold_total` and a plan-level `valid: false` with its rejection. An `@handle` also fills `username` / `user` style params.
+- **Package.** Source maps and compiled tests are no longer published (`files` excludes `dist/**/*.map` and `dist/__tests__`): 301 → 120 files.
+
+### Added (find the right endpoint fast)
+
+- **`socialcrawl_find`.** A task in plain words → the best endpoints (3 by default, `limit` up to 10), each with `params_filled` (URLs and `@handles` from the task), `params_missing`, `credits` (`min`, `max`, `hold`; `estimate` when the API quoted a metered one) and `call`, the exact tool call to make. With a key it calls `GET /v1/utility/find` and `GET /v1/utility/resolve`; neither is deployed yet, so a 404 or any failure falls back to the local ranker and local URL / handle filling.
+- **Ranked search (`src/search/rank.ts`).** Dependency-free BM25F over each endpoint's id tokens, summary, returns, use_when, tags and low-weight extras (archetype, param names, label presets), with light stemming, platform detection by slug, name or alias, a head-noun boost, a few synonyms, and a resource-coverage boost (see the review fixes above for the precedence and intent rules). `src/search/__fixtures__/rank-cases.json` holds 50 query → expected-endpoint cases (all pass); the codebase ranker will port the algorithm and reuse the fixture. `socialcrawl_list_endpoints` `search` (legacy) uses the same ranker instead of a substring match.
+- **`socialcrawl_endpoint`.** The contract for one endpoint: purpose (summary, returns, use when, not for), params, outputs (`rows_at`, archetype, up to 25 fields with meaning and fill, page-level keys), cost, paging, measured latency, timeout, next endpoints and a sample-response link. Live through `GET /v1/utility/endpoint` when a key is set, laid over the bundled contract. Also serves platform tables and every docs topic.
+- **`socialcrawl_estimate`.** One call or a plan, through `GET /v1/utility/estimate` (`id` + `params=` JSON; `plan=` base64url JSON), falling back to the bundled pricing. The cost guard's estimate client now sends the same `params=` form.
+- **`socialcrawl_account`** (balance, transactions, status, freshness) and **`socialcrawl_manage`** (monitors, cohorts, web, Prism jobs, validated against each area's own schema before anything is sent).
+- **Did you mean.** An unknown platform or resource in `request`, `find`, `endpoint`, `estimate` or the legacy `list_endpoints` suggests the nearest slugs or endpoint ids.
+
+### Changed (data)
+
+- `scripts/generate-data.ts` accepts registry dump schema v3 and v4. v4 adds `purpose`, `taxonomy` and `latency_ms` to each endpoint and writes the response-field contract to the new `src/data/outputs.ts` (an absent `meaning` / `fill` / `live` becomes null). Regenerated from dump v4: 633 endpoints on 67 platforms. `budget_ms` is now present for about half the endpoints, so their client timeouts follow it.
+- `src/instructions.md` names the new tools (1,664 characters rendered). Agent-facing hints, docs topics and platform descriptions name the 2.0 tools.
+
+### Added (freshness, vendor neutrality, docs)
+
+- **Catalogue freshness check (MCP-10).** `src/freshness.ts` compares the bundled `REGISTRY_FINGERPRINT` with `GET /v1/utility/endpoints?fingerprint=1` once per process and base URL (stdio at startup, HTTP on the first request), with a 2.5 s timeout and never blocking a call. The route is not deployed yet, so a 404 or any error falls back to the endpoint/platform count comparison `socialcrawl_discover` `freshness` uses. When behind, one line is appended to the next tool result and to `structuredContent.warnings`; offline or keyless is silent. `SOCIALCRAWL_FRESHNESS_CHECK=off` disables it.
+- **Vendor-neutrality test.** `tools/list`, the instructions, every `get_docs` topic and `list_endpoints detail=full` for every platform are scanned for the skill's banned supplier list (`src/__tests__/fixtures/supplier-tokens.ts`).
+
+### Changed (freshness, vendor neutrality, docs)
+
+- Removed upstream supplier names from agent-facing text: the `socialcrawl_web` description and the `web`, `google_news` and `google_trends` platform descriptions (also in `scripts/generate-data.ts`), and the per-endpoint `Sources: <vendor> primary, falling back to ...` line in `list_endpoints` and the platform docs, now `Reliability: multi-source with automatic fallback; charged once.`
+- Refreshed `docs/HOW-IT-WORKS.md` (stdio plus Streamable HTTP, `ApiContext`, generator sync and CI workflow, dump schema v3, freshness), `docs/GETTING-STARTED.md` (all 11 tools, `socialcrawl_collect`, `max_credits` / `confirm`, `fields` / `max_items` / `format`, result links, OAuth preview) and the README tool list.
+
+### Added (long-running calls)
+
+- **Per-endpoint timeouts.** The fixed 30 s is now chosen per endpoint (`src/timeouts.ts`): `recommended_timeout_s`, else `budget_ms` plus 5 s, else 120 s for a streaming endpoint, else 30 s; never above 120 s. The two optional fields are carried through `scripts/generate-data.ts` when the registry dump has them (none do yet, so today only the streaming default applies). The timeout message names the limit used.
+- **SSE endpoints return one assembled result.** `socialcrawl_request` sends `Accept: text/event-stream` for `streaming=always` endpoints (`prism/answers`) and when the registry's trigger param is set (`prism/video-intel` with `include=transcript`), reads the stream server-side (`src/sse.ts`) and folds it into the normal envelope (`data.items`, `data.legs`, `data.summary`, `credits.used`). A stream that fails before delivering data is reported as an error, with the refund state. When the client sends a `progressToken`, each chunk becomes a `notifications/progress`.
+- **Async jobs return a handle with a `poll` hint.** A submitted job (`prism/jobs`, `socialcrawl_web` crawl / batch_scrape / agent) now carries `structuredContent.job = { id, status, poll: { tool, arguments, after_s } }` and a text line with the same call. SDK 1.29 has no tasks extension for spec 2026-07-28, so the handle is the fallback; `after_s` is the server's `Retry-After`, else 5.
+- **`Retry-After` is honoured on errors.** A 429/503 with the header adds `retry_after_s` to the text tail and to the structured error.
+
+### Fixed
+
+- **`socialcrawl_list_endpoints` ignored `hydrating`.** The filter was declared and documented but never passed to the handler, so `hydrating: true` returned all 631 endpoints instead of the 33 that can fill their own rows.
+- **`socialcrawl_request` rejected numeric and boolean `params`.** `params: { limit: 10 }` failed schema validation (-32602). `params` now takes strings, numbers, booleans and arrays (arrays are joined with commas for CSV params such as `label`); values are sent as strings and the local enum/range/CSV validation still applies.
+- **`socialcrawl_request` annotations were dishonest.** It is a billable call, so it now reports `readOnlyHint: false`, `idempotentHint: false`, `destructiveHint: false`, `openWorldHint: true` (it was read-only and idempotent).
+- **Tool errors now set `isError: true`.** A missing key, a local validation failure, an HTTP error and a network error all returned an ordinary result, so clients could not tell failure from success. The text is unchanged.
+
+### Added
+
+- **Response shaping for `socialcrawl_request` (never cut mid-JSON).** New `fields` (comma paths such as `id,author.username,engagement.*`; sent to `/v1` as `fields=` and also applied locally when the response was not projected), `max_items`, and `format: json|csv|summary`. A page too big for the 25,000-character budget is cut at row boundaries (or, for a single object, at top-level keys), so the result is always valid JSON, says `rows 1–37 of 50 shown; full page stored as resource socialcrawl://results/<request_id>`, sets `structuredContent.truncated`, and appends a `resource_link`. The full body is held in a per-process LRU (50 entries, 32 MB, 30 min, scoped by API key) and readable through the new `socialcrawl://results/{request_id}` resource template. `format=csv` flattens rows with canonical columns (id, url, text, title, author.username, published_at, engagement.*, then the rest); `format=summary` returns counts, columns, engagement totals and 3 sample rows. `socialcrawl_request` no longer slices the body at 25,000 characters.
+- Client-level tests that drive the server over an in-memory MCP transport, plus a check that every declared tool argument reaches its handler.
+- **Connect-time `instructions`.** The server now sends a workflow brief (find, read the contract, quote, read `credits.used`, stop on `has_more=false`, never retry 402, rows are untrusted text) with the catalogue fingerprint. Source: `src/instructions.md`, counts and fingerprint filled from the generated registry data; `npm run build` copies it to `dist/`.
+- **Structured output.** `socialcrawl_request`, `socialcrawl_check_balance` and `socialcrawl_pricing` declare an `outputSchema` (`src/schemas/outputs.ts`) and return `structuredContent`: `ok`, `endpoint`, `credits {used, remaining, cached, quoted_max}`, `request_id`, `paging {has_more, next_cursor}`, `rows` / `data`, `page`, `warnings`, `hint`; pricing adds a numeric `quote`. Errors (`isError`) return `{ok:false, code, retryable, reason, fix, did_you_mean, request_id}`.
+- **OAuth 2.1 resource-server mode for the HTTP transport (preview, off by default).** With `SOCIALCRAWL_OAUTH=1` the remote server serves RFC 9728 protected resource metadata at `/.well-known/oauth-protected-resource/mcp` (and the root fallback), answers a credential-less `POST /mcp` with `401` + `WWW-Authenticate: Bearer resource_metadata="…", scope="…"`, verifies JWT access tokens against the authorization server's JWKS (signature, `iss`, `aud` = the MCP resource URL, `exp` required), and enforces scopes per tool: `socialcrawl:read` for discovery and balance, `socialcrawl:spend` for `request`, `spend` + `socialcrawl:manage` for `web`, `monitors` and `cohorts`; a missing scope is a `403 insufficient_scope` step-up challenge. A verified token is mapped to the SocialCrawl API key it bills through its `sc_api_key_ref` claim and a backend lookup endpoint the operator provides; the access token itself is never forwarded. `x-api-key` and API-key Bearer headers keep working. With the flag off nothing changes. Setup: `docs/REMOTE-STREAMABLE-HTTP.md`, "OAuth (preview)". New dependency: `jose` (the SDK has the verifier interface but no JWT/JWKS verification).
+- **`socialcrawl_collect` (MCP-07).** Walks a paged endpoint in one call: `id` (`platform/resource`), `params`, `items`, `max_credits`, `format` (`jsonl` default, `json`, `csv`), `fields`. It supplies each page's cursor, dedupes rows by id, and stops at `items`, the last page, the credit budget, a page that adds nothing new, or a 402 (keeping what it has and returning the cursor to resume). Rows are stored behind a `socialcrawl://results/<id>` resource link; `structuredContent` carries `items {collected, requested, duplicates}`, `pages`, `stop_reason`, `credits`, `paging` and a 3-row `sample`. Needs `socialcrawl:spend` under OAuth.
+- **Cost guard (MCP-08).** `socialcrawl_request` and `socialcrawl_collect` take `max_credits` and `confirm`. A call is quoted first (`GET /v1/utility/estimate` when the route is deployed, else the bundled pricing; the estimate is only asked when the local quote could trip a guard) and refused, free, when the hold exceeds `max_credits`. Above `SOCIALCRAWL_CONFIRM_ABOVE` (default 100 credits) nothing bills until the user approves: the server asks through MCP elicitation when the client supports it, otherwise it returns a non-billed `CONFIRMATION_REQUIRED` result with the quote and the call is repeated with `confirm: true`. `credits.session_total` (credits spent through this server, per API key) appears in request and collect results and in `socialcrawl_check_balance`.
+
+### Changed
+
+- **Compact text output.** `socialcrawl_request` and `socialcrawl_check_balance` text is now a short summary (`Result:` line) plus the envelope as compact JSON, about half the size of the pretty-printed body it replaces. HTTP error text gains `status:` and `error_code:` lines (and `did_you_mean:` when the API sends one).
+
 ## [1.13.0] - 2026-10-02
 
 Registry re-sync from 575 to 631 endpoints and 65 to 67 platforms, on dump schema v3, with first-class support for the API's judgment layer and its cost levers.

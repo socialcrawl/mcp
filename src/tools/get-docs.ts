@@ -7,7 +7,12 @@ import { page } from "../paginate.js";
  * biggest platforms exceed the response limit on their own) are PAGED rather
  * than truncated — see `src/paginate.ts` for why.
  */
-export function getDocs(topic: string, pageNumber = 1): string {
+export function getDocs(
+  topic: string,
+  pageNumber = 1,
+  nextHint: (next: number) => string = (next) =>
+    `Call socialcrawl_endpoint again with id "${topic}" and page ${next} for the next part.`,
+): string {
   const content = getDoc(topic);
 
   if (!content) {
@@ -23,12 +28,7 @@ export function getDocs(topic: string, pageNumber = 1): string {
     ].join("\n");
   }
 
-  return page(
-    content,
-    pageNumber,
-    (next) =>
-      `Call socialcrawl_get_docs again with topic "${topic}" and page ${next} for the next part.`,
-  );
+  return page(content, pageNumber, nextHint);
 }
 
 export { getAvailableTopics };

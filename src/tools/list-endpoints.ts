@@ -11,6 +11,7 @@ import {
 import { describeLane } from "../hydration.js";
 import { explainAutomaticJoins, explainJudgments, leversOf } from "../judgments.js";
 import type { Endpoint } from "../types.js";
+import { searchEndpoints, suggestPlatforms } from "../search/catalog.js";
 
 export interface ListEndpointsParams {
   platform?: string;
@@ -22,6 +23,8 @@ export interface ListEndpointsParams {
   detail?: "compact" | "full";
   /** 1-based page for output longer than one response. */
   page?: number;
+  /** Footer for the next page; defaults to repeating this call. Not a tool argument. */
+  pageHint?: (next: number) => string;
 }
 
 /**
@@ -144,7 +147,7 @@ function detailBlock(e: Endpoint): string[] {
   }
   if (e.upstream.fallbackKinds && e.upstream.fallbackKinds.length > 0) {
     notes.push(
-      `**Sources:** \`${e.upstream.kind}\` primary, falling back to ${e.upstream.fallbackKinds.map((k) => `\`${k}\``).join(", ")}.`,
+      "**Reliability:** multi-source with automatic fallback; charged once.",
     );
   }
   for (const lane of e.hydration ?? []) {
@@ -234,29 +237,32 @@ function paged(text: string, input: ListEndpointsParams): string {
   return page(
     text,
     input.page ?? 1,
-    (next) =>
-      `Call socialcrawl_list_endpoints again with ${filters ? `${filters} and ` : ""}page ${next} for the rest. Or narrow the result with \`search\`, \`method\`, or \`maxCost\`, or use \`detail: "compact"\`.`,
+    input.pageHint ??
+      ((next) =>
+        `Call socialcrawl_list_endpoints again with ${filters ? `${filters} and ` : ""}page ${next} for the rest. Or narrow the result with \`search\`, \`method\`, or \`maxCost\`, or use \`detail: "compact"\`.`),
   );
 }
 
 function searchAcrossPlatforms(params: ListEndpointsParams): string {
-  const q = (params.search ?? "").toLowerCase();
-  const matches = ENDPOINTS.filter((e) => {
+  const q = (params.search ?? "").trim();
+  const keep = (e: Endpoint): boolean => {
     if (params.method && e.method !== params.method.toUpperCase()) return false;
     if (params.maxCost !== undefined && worstCaseCost(e.pricing) > params.maxCost) return false;
     if (params.hydrating && (e.hydration?.length ?? 0) === 0) return false;
     if (params.platform && e.platform !== params.platform) return false;
-    if (!q) return true;
-    const haystack =
-      `${e.platform} ${e.resource} ${e.summary} ${e.description} ${e.archetype} ${e.actionLabel ?? ""} ${e.group ?? ""} ${(e.tags ?? []).join(" ")} ${e.params.map((p) => p.name).join(" ")} ${e.optionalParams.map((p) => p.name).join(" ")} ${(e.judgments?.labels?.presets ?? []).join(" ")}`.toLowerCase();
-    return haystack.includes(q);
-  });
+    return true;
+  };
+  // A search term is ranked (search/rank.ts: BM25 over id, purpose, tags,
+  // param names and label presets), best match first; no term lists in order.
+  const matches = q
+    ? searchEndpoints(q, { platform: params.platform }).map((h) => h.endpoint).filter(keep)
+    : ENDPOINTS.filter(keep);
 
   if (matches.length === 0) {
     return [
       `No endpoints match ${q ? `"${params.search}"` : "those filters"}.`,
       "",
-      `Try a broader term, or \`socialcrawl_list_platforms\` to browse the ${PLATFORMS.length} platforms.`,
+      `Try other words, or \`socialcrawl_find\` with no task to browse the ${PLATFORMS.length} platforms.`,
     ].join("\n");
   }
 
@@ -280,7 +286,7 @@ function searchAcrossPlatforms(params: ListEndpointsParams): string {
   } else {
     lines.push(
       "",
-      'Pass `detail: "full"` for every parameter, or call `socialcrawl_list_endpoints` with a single `platform` for that platform\'s full reference.',
+      'Pass `detail: "full"` for every parameter, or `socialcrawl_endpoint` with an id for one endpoint\'s contract.',
     );
   }
 
@@ -298,7 +304,11 @@ export function listEndpoints(params: ListEndpointsParams | string): string {
 
   const platformInfo = findPlatform(input.platform);
   if (!platformInfo) {
-    return `Error: Unknown platform "${input.platform}". Use socialcrawl_list_platforms to see available platforms.`;
+    const near = suggestPlatforms(input.platform);
+    return [
+      `Error: Unknown platform "${input.platform}". Use socialcrawl_find to see the platforms.`,
+      ...(near.length > 0 ? ["", "Did you mean:", ...near.map((p) => `- \`${p}\``)] : []),
+    ].join("\n");
   }
 
   // A search term alongside a platform narrows within that platform.
@@ -330,7 +340,7 @@ export function listEndpoints(params: ListEndpointsParams | string): string {
     "",
     ...(isWeb
       ? [
-          "> Call these through the **`socialcrawl_web`** tool (not `socialcrawl_request`). Each row's method + path maps to a `socialcrawl_web` action — e.g. `GET /scrape` → `action: \"scrape\"`, `GET /jobs/{job_id}` → `action: \"job_get\"` with `id`.",
+          "> Call these through **`socialcrawl_manage`** with `area: \"web\"` (not `socialcrawl_request`). Each row's method + path maps to an action — e.g. `GET /scrape` → `action: \"scrape\"`, `GET /jobs/{job_id}` → `action: \"job_get\"` with `id`.",
           "",
         ]
       : []),
@@ -352,8 +362,8 @@ export function listEndpoints(params: ListEndpointsParams | string): string {
 
   lines.push(
     isWeb
-      ? "Call these through `socialcrawl_web` — pick the `action` matching the method + resource, pass parameters in `input`, and the path id (job/monitor/session) in `id`."
-      : "Use `socialcrawl_request` with the platform, resource, and required parameters (POST batch endpoints take their array/object body in `body`) to make an API call. Use `socialcrawl_pricing` for exact costs and metered rules.",
+      ? "Call these through `socialcrawl_manage` with `area: \"web\"` — pick the `action` matching the method + resource, pass parameters in `input`, and the path id (job/monitor/session) in `id`."
+      : "Use `socialcrawl_request` with the platform, resource, and required parameters (POST batch endpoints take their array/object body in `body`) to make an API call. Use `socialcrawl_endpoint` for one endpoint's contract and `socialcrawl_estimate` for exact costs.",
   );
 
   return paged(lines.join("\n"), input);

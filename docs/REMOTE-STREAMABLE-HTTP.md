@@ -390,12 +390,172 @@ Discovery tools work with no key, so you can explore before signing up.
 
 ---
 
+## 10a. OAuth (preview)
+
+> **Status: preview, off by default.** Set `SOCIALCRAWL_OAUTH=1` to turn it on.
+> With the flag off, every behaviour in this guide is unchanged.
+
+claude.ai custom connectors and the connector directory only talk to remote MCP
+servers that follow the MCP authorization spec (revision 2026-07-28). In that
+spec the MCP server is an **OAuth 2.1 resource server**: it never issues tokens.
+It names its authorization server, checks the tokens it is handed, and refuses
+the rest. This section covers what the MCP server does, and what the owner has
+to provide so it can work: an authorization server and one backend endpoint.
+
+### What the server does when the flag is on
+
+| Request | Response |
+|---|---|
+| `GET /.well-known/oauth-protected-resource/mcp` (and the root `/.well-known/oauth-protected-resource`) | RFC 9728 metadata: `resource`, `authorization_servers: [<issuer>]`, `scopes_supported`, `bearer_methods_supported: ["header"]` |
+| `POST /mcp` with no credentials | `401`, `WWW-Authenticate: Bearer resource_metadata="<…/oauth-protected-resource/mcp>", scope="socialcrawl:read socialcrawl:spend socialcrawl:manage"` |
+| `POST /mcp` with `Authorization: Bearer <JWT>` | Verified locally against the JWKS: signature (alg allow-list), `iss` = issuer, `aud` contains the resource URL, `exp` present and in the future. Failure → `401 error="invalid_token"` |
+| … valid token, but the `tools/call` needs a scope it lacks | `403`, `WWW-Authenticate: Bearer error="insufficient_scope", scope="<held + needed>", resource_metadata="…"` (the spec's step-up challenge) |
+| … valid token with enough scope | `sc_api_key_ref` claim → backend lookup → the SocialCrawl API key. Calls run with that key. Unknown or revoked ref → `401 invalid_token`; lookup backend down → `503` |
+| `POST /mcp` with `x-api-key: sc_…`, or `Authorization: Bearer sc_…` (not a JWT) | The existing API-key path, unchanged. Headless clients keep working |
+
+A Bearer value counts as a JWT when it has three dot-separated base64url parts.
+SocialCrawl API keys (`sc_` + base64url) never contain a dot, so the two never
+collide. **Any other Bearer value is treated as a SocialCrawl API key, even with
+the flag on.** That includes an opaque (non-JWT) OAuth access token. Such a
+value is not verified here. It is forwarded upstream as `x-api-key`, just as
+before, and the SocialCrawl API rejects it. So the authorization server must
+issue JWT access tokens. Opaque tokens and token introspection are not
+supported.
+
+A JWT-authenticated request must send `Content-Type: application/json` (charset
+parameters are fine). Anything else gets `415` before the token is checked. The
+reason: the SDK transport accepts any Content-Type that *contains*
+`application/json` and parses the raw body itself, so the scope check must only
+ever run on the body Express actually parsed. As a second guard, a body that is
+not a JSON object or array needs every scope.
+
+Anonymous discovery goes away when the flag is on. A credential-less request
+gets the 401 challenge, which is the signal a connector client needs to start
+the OAuth flow.
+
+The access token is never forwarded anywhere: not to the SocialCrawl API, and not
+to the lookup backend. The spec forbids token passthrough. Neither the token nor
+the resolved key is ever logged. The request log keeps its 8-character
+fingerprint.
+
+The bearer check, the `WWW-Authenticate` formatting and the metadata route use
+the SDK's own helpers (`requireBearerAuth`, `metadataHandler`,
+`getOAuthProtectedResourceMetadataUrl`). The SDK has no JWT/JWKS verification,
+so `jose` does that part (`src/oauth/jwt-verifier.ts`).
+
+### Scopes
+
+| Scope | Tools |
+|---|---|
+| `socialcrawl:read` | `list_platforms`, `list_endpoints`, `pricing`, `discover`, `get_docs`, `check_balance` |
+| `socialcrawl:spend` | `request` |
+| `socialcrawl:spend` + `socialcrawl:manage` | `web`, `monitors`, `cohorts` (they bill, and they create or delete persistent resources) |
+
+Only `tools/call` is gated. `initialize`, `tools/list` and the other methods
+need only a valid token. A tool missing from the map needs every scope (fail
+closed), and a test fails if a registered tool is missing from
+`src/oauth/scopes.ts`. JSON-RPC batches are checked message by message.
+
+### Environment
+
+| Var | Required with the flag | Meaning |
+|---|---|---|
+| `SOCIALCRAWL_OAUTH` | — | `1` turns OAuth on. Any other value, or unset, leaves it off |
+| `SOCIALCRAWL_OAUTH_RESOURCE` | yes | Canonical URL of this endpoint, e.g. `https://mcp.socialcrawl.dev/mcp`. This is the token audience and the RFC 8707 `resource`. No fragment, no trailing slash |
+| `SOCIALCRAWL_OAUTH_ISSUER` | yes | Authorization server issuer, matched exactly against `iss` |
+| `SOCIALCRAWL_OAUTH_JWKS_URL` | yes | The issuer's JWKS. jose caches it and refetches when it sees an unknown `kid` |
+| `SOCIALCRAWL_OAUTH_KEY_LOOKUP_URL` | yes | The backend lookup endpoint (contract below) |
+| `SOCIALCRAWL_OAUTH_KEY_LOOKUP_SECRET` | yes | Shared secret sent to that endpoint as `Authorization: Bearer <secret>` |
+| `SOCIALCRAWL_OAUTH_ALGORITHMS` | no | Comma list of accepted JWS algorithms. Default `RS256,PS256,ES256`. Only `RS256/384/512`, `PS256/384/512` and `ES256/384/512` are allowed. Anything else (HMAC, `none`, `EdDSA`) stops the process at boot |
+
+All URLs must be `https` (plain `http` is accepted only for `localhost` and
+`127.0.0.1`). If the flag is on and a variable is missing or invalid, the
+process refuses to start and the error names the variable.
+
+### What the owner must provide
+
+**1. An authorization server** (in the `codebase/` monorepo or a hosted IdP). It must:
+
+- publish RFC 8414 metadata (`/.well-known/oauth-authorization-server`, or OIDC
+  discovery) at the issuer, with `authorization_endpoint`, `token_endpoint`,
+  `code_challenge_methods_supported: ["S256"]`, `scopes_supported` and
+  `client_id_metadata_document_supported: true`;
+- run the authorization-code grant with **PKCE S256**;
+- accept **Client ID Metadata Documents** (URL-shaped `client_id`s, such as
+  claude.ai's). Fetch and validate the document, and match `redirect_uri`
+  against it. Dynamic Client Registration is deprecated in 2026-07-28; keep it
+  only if older clients need it;
+- honour the RFC 8707 `resource` parameter, and issue tokens whose `aud` is
+  exactly `SOCIALCRAWL_OAUTH_RESOURCE`;
+- issue **JWT access tokens** signed with a key in the JWKS (with a `kid`), carrying
+  `iss`, `aud`, `exp` (short-lived, at most 1 h recommended), `sub`, `client_id`,
+  `scope` (space-delimited; `scp` is also accepted) and **`sc_api_key_ref`**;
+- on the consent screen, let the user choose (or create) the SocialCrawl API key
+  the connector will bill. Mint an opaque `sc_api_key_ref` for that choice,
+  bound to the user. **Never put the API key itself in the token.** JWTs are
+  signed, not encrypted, so any token holder can read them.
+
+**2. The key-lookup endpoint** (`SOCIALCRAWL_OAUTH_KEY_LOOKUP_URL`):
+
+```http
+POST <SOCIALCRAWL_OAUTH_KEY_LOOKUP_URL>
+Authorization: Bearer <SOCIALCRAWL_OAUTH_KEY_LOOKUP_SECRET>
+Content-Type: application/json
+
+{ "sc_api_key_ref": "ref_…", "sub": "<token sub>", "client_id": "<token client_id>", "scopes": ["socialcrawl:read", …] }
+```
+
+| Status | Body | MCP server does |
+|---|---|---|
+| `200` | `{ "api_key": "sc_…" }` | Runs the call with that key. Caches it for at most 60 s, and never past the token's `exp`. The cache key is `sha256(sub, client_id, ref)`, so a cache hit never skips the "ref belongs to sub" check for a different subject or client |
+| `404` | anything | Ref is unknown or revoked, or the key is disabled → `401 invalid_token`, so the client re-authorizes |
+| anything else, timeout (5 s), network error, `200` without `api_key` | — | `503`, nothing cached. The log records only the HTTP status |
+
+The endpoint must:
+
+- compare the shared secret in **constant time** (for example
+  `crypto.timingSafeEqual` over SHA-256 digests);
+- check that the ref belongs to `sub`, and refuse refs that were revoked, whose
+  key was rotated or disabled, or whose user was suspended;
+- serve over HTTPS only, send `Cache-Control: no-store`, never log the key or
+  the secret, and charge 0 credits.
+
+Revoking a ref takes effect within 60 s, because of the cache.
+
+### Setup steps (owner)
+
+1. Stand up the authorization server and the lookup endpoint above. Choose a
+   long random lookup secret and store it on both sides.
+2. Deploy the MCP server with `SOCIALCRAWL_OAUTH=1` and the five required variables
+   (plus the usual `MCP_ALLOWED_HOSTS`, `MCP_TRUST_PROXY=1`).
+3. Check it:
+   ```bash
+   curl -s https://mcp.socialcrawl.dev/.well-known/oauth-protected-resource/mcp
+   curl -si -X POST https://mcp.socialcrawl.dev/mcp -H 'Content-Type: application/json' \
+     -H 'Accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | grep -i www-authenticate
+   ```
+4. In claude.ai: **Settings → Connectors → Add custom connector**, URL
+   `https://mcp.socialcrawl.dev/mcp`. Sign in, consent, then confirm that a
+   read-only grant can list tools and that `socialcrawl_request` returns a 403
+   step-up.
+
+Code: `src/oauth/config.ts` (env), `src/oauth/jwt-verifier.ts`,
+`src/oauth/api-key-resolver.ts` (lookup strategy, pluggable: any
+`(authInfo) => Promise<string | null>`), `src/oauth/scopes.ts`,
+`src/oauth/resource-server.ts` (metadata route and gate), wired in `src/app.ts`.
+Tests: `src/__tests__/oauth.test.ts` (units) and `oauth-http.test.ts` (end to end
+over real HTTP: a local JWKS host, lookup backend and upstream).
+
+---
+
 ## 11. What's intentionally NOT here (deferred)
 
-- **OAuth 2.1 / `401` + `WWW-Authenticate` flow.** Required before claude.ai custom
-  connectors and Anthropic directory submission. Lives in the main `codebase/`
-  monorepo — write a separate plan when it ships. Until then, header auth is the
-  way.
+- **The OAuth authorization server and key-lookup endpoint.** The MCP side
+  (resource server, 401 challenge, scopes) ships as a preview behind
+  `SOCIALCRAWL_OAUTH=1`. See [§10a](#10a-oauth-preview). The authorization server
+  and lookup endpoint it depends on belong in the main `codebase/` monorepo and
+  are not built yet. Until they are, header auth is the way.
 - **The actual cloud deployment.** The container host, DNS (`mcp.socialcrawl.dev`
   CNAME), TLS, and publishing the registry entry are a manual ops checklist
   (Appendix A of the plan). Blocked on the hosting-platform decision. Notably,

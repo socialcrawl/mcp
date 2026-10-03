@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest";
 import { createServer as createHttpServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -57,23 +57,31 @@ function firstText(result: Record<string, unknown>): string {
 }
 
 describe("Streamable HTTP endpoint", () => {
-  it("completes the MCP handshake and lists all ten tools", async () => {
+  // The default surface, whatever the shell exports.
+  beforeEach(() => {
+    vi.stubEnv("SOCIALCRAWL_LEGACY_TOOLS", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("completes the MCP handshake and lists all seven tools", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(10);
+    expect(tools).toHaveLength(7);
     await client.close();
   });
 
   it("serves discovery tools anonymously", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "socialcrawl_list_platforms", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_find", arguments: {} });
     expect(firstText(result)).toContain("tiktok");
     await client.close();
   });
 
   it("keyed tool errors for anonymous callers and never contacts the upstream", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_account", arguments: {} });
     expect(firstText(result)).toContain("No API key configured");
     expect(hits).toHaveLength(0);
     await client.close();
@@ -81,7 +89,7 @@ describe("Streamable HTTP endpoint", () => {
 
   it("forwards the Authorization: Bearer key to the SocialCrawl API", async () => {
     const client = await connect({ Authorization: "Bearer sc_int_bearer" });
-    const result = await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+    const result = await client.callTool({ name: "socialcrawl_account", arguments: {} });
     expect(hits.some((h) => h.apiKey === "sc_int_bearer" && h.path.includes("/v1/credits/balance"))).toBe(true);
     expect(firstText(result)).toContain("777");
     await client.close();
@@ -89,7 +97,7 @@ describe("Streamable HTTP endpoint", () => {
 
   it("accepts x-api-key as an alternative header", async () => {
     const client = await connect({ "x-api-key": "sc_int_xkey" });
-    await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+    await client.callTool({ name: "socialcrawl_account", arguments: {} });
     expect(hits.some((h) => h.apiKey === "sc_int_xkey")).toBe(true);
     await client.close();
   });
@@ -98,7 +106,7 @@ describe("Streamable HTTP endpoint", () => {
     process.env.SOCIALCRAWL_API_KEY = "sc_operator_secret";
     try {
       const client = await connect();
-      const result = await client.callTool({ name: "socialcrawl_check_balance", arguments: {} });
+      const result = await client.callTool({ name: "socialcrawl_account", arguments: {} });
       expect(firstText(result)).toContain("No API key configured");
       expect(hits.some((h) => h.apiKey === "sc_operator_secret")).toBe(false);
       await client.close();
@@ -112,7 +120,7 @@ describe("Streamable HTTP endpoint", () => {
     const clientB = await connect({ Authorization: "Bearer sc_tenant_b" });
     await Promise.all(
       Array.from({ length: 10 }, (_, i) =>
-        (i % 2 === 0 ? clientA : clientB).callTool({ name: "socialcrawl_check_balance", arguments: {} }),
+        (i % 2 === 0 ? clientA : clientB).callTool({ name: "socialcrawl_account", arguments: {} }),
       ),
     );
     const keys = hits.map((h) => h.apiKey);
@@ -249,7 +257,7 @@ describe("request logging", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       const client = await connect({ Authorization: "Bearer sc_super_secret_key" });
-      await client.callTool({ name: "socialcrawl_list_platforms", arguments: {} });
+      await client.callTool({ name: "socialcrawl_find", arguments: {} });
       await client.close();
       const logged = errSpy.mock.calls.map((args) => args.join(" ")).join("\n");
       expect(logged).toContain('"keyFp"');

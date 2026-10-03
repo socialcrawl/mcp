@@ -32,9 +32,9 @@ function forbidFetch(): void {
 }
 
 describe("the utility endpoints are registered and free", () => {
-  it("registers all six", () => {
+  it("registers all twelve", () => {
     const resources = getEndpointsByPlatform("utility").map((e) => e.resource).sort();
-    expect(resources).toEqual(["capabilities", "endpoint", "endpoints", "llms", "plan", "quickstart"]);
+    expect(resources).toEqual(["capabilities", "docs-search", "endpoint", "endpoints", "estimate", "explain-error", "find", "llms", "plan", "quickstart", "recipes", "resolve"]);
   });
 
   it("charges nothing for any of them", () => {
@@ -297,8 +297,8 @@ describe("the setup docs topic", () => {
   });
 
   it("tells the reader how to verify the setup and stay current", () => {
-    expect(doc).toContain("socialcrawl_check_balance");
-    expect(doc).toContain('action: "freshness"');
+    expect(doc).toContain("socialcrawl_account");
+    expect(doc).toContain('view: "freshness"');
     expect(doc).toContain("socialcrawl-mcp@latest");
   });
 

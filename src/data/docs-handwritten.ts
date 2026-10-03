@@ -30,7 +30,7 @@ export const HANDWRITTEN: Record<string, string> = {
 
 Unified social, commerce, and research data API. One API key, one response envelope, ${PLATFORMS.length} platforms, ${ENDPOINTS.length} endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, news, web research plus full web scraping & browser automation, on-page SEO audits, prediction markets, search trends, Korean search (Naver), content/sentiment analysis, and cross-platform Prism composites.
 
-The web-scraping/crawling/browser-automation surface (the \`web\` platform) is driven by the dedicated \`socialcrawl_web\` tool; the stateful monitors wrapper by \`socialcrawl_monitors\`; the audience-filtered mention search (\`/v1/cohorts/*\`) by \`socialcrawl_cohorts\`. Everything else goes through \`socialcrawl_request\`.
+The web-scraping/crawling/browser-automation surface (the \`web\` platform) is driven by \`socialcrawl_manage\` with \`area: "web"\`; the stateful monitors wrapper by \`area: "monitors"\`; the audience-filtered mention search (\`/v1/cohorts/*\`) by \`area: "cohorts"\`. Everything else goes through \`socialcrawl_request\`.
 
 ## Base URL
 
@@ -52,7 +52,7 @@ Three billing models:
 - **Flat** — a per-endpoint override (e.g. \`GET /v1/search/everywhere\` at 20cr; the ${free.length} free endpoints at 0cr).
 - **Metered** (${metered.length} endpoints) — the charge depends on the request. An upfront ceiling is deducted and automatically refunded down to the work actually done.
 
-Cache hits, idempotent replays, empty results, and upstream failures all cost 0 credits. Use the \`socialcrawl_pricing\` tool (or the \`pricing\` docs topic) for the exact cost of every endpoint.
+Cache hits, idempotent replays, empty results, and upstream failures all cost 0 credits. Use the \`socialcrawl_estimate\` tool (or the \`pricing\` docs topic) for the exact cost of every endpoint.
 
 ## Judgments — free by default
 
@@ -77,7 +77,7 @@ API-key-authed endpoints that return account metadata at 0 credit cost:
 - \`GET /v1/credits/balance\` — current credit balance and recent deduction summary.
 - \`GET /v1/credits/transactions\` — the itemised credit ledger (deductions and refunds, keyed by \`request_id\`).
 
-Both are served by the \`socialcrawl_check_balance\` tool.
+Both are served by the \`socialcrawl_account\` tool.
 
 ## Full Reference
 
@@ -114,7 +114,7 @@ Sign up at https://www.socialcrawl.dev — every account starts with 100 free cr
 
 **Remote (Streamable HTTP, https://mcp.socialcrawl.dev/mcp):** send the key on every request as an \`Authorization: Bearer <key>\` or \`x-api-key: <key>\` header — in Claude Code: \`claude mcp add --transport http socialcrawl https://mcp.socialcrawl.dev/mcp --header "Authorization: Bearer sc_your_key"\`. Keys are never accepted in the URL or query string.
 
-The discovery tools (\`socialcrawl_list_platforms\`, \`socialcrawl_list_endpoints\`, \`socialcrawl_pricing\`, \`socialcrawl_get_docs\`) work without a key — only calls that hit the API need one.`,
+The discovery tools (\`socialcrawl_find\`, \`socialcrawl_endpoint\`, \`socialcrawl_estimate\`) work without a key — only calls that hit the API need one.`,
 
   credits: `# SocialCrawl API — Credits
 
@@ -142,7 +142,7 @@ Counting every endpoint under its declared tier: standard ${REGISTRY_STATS.stand
 
 A metered endpoint's real charge is decided by your query — quoting its base cost under-reports what you will pay. The router deducts a worst-case ceiling up front and refunds the difference when the work settles, so \`credits_used\` in the response envelope (and the \`X-Credits-Used\` header) is always the truth. Examples: \`prism/comments\` bills 1 credit per comment page scanned; \`search/news\` bills 2 credits plus 1 per country leg that returned articles; \`web/crawl\` holds \`limit\` credits and refunds every page it did not crawl.
 
-Use the \`socialcrawl_pricing\` tool with \`action: "endpoint"\` for any endpoint's exact band, rule, and price-driving parameters — and pass \`params\` (the exact query you will send) plus \`calls\` for an itemised hold and a whole-job budget.
+Use the \`socialcrawl_estimate\` tool with an \`id\` for any endpoint's exact band, rule, and price-driving parameters — and pass \`params\` (the exact query you will send) plus \`calls\` for an itemised hold and a whole-job budget.
 
 ### Judgments
 
@@ -172,7 +172,7 @@ Judged lists carry free default labels (posts: sponsored, intent, niche · comme
 
 ## Verifying a charge
 
-\`socialcrawl_check_balance\` with \`view: "transactions"\` returns the credit ledger: every deduction and refund with \`amount\`, \`balance_after\`, \`endpoint\`, and \`request_id\`. Deductions are negative and refunds positive, so a page of amounts sums to the balance delta. Look up a specific call with \`requestId\` to see exactly what a metered endpoint settled at.
+\`socialcrawl_account\` with \`view: "transactions"\` returns the credit ledger: every deduction and refund with \`amount\`, \`balance_after\`, \`endpoint\`, and \`request_id\`. Deductions are negative and refunds positive, so a page of amounts sums to the balance delta. Look up a specific call with \`requestId\` to see exactly what a metered endpoint settled at.
 
 ## Advisory warnings (ENV-03)
 
@@ -246,7 +246,7 @@ Any \`/v1/*\` request can be made retry-safe by supplying an \`Idempotency-Key\`
 
 ## How to use it
 
-The \`socialcrawl_request\` tool (and \`socialcrawl_web\` for the async job submitters) accepts an optional \`idempotencyKey\` parameter:
+The \`socialcrawl_request\` tool (and \`socialcrawl_manage\` for the async job submitters) accepts an optional \`idempotencyKey\` parameter:
 
 - Use a UUIDv4 (or any opaque 16+ character string) the agent can regenerate on retry.
 - Reuse the same key across retries of the same logical operation.
@@ -285,7 +285,7 @@ Every list endpoint speaks one client contract, whatever its upstream calls its 
 
 The registry declares 11 different native cursor names (\`max_cursor\`, \`next_max_id\`, \`continuationToken\`, \`after\`, \`next_page_id\`, …) plus \`page\` and \`offset\` styles. **Every paginatable endpoint also accepts \`cursor\`**, rewritten to that endpoint's native param before validation, caching, and dispatch. The native names still work; \`cursor\` is the one you should write.
 
-\`socialcrawl_list_endpoints\` prints each endpoint's paging style and native param.
+\`socialcrawl_endpoint\` prints each endpoint's paging style and native param.
 
 ## The \`pagination\` envelope block
 
@@ -309,7 +309,7 @@ Sending a *known* cursor name that is not this endpoint's native param (or \`cur
 
 For most endpoints \`limit\` is a **page size** mapped to the upstream's native limit param (with an endpoint-specific max).
 
-For a handful it is **collect-until-N**: the endpoint walks upstream pages itself until it has N unique items, de-duplicating server-side, and bills per page actually consumed with the unused budget refunded. \`socialcrawl_list_endpoints\` flags these explicitly — the name of the native param cannot tell you which is which.
+For a handful it is **collect-until-N**: the endpoint walks upstream pages itself until it has N unique items, de-duplicating server-side, and bills per page actually consumed with the unused budget refunded. \`socialcrawl_endpoint\` flags these explicitly — the name of the native param cannot tell you which is which.
 
 ## Composites that walk for you
 
@@ -346,7 +346,7 @@ Each page of an ordinary list endpoint is a separate billed request. A repeat of
 | analytics | ${CACHE_TTLS.analytics}s (30 min) | Analytics, aggregates, reference data |
 | immutable | ${CACHE_TTLS.immutable}s (30 days) | Single-video transcripts — a published transcript never changes |
 
-Each endpoint's exact category and TTL is shown by \`socialcrawl_list_endpoints\` and \`socialcrawl_pricing\`. An endpoint may declare its own TTL override; \`0\` means it is never cached and every call is live and billed.
+Each endpoint's exact category and TTL is shown by \`socialcrawl_endpoint\` and \`socialcrawl_estimate\`. An endpoint may declare its own TTL override; \`0\` means it is never cached and every call is live and billed.
 
 ## The cache key
 
@@ -415,7 +415,7 @@ Every endpoint declaring an archetype is validated against one canonical Zod sch
 - **Places, apps, news, finance, jobs** — \`Place\`/\`PlaceList\`, \`App\`/\`AppList\`, \`NewsArticleList\`, \`QuoteList\`, \`JobList\`.
 - **Web** — \`WebPage\`/\`WebPageList\`.
 
-\`socialcrawl_list_endpoints\` shows each endpoint's archetype in its Response column.
+\`socialcrawl_endpoint\` shows each endpoint's archetype, where its rows are and its response fields in its Response column.
 
 ## Platform-specific fields: \`ext\`
 
@@ -475,7 +475,7 @@ Retry only 429/500/502/503 (and 504). Honour \`Retry-After\`, back off with jitt
 
   setup: `# SocialCrawl — Setup & Correct Use
 
-How to configure SocialCrawl, and how to drive it well once it is configured. Everything on this page is free to verify: \`socialcrawl_discover\` calls the API's own \`/v1/utility/*\` endpoints at 0 credits.
+How to configure SocialCrawl, and how to drive it well once it is configured. Everything on this page is free to verify: \`socialcrawl_endpoint\` and \`socialcrawl_account\` call the API's own free routes at 0 credits.
 
 ## 1. Get a key
 
@@ -517,7 +517,7 @@ claude mcp add --transport http socialcrawl https://mcp.socialcrawl.dev/mcp \\
 ## 3. Verify the setup
 
 \`\`\`
-socialcrawl_check_balance
+socialcrawl_account
 \`\`\`
 
 0 credits, and it proves auth end to end. If it fails, the message names the cause: \`MISSING_API_KEY\` means the env var never reached the process; \`INVALID_API_KEY\` means it is malformed, revoked, or from another environment.
@@ -525,7 +525,7 @@ socialcrawl_check_balance
 Then confirm this server's catalogue is current:
 
 \`\`\`
-socialcrawl_discover  action: "freshness"
+socialcrawl_account  view: "freshness"
 \`\`\`
 
 This is the one check people skip. The MCP ships a catalogue generated when it was built; the API keeps moving. \`freshness\` compares the two and tells you whether to upgrade (\`npx -y socialcrawl-mcp@latest\`). Calls always hit the live API and keep working — but discovery, pricing, and local validation answer from the snapshot, so a newer endpoint looks unknown until you upgrade.
@@ -534,18 +534,18 @@ This is the one check people skip. The MCP ships a catalogue generated when it w
 
 | You want to… | Tool |
 |--------------|------|
-| See what platforms exist | \`socialcrawl_list_platforms\` |
-| Find an endpoint | \`socialcrawl_list_endpoints\` with \`search\` |
-| Know what a call costs | \`socialcrawl_pricing\` |
-| Learn one endpoint completely | \`socialcrawl_discover\` \`action: "endpoint"\` |
-| Fetch data | \`socialcrawl_request\` |
-| Scrape / crawl / browse the open web | \`socialcrawl_web\` |
-| Schedule a recipe on a cadence | \`socialcrawl_monitors\` |
-| Check balance or explain a charge | \`socialcrawl_check_balance\` |
-| Read a contract (paging, caching, errors…) | \`socialcrawl_get_docs\` |
-| Get the live, authoritative answer | \`socialcrawl_discover\` |
+| See what platforms exist | \`socialcrawl_find\` with no task |
+| Find an endpoint for a task | \`socialcrawl_find\` with the task in plain words |
+| Know what a call costs | \`socialcrawl_estimate\` with the exact params |
+| Learn one endpoint completely | \`socialcrawl_endpoint\` with its id |
+| Fetch data | \`socialcrawl_request\` (one page) or \`socialcrawl_collect\` (N rows) |
+| Scrape / crawl / browse the open web | \`socialcrawl_manage\` \`area: "web"\` |
+| Schedule a recipe on a cadence | \`socialcrawl_manage\` \`area: "monitors"\` |
+| Check balance or explain a charge | \`socialcrawl_account\` |
+| Read a contract (paging, caching, errors…) | \`socialcrawl_endpoint\` with a topic id |
+| Get the live, authoritative answer | \`socialcrawl_endpoint\` with a key set |
 
-Two surfaces do **not** go through \`socialcrawl_request\`: the \`web\` platform (action-based, mixes GET/POST/PATCH/DELETE and async jobs) and monitors (\`/v1/monitors/*\`, not registry endpoints).
+Two surfaces do **not** go through \`socialcrawl_request\`: the \`web\` platform (action-based, mixes GET/POST/PATCH/DELETE and async jobs) and monitors (\`/v1/monitors/*\`, not registry endpoints); both are \`socialcrawl_manage\` areas.
 
 ## 5. Bundled vs live — which to trust
 
@@ -553,7 +553,7 @@ This server answers most questions from a catalogue generated from the backend r
 
 The \`/v1/utility/*\` endpoints answer from the live registry at request time. They are the authority when the two disagree.
 
-Prefer bundled (the default) for browsing and planning. Reach for \`socialcrawl_discover\` when:
+Prefer bundled (the default) for browsing and planning. Reach for the live answer (\`socialcrawl_endpoint\` with a key) when:
 
 - an endpoint you expect is missing, or a parameter is rejected that the docs say exists;
 - you need the exact live price of a metered endpoint;
@@ -576,13 +576,13 @@ Prefer bundled (the default) for browsing and planning. Reach for \`socialcrawl_
 
 **Respect the limits.** 600 requests/minute and 50 concurrent per key, both unbilled when exceeded. Every response carries \`X-RateLimit-Remaining\` and \`X-Concurrency-Remaining\` — pace off those rather than discovering the wall.
 
-**Keep the request id.** Every response has \`request_id\`. It is the key into the credit ledger (\`socialcrawl_check_balance\` with \`view: "transactions"\`) and the fastest way to get a charge or a bug looked at.
+**Keep the request id.** Every response has \`request_id\`. It is the key into the credit ledger (\`socialcrawl_account\` with \`view: "transactions"\`) and the fastest way to get a charge or a bug looked at.
 
 ## 7. Staying up to date
 
-- \`socialcrawl_discover\` \`action: "freshness"\` — is this server's catalogue current?
+- \`socialcrawl_account\` \`view: "freshness"\` — is this server's catalogue current?
 - \`npx -y socialcrawl-mcp@latest\` — upgrade the local server.
-- \`GET /v1/utility/llms\` (or \`socialcrawl_discover\` \`action: "llms"\`) — refresh an agent's context corpus in one call instead of scraping docs pages.
+- \`GET /v1/utility/llms\` (or, with \`SOCIALCRAWL_LEGACY_TOOLS=1\`, \`socialcrawl_discover\` \`action: "llms"\`) — refresh an agent's context corpus in one call instead of scraping docs pages.
 - https://www.socialcrawl.dev/llms.txt · \`llms-full.txt\` · \`llms-{platform}.txt\` — the same corpus as static files.
 - https://www.socialcrawl.dev/v1/openapi.json — the OpenAPI spec.
 `,
@@ -593,7 +593,7 @@ Six endpoints let any client — an AI agent, a script, a third-party integratio
 
 Because \`cost: 0\` takes a read-only billing path, they succeed even at a zero balance and write no ledger rows. They are safe to call in a loop, on startup, or before every request.
 
-In this MCP server they are driven by the **\`socialcrawl_discover\`** tool, which renders each payload as readable markdown instead of raw JSON.
+In this MCP server \`socialcrawl_endpoint\` reads \`utility/endpoint\` live, \`socialcrawl_find\` asks \`utility/find\` and \`utility/resolve\`, \`socialcrawl_estimate\` asks \`utility/estimate\`, and \`socialcrawl_account\` checks freshness. The 1.x \`socialcrawl_discover\` tool (with \`SOCIALCRAWL_LEGACY_TOOLS=1\`) renders every payload below as readable markdown.
 
 ---
 
@@ -605,7 +605,7 @@ Everything needed for a first successful request, in one response: authenticatio
 |-------|------|-------|
 | \`platform\` | string | Optional. Tailors the first-call example and links to one platform slug. |
 
-MCP: \`socialcrawl_discover\` with \`action: "quickstart"\`.
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "quickstart"\`.
 
 Reach for it when bootstrapping a new integration, or when an agent needs the error taxonomy in one payload rather than a docs crawl.
 
@@ -627,7 +627,7 @@ The response also carries a \`stats\` block with the **live** registry totals. T
 
 The array key is \`endpoints\`, deliberately not \`items\`, so the response envelope never stamps a pagination block onto a fixed list.
 
-MCP: \`socialcrawl_discover\` with \`action: "catalog"\` (plus \`platform\` / \`search\` / \`method\`).
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "catalog"\` (plus \`platform\` / \`search\` / \`method\`).
 
 ---
 
@@ -652,7 +652,7 @@ The deepest per-endpoint object the API exposes, and the one to reach for before
 
 \`id\` or \`url\` is required — one of the two, not both. Omitting both is a 400; an unknown endpoint is a 404 pointing back at the catalogue. Disabled endpoints resolve like unknowns, matching the catalogue.
 
-MCP: \`socialcrawl_discover\` with \`action: "endpoint"\` and \`id\`. The tool accepts an id, a path, or a full URL and normalises it for you.
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "endpoint"\` and \`id\`. The tool accepts an id, a path, or a full URL and normalises it for you.
 
 ---
 
@@ -664,7 +664,7 @@ Every cross-cutting parameter, once: the \`label\` presets per row family (comme
 |-------|------|-------|
 | \`param\` | string | Return one capability only (e.g. \`label\`, \`relevance\`, \`seen\`). An unknown one is a 404 naming every capability. |
 
-MCP: \`socialcrawl_discover\` with \`action: "capabilities"\` (and \`param\`). Without a key it answers from the bundled registry.
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "capabilities"\` (and \`param\`). Without a key it answers from the bundled registry.
 
 ---
 
@@ -676,7 +676,7 @@ A job in plain words ("track mentions of Acme on TikTok and Reddit", "a creator'
 |-------|------|-------|
 | \`query\` | string | Required. The job in plain words. |
 
-MCP: \`socialcrawl_discover\` with \`action: "plan"\` and \`query\` (needs an API key; free).
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "plan"\` and \`query\` (needs an API key; free).
 
 ---
 
@@ -691,13 +691,13 @@ The SocialCrawl context corpus, served through the API: the same content as \`ll
 
 The markdown is produced by the *same* builders that write the static \`llms.txt\` files, never a parallel formatter, so the API-served context and the static files cannot disagree.
 
-MCP: \`socialcrawl_discover\` with \`action: "llms"\`.
+MCP (1.x tools, \`SOCIALCRAWL_LEGACY_TOOLS=1\`): \`socialcrawl_discover\` with \`action: "llms"\`.
 
 ---
 
 ## When to use these instead of the MCP's own tools
 
-\`socialcrawl_list_platforms\`, \`socialcrawl_list_endpoints\`, \`socialcrawl_pricing\`, and \`socialcrawl_get_docs\` answer the same questions **without an API key and without a network round trip**, from a catalogue generated from the same registry. Prefer them for browsing and planning — they are faster and always available.
+\`socialcrawl_find\`, \`socialcrawl_endpoint\` and \`socialcrawl_estimate\` answer the same questions **without an API key and without a network round trip**, from a catalogue generated from the same registry. Prefer them for browsing and planning — they are faster and always available.
 
 Use \`/v1/utility/*\` when you need the **live** answer:
 
@@ -706,7 +706,7 @@ Use \`/v1/utility/*\` when you need the **live** answer:
 - You are generating code, docs, or a client that must match production today.
 - You are not going through MCP at all — this is the same information over plain HTTP, for any language or agent framework.
 
-**Check which situation you are in:** \`socialcrawl_discover\` with \`action: "freshness"\` compares the live registry totals against this server's bundled catalogue and tells you whether to upgrade (\`npx -y socialcrawl-mcp@latest\`). Data calls always hit the live API and keep working regardless — it is discovery, pricing, and local validation that age.
+**Check which situation you are in:** \`socialcrawl_account\` with \`view: "freshness"\` compares the live registry totals against this server's bundled catalogue and tells you whether to upgrade (\`npx -y socialcrawl-mcp@latest\`). Data calls always hit the live API and keep working regardless — it is discovery, pricing, and local validation that age.
 
 ## Other machine-readable surfaces
 
@@ -749,11 +749,11 @@ In this server: \`socialcrawl_request\` with platform \`prism\`, resource \`jobs
 
 Monitors are the **stateful, scheduled wrapper** around any SocialCrawl recipe. A monitor re-runs a registered endpoint or a Prism composite on a cadence, delivers each result to a signed webhook, evaluates alert rules, and accumulates a per-run time-series you can read back. *"Prism answers once; monitors watch it for you."*
 
-Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and are managed through the \`socialcrawl_monitors\` tool, not \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
+Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and are managed through \`socialcrawl_manage\` with \`area: "monitors"\`, not \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
 
-(Not to be confused with **web monitors**, \`/v1/web/monitors/*\` — those watch a single URL for content changes and are driven by \`socialcrawl_web\` with the \`monitor_*\` actions.)
+(Not to be confused with **web monitors**, \`/v1/web/monitors/*\` — those watch a single URL for content changes and are driven by \`socialcrawl_manage\` \`area: "web"\` with the \`monitor_*\` actions.)
 
-## Operations (\`socialcrawl_monitors\` actions)
+## Operations (\`socialcrawl_manage\` \`area: "monitors"\` actions)
 
 | Action | HTTP | What it does |
 |--------|------|--------------|
@@ -771,19 +771,19 @@ Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and 
 - \`cadence\` (required) — \`hourly\` \| \`daily\` \| \`weekly\`, or a cron expression.
 - \`webhook_url\` (required) — HTTPS endpoint that receives each run, signed with \`x-socialcrawl-signature\` (HMAC-SHA256, timestamped).
 - \`params\` — parameters passed to the recipe every run.
-- \`alert_rules\` — \`[{ metric, op, value, window? }]\`. Ops: \`gt\`, \`lt\`, \`gte\`, \`lte\`, \`abs_change_gt\`, \`pct_change_gt\`, \`pct_change_lt\` (the change ops compare a run to the previous comparable run; \`window\` is \`1d\` \| \`1w\`).
+- \`alert_rules\` — \`[{ metric, op, value, window? }]\`. Ops: \`gt\`, \`lt\`, \`gte\`, \`lte\`, \`abs_change_gt\`, \`pct_change_gt\`, \`pct_change_lt\` (the change ops compare a run to the previous comparable run; \`window\` is \`1d\` \| \`1w\`). To alert on new items, use the \`rows_new\` metric (rows not seen in the previous run; tracking monitors, ops \`gt\` / \`gte\`): \`{"metric":"rows_new","op":"gt","value":0}\`.
 - \`suppress_webhook_unless_alert\` — only deliver the webhook when a rule trips.
 - \`name\`, \`output_schema\`, \`webhook_secret\` — optional.
 
 ## Billing
 
-Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget, and \`socialcrawl_pricing\` with \`action: "endpoint"\` to price the recipe first. The webhook auto-pauses after 10 consecutive delivery failures.`,
+Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget, and \`socialcrawl_estimate\` with the recipe's \`id\` to price it first. The webhook auto-pauses after 10 consecutive delivery failures.`,
 
   cohorts: `# SocialCrawl API — Cohorts
 
 Cohorts answer a **narrower question than open social listening**: not "who is talking about X?" but "**which of _these specific_ public identities is talking about X?**" You supply the panel — a purchaser list, a customer roster, a creator shortlist — and get bounded, deterministic, metered retrieval over exactly those accounts.
 
-Cohorts are **not** registry endpoints. They live at \`/v1/cohorts/*\` and \`/v1/cohort-queries/*\`, mix POST/PUT/GET/DELETE with an async lifecycle, and are driven by the \`socialcrawl_cohorts\` tool rather than \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
+Cohorts are **not** registry endpoints. They live at \`/v1/cohorts/*\` and \`/v1/cohort-queries/*\`, mix POST/PUT/GET/DELETE with an async lifecycle, and are driven by \`socialcrawl_manage\` with \`area: "cohorts"\` rather than \`socialcrawl_request\`. Auth is the same \`x-api-key\`.
 
 It is **not** audience discovery. It does not find people, infer demographics, or score interests. It takes a list you already have and reports what those public accounts posted.
 
@@ -800,7 +800,7 @@ Whatever produced the list (receipts, CRM segments, panel attributes) stays on y
 
 \`instagram\` · \`tiktok\` · \`youtube\` · \`twitter\` · \`threads\` · \`bluesky\` · \`truth-social\` · \`kwai\` · \`twitch\` · \`linkedin\`
 
-Anything else is rejected at upload (400 \`COHORT_IDENTITY_PLATFORM_UNSUPPORTED\`), so an unsupported identity can never silently cost you a query that returns nothing. \`socialcrawl_cohorts\` also checks the list locally before it sends.
+Anything else is rejected at upload (400 \`COHORT_IDENTITY_PLATFORM_UNSUPPORTED\`), so an unsupported identity can never silently cost you a query that returns nothing. \`socialcrawl_manage\` also checks the list locally before it sends.
 
 ## The lifecycle
 
@@ -870,7 +870,7 @@ ceiling = SUM(members x route page cap x credits per page)
 | Twitter/X, Bluesky, Threads, Twitch | 1, and the page cap is always 1 |
 | Everything else | 1 |
 
-Run \`socialcrawl_cohorts\` with \`action: "estimate_cost"\` (plus \`members\` or \`platform_counts\` and your \`max_pages_per_identity\`) to compute that number locally, for free, before you commit.
+Run \`socialcrawl_manage\` with \`area: "cohorts", action: "estimate_cost"\` (plus \`members\` or \`platform_counts\` and your \`max_pages_per_identity\`) to compute that number locally, for free, before you commit.
 
 You are charged **only for pages that actually succeeded**. Failed, timed-out, cancelled, and skipped pages cost nothing, and when the query reaches a terminal state the unspent reservation is refunded exactly once — \`actual_credits + refunded_credits\` always equals \`reserved_credits\`. \`max_credits\` is your own safety limit, never permission to spend beyond the ceiling: if the computed ceiling exceeds it, submission fails with a 400 before any work is created or any credit is held.
 

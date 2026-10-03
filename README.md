@@ -2,12 +2,12 @@
 
 # socialcrawl-mcp
 
-**Give your AI agent access to 67 platforms and 631 endpoints — social media, commerce, marketplaces & product reviews, retail, app stores, places, travel & local, business & software reputation, jobs & salaries, markets & finance, congressional trading disclosures, news, web research, full web scraping & browser automation, on-page SEO, prediction markets, search trends, cross-platform Prism composites, and a universal meta-search — through a single API, with exact credit pricing for every endpoint**
+**Give your AI agent access to 67 platforms and 633 endpoints — social media, commerce, marketplaces & product reviews, retail, app stores, places, travel & local, business & software reputation, jobs & salaries, markets & finance, congressional trading disclosures, news, web research, full web scraping & browser automation, on-page SEO, prediction markets, search trends, cross-platform Prism composites, and a universal meta-search — through a single API, with exact credit pricing for every endpoint**
 
 [![npm](https://img.shields.io/npm/v/socialcrawl-mcp?style=flat-square&color=blue)](https://www.npmjs.com/package/socialcrawl-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-green?style=flat-square)](https://registry.modelcontextprotocol.io)
 [![Platforms](https://img.shields.io/badge/Platforms-67-blue?style=flat-square)](https://socialcrawl.dev)
-[![Endpoints](https://img.shields.io/badge/Endpoints-631-green?style=flat-square)](https://socialcrawl.dev/docs)
+[![Endpoints](https://img.shields.io/badge/Endpoints-633-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![mcp MCP server](https://glama.ai/mcp/servers/socialcrawl/mcp/badges/score.svg)](https://glama.ai/mcp/servers/socialcrawl/mcp)
 
@@ -23,11 +23,13 @@
 
 ## Overview
 
-`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 67 platforms and 631 endpoints.
+`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 67 platforms and 633 endpoints.
 
 Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, Threads, Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, GitHub, Hacker News, Product Hunt, Polymarket, and 30 more platforms. Pull products, offers, price history, reviews, and sellers from Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, and Google Shopping; apps, charts, and reviews from Google Play and the Apple App Store; hotels, restaurants, attractions, cruises, and traveler reviews from Tripadvisor, plus local business data from Yelp and Google Business; brand reputation from Trustpilot and software reviews from G2; job listings and salary bands from LinkedIn, Indeed, Bing, and Xing; market quotes, price history, financial statements, and options chains; US congressional trading disclosures; Korean search and Data Lab trend series from Naver; cross-web brand mentions with sentiment via Content Analysis; Google News headlines and Google Trends interest curves — plus web research via Tavily and Perplexity, AI-powered X search via Grok, on-page SEO audits, and a single `/search/everywhere` endpoint that fans out across 14 sources in one call.
 
-New in this release (v1.13.0): a registry re-sync from **575 to 631 endpoints and 65 to 67 platforms**, plus first-class support for the API's new judgment and cost-lever layer.
+New in v2.0.0: **seven tools instead of eleven** (`socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate`, `socialcrawl_request`, `socialcrawl_collect`, `socialcrawl_account`, `socialcrawl_manage`), ranked endpoint search, and an endpoint contract that says what data comes back. See [Available Tools](#available-tools) for the 1.x → 2.0 mapping; `SOCIALCRAWL_LEGACY_TOOLS=1` keeps the old names for this major version. The catalogue is now 633 endpoints (dump schema v4).
+
+In v1.13.0: a registry re-sync from **575 to 631 endpoints and 65 to 67 platforms**, plus first-class support for the API's new judgment and cost-lever layer.
 
 - **56 new endpoints.** Two new platforms: **Xiaohongshu** (search, trending, profile, notes, comments) and **Product Hunt** (launches). There are 22 new LinkedIn routes: profile bundles (`profile/all`, `profile/complete`, `profile/with-posts`), company by domain, also-viewed pages, employee counts, Pulse articles with their comments and reactions, hashtag/company/search-URL search, hiring teams, similar members and followed interests. Facebook gains keyword search over posts, pages, people, videos and groups. Prism adds 12 composites (`find-accounts`, `mentions`, `adverse-screen`, `brief-check`, `format-lift`, `earliness`, `trend-board`, `audience-language`, `comment-leads`, `investigate`) and **async background jobs** (`POST /v1/prism/jobs`, up to 5,000 items). Also new: `search/multi`, `tiktok/similar`, `instagram/media/screen-text`, `pinterest/trends`, `apple_music/charts`, `bluesky/search`, and the free `utility/capabilities` and `utility/plan`.
 - **Judgments, priced exactly.** About 50 list endpoints now label their rows for free by default (sponsored/intent/niche on posts, sentiment/question/purchase_intent/complaint on comments, sentiment/issue on reviews), and searches score relevance for free. Metered presets, `intent` with `offer=`, and `relevant_to=` hold 1 credit per started 25 rows. `socialcrawl_pricing` gains `action: "judgments"`, and `socialcrawl_request` quotes the hold on the call that spends it.
@@ -38,7 +40,7 @@ New in this release (v1.13.0): a registry re-sync from **575 to 631 endpoints an
 - New docs topics: `judgments` and `batch-jobs`. The `credits` and `pagination` topics cover `max_pages`, `seen`, `since` / `stop_at_id`, `data._warnings` for dropped params, and `meta.hint`.
 
 **What the MCP server does:**
-- Discovers platforms and endpoints dynamically, or by free-text search across all 631 of them (names, descriptions, parameter names and label presets)
+- Finds the right endpoint for a task in plain words (ranked search across all 633, with URLs and handles resolved), and tells the agent what data each one returns
 - Fetches live data on your behalf across every platform, method, and composite
 - Prices every call up front — ladder, flat, or metered band — so an agent can budget before it spends
 - Validates requests locally before calling the API: required params, `oneOf` groups, enum values, integer ranges, parameter couplings, and CSV limits. A bad call fails free instead of burning credits
@@ -73,7 +75,7 @@ claude mcp add --scope user --transport http socialcrawl https://mcp.socialcrawl
 
 **Cursor / Windsurf / VS Code** — choose the HTTP ("streamable-http") server type with the same URL and header. `x-api-key: sc_your_key_here` works as an alternative header.
 
-The discovery tools (`socialcrawl_list_platforms`, `socialcrawl_list_endpoints`, `socialcrawl_get_docs`) work without a key, so you can explore before signing up. claude.ai custom connectors (Settings → Connectors) require OAuth, which ships in a follow-up release — use the header-based setup above in the meantime.
+The discovery tools (`socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate`) work without a key, so you can explore before signing up. claude.ai custom connectors (Settings → Connectors) require OAuth. An OAuth 2.1 resource-server mode is in preview and off by default (`SOCIALCRAWL_OAUTH=1`; see `docs/REMOTE-STREAMABLE-HTTP.md`); until it is enabled on the hosted server, use the header-based setup above.
 
 Prefer running it locally? Every stdio option below works exactly as before.
 
@@ -245,7 +247,7 @@ Show me all the TikTok endpoints
 Which endpoints can give me video transcripts?
 ```
 
-The last one is a cross-platform `socialcrawl_list_endpoints` search — no platform needed, it looks across all 631 endpoints.
+Each is a `socialcrawl_find` call: the task in plain words, ranked across all 633 endpoints, no platform needed.
 
 ### Learn the API from the API
 
@@ -261,7 +263,7 @@ Show me exactly how to call the Prism comments endpoint
 Is this MCP server's endpoint list up to date?
 ```
 
-All three hit `socialcrawl_discover` and cost nothing.
+These hit `socialcrawl_endpoint` and `socialcrawl_account` and cost nothing.
 
 ### Check what something costs before running it
 
@@ -277,7 +279,7 @@ Show me everything I can call for 1 credit
 Why did that last call charge me 7 credits instead of 2?
 ```
 
-The first two hit `socialcrawl_pricing`; the third reads the credit ledger via `socialcrawl_check_balance` with `view: "transactions"` and shows the deduction and refund rows for that `request_id`.
+The first two hit `socialcrawl_estimate`; the third reads the credit ledger via `socialcrawl_account` with `view: "transactions"` and shows the deduction and refund rows for that `request_id`.
 
 ### Access documentation
 
@@ -314,50 +316,46 @@ Every response follows a unified envelope format:
 
 ## Available Tools
 
-The MCP server exposes 10 tools:
+Version 2.0.0 exposes 7 tools (about 4.7k tokens of `tools/list`, down from about 12.8k for the 11 tools of 1.x):
 
-| Tool | Description | Needs API key? |
-|------|-------------|----------------|
-| `socialcrawl_list_platforms` | Discover all 67 platforms, grouped by category, with endpoint counts and per-platform credit ranges | No |
-| `socialcrawl_list_endpoints` | Endpoints with their full parameter contract — types, integer ranges, enum values, parameter couplings, CSV limits, pagination style, cache TTL, pricing, featured params, free/metered judgments, cost levers and related endpoints. Pass a `platform`, or a `search` term (matches names, descriptions, param names and label presets) to find an endpoint across all 631. Filter by `method`, `maxCost` and `hydrating` | No |
-| `socialcrawl_pricing` | Exact credit cost for every endpoint: the tier ladder, every flat override, all metered bands with their charging rules and price-driving parameters, per-platform cost tables, budget-filtered rankings (`maxCost`, `model`, `sort`), the full `include=` row-join catalogue, the `judgments` catalogue (free default labels/relevance and the metered presets), and an itemised quote for the exact `params` you will send — per page, × `max_pages`, × `calls` | No |
-| `socialcrawl_request` | Make any SocialCrawl API call — profiles, posts, comments, search, trends, analytics, Prism composites. GET endpoints take query `params`; POST batch endpoints (e.g. youtube/videos, prism/profiles) and background jobs (prism/jobs) take their array/object `body`; path-param endpoints (`prism/jobs/{job_id}`) take the id in `params`. Quotes the price, any join or judgment hold, and the paging levers on every response. Supports an optional `idempotencyKey` for retry-safe calls | Yes |
-| `socialcrawl_check_balance` | Credit balance and recent deductions, or the itemised ledger (`view: "transactions"`) — every deduction and refund keyed by `request_id`. Calls `/v1/credits/{balance,transactions}` — costs 0 credits | Yes |
-| `socialcrawl_monitors` | Create and manage stateful monitors that re-run any recipe on a cadence, deliver results to a signed webhook, and accumulate a time-series. Actions: create, list, get, runs, timeseries, pause, resume, delete | Yes |
-| `socialcrawl_web` | Full web scraping & browser automation (the `web` platform). Sync scrape/search/map/extract; async crawl/batch_scrape/agent jobs with poll/cancel/errors; free crawl parameter preview; stateful monitors; interactive browser sessions. One `action` per endpoint | Yes |
-| `socialcrawl_cohorts` | Audience-filtered mention search (`/v1/cohorts/*`) — upload up to 10,000 public identities you already care about, then ask which of *them* posted your keywords. Actions: create, add_members, estimate_cost (local, free), query, query_status, query_results, query_cancel, get, delete. Everything but the query is 0 credits | Yes |
-| `socialcrawl_discover` | The API describing itself, live, at 0 credits (`/v1/utility/*`) — quickstart, the full endpoint catalogue with live metered-aware prices, one endpoint's complete usage guide, the cross-cutting capabilities index, a plain-words call planner, the agent context corpus, a freshness check that tells you whether this server's bundled catalogue has fallen behind the API, and every platform's live circuit-breaker `status` | Optional |
-| `socialcrawl_get_docs` | API documentation by topic or platform — overview, setup, authentication, credits, pricing, errors, idempotency, pagination, caching, hydration, judgments, batch-jobs, response-schema, limits, monitors, cohorts, discovery, or any platform slug. Long topics are paged, never truncated | No |
+| Tool | What it does | Needs API key? |
+|------|--------------|----------------|
+| `socialcrawl_find` | **Start here.** A task in plain words becomes the best endpoints (3 by default), each with the params the task already supplies (URLs and `@handles` are resolved), the params still missing, the credit cost and the exact call to make. `platform` narrows it. With no task it lists the platforms, or one platform's endpoints. Ranked by the live `/v1/utility/find` when deployed, otherwise by the bundled ranker (BM25 over id, summary, returns, use_when and tags, with a platform boost) | No |
+| `socialcrawl_endpoint` | The contract for one endpoint (`id: "tiktok/post/comments"`): purpose, required and optional params, where the rows are (`rows_at`) and up to 25 response fields, cost and pricing rule, paging, measured latency and timeout, next endpoints, and a sample-response link. A platform slug returns its endpoint table; a topic (`errors`, `pricing`, `pagination`, `judgments`, `hydration`, `overview`, ...) returns that guide. Live through `/v1/utility/endpoint` when a key is set | No |
+| `socialcrawl_estimate` | Exact cost before you spend: one call (`id` + the `params` you will send, `calls` for a job total, `items` for a walk) or a `plan` of calls. Uses `/v1/utility/estimate` when deployed, otherwise the bundled pricing. A platform slug returns its price table; no id returns the pricing overview | No |
+| `socialcrawl_request` | Call one endpoint: `platform`, `resource`, `params` (or `body` for POST batch endpoints). Validates locally first, quotes, refuses above `max_credits`, confirms above `SOCIALCRAWL_CONFIRM_ABOVE`, and returns `structuredContent` (rows, credits, paging). `fields` / `max_items` / `format` shape the result; large pages are cut at row boundaries behind a `socialcrawl://results/<request_id>` link. An unknown platform or resource gets a did-you-mean | Yes |
+| `socialcrawl_collect` | Walk a paged endpoint until `items` unique rows, the last page, or `max_credits`, in one call, with a resource link to every row as JSONL, JSON or CSV | Yes |
+| `socialcrawl_account` | Free checks: `balance` (with this session's spend), `transactions` (the itemised ledger, or the receipts for one `request_id`), `status` (platform health) and `freshness` (is this server's catalogue behind the API) | Yes (except `status`) |
+| `socialcrawl_manage` | Stateful work by `area` + `action`: `monitors` (scheduled recipes), `cohorts` (mention search over your own panel), `web` (scrape, search, map, extract, crawl/batch/agent jobs, change monitors, browser sessions) and `jobs` (Prism background jobs: submit, list, get). The action's fields go in `input`, the resource id in `id`; a wrong field is refused free with the rules | Yes |
 
-Four of the ten tools work without an API key — they query local bundled data generated from the backend registry. `socialcrawl_request`, `socialcrawl_check_balance`, `socialcrawl_monitors`, `socialcrawl_web`, and `socialcrawl_cohorts` require a key. `socialcrawl_discover` uses a key when it has one and falls back to bundled data when it does not (its `status` action needs no key at all).
+**Upgrading from 1.x.** Set `SOCIALCRAWL_LEGACY_TOOLS=1` to also register the nine retired 1.x names as thin wrappers for this major version. The mapping:
 
-### Discovery — the API describing itself, for free
+| 1.x tool | 2.0 tool |
+|----------|----------|
+| `socialcrawl_list_platforms` | `socialcrawl_find` with no arguments |
+| `socialcrawl_list_endpoints` | `socialcrawl_find` (`task` or `platform`); `socialcrawl_endpoint` for one contract |
+| `socialcrawl_pricing` | `socialcrawl_estimate` |
+| `socialcrawl_discover` | `socialcrawl_endpoint` (endpoint guide), `socialcrawl_find` (catalog, plan), `socialcrawl_account` (freshness, status) |
+| `socialcrawl_get_docs` | `socialcrawl_endpoint` with the topic as `id` |
+| `socialcrawl_check_balance` | `socialcrawl_account` (`requestId` is now `request_id`) |
+| `socialcrawl_monitors` / `socialcrawl_web` / `socialcrawl_cohorts` | `socialcrawl_manage` with `area: "monitors"` / `"web"` / `"cohorts"` |
+| `socialcrawl_request`, `socialcrawl_collect` | unchanged (`platform` is now a plain string with did-you-mean) |
 
-`socialcrawl_discover` drives the **`/v1/utility/*`** family: six endpoints that let any client learn the whole API from inside the API, at **0 credits**. They are served in-process from the endpoint registry — no upstream call, no network hop — so they can never drift from what is actually callable.
+### Discovery, live and bundled
 
-| Action | Endpoint | What you get |
-|--------|----------|--------------|
-| `quickstart` | `/v1/utility/quickstart` | Auth, base URL, a runnable first call, the success and error envelopes, the billing model, the **full error taxonomy**, rate limits, and the paging contract — in one response |
-| `catalog` | `/v1/utility/endpoints` | Every endpoint with its live metered-aware price label, required and optional params, `oneOf` groups, and paging flag. Filter by `platform` / `search` / `method` |
-| `endpoint` | `/v1/utility/endpoint` | One endpoint's complete usage guide — every parameter with type and example, the exact pricing rule, cache TTL, paging recipe, an example response, a copy-paste curl, and related endpoints |
-| `capabilities` | `/v1/utility/capabilities` | Every cross-cutting parameter once — label presets per row family (free vs metered), relevance, judgments, include, since/stop_at_id, seen, max_pages, row filters, trim, fit — with its price and every endpoint that supports it. Filter with `param`. Answers from bundled data without a key |
-| `plan` | `/v1/utility/plan` | A job in plain words turned into the exact calls to make, in order, with the params filled, the ones still missing, step-to-step bindings, each call's price and a curl. Never guesses: an unclear job returns no steps. Needs a key (free) |
-| `llms` | `/v1/utility/llms` | The agent context corpus for the whole API or one platform, as markdown or JSON — bootstrap an agent in one call instead of crawling docs |
-| `freshness` | — | Compare the live registry against this server's bundled catalogue |
+`socialcrawl_find`, `socialcrawl_endpoint` and `socialcrawl_estimate` answer from data bundled with the server (generated from the backend registry, dump schema v4) and need no key. With a key they first ask the API's free `/v1/utility/*` routes (`find`, `resolve`, `endpoint`, `estimate`), which answer from the live registry, and fall back to the bundled answer when a route is not deployed. Every one of these is 0 credits.
 
-**Why `freshness` matters.** This server ships a catalogue generated when it was built; the API keeps moving. Data calls always hit the live API and keep working — but discovery, pricing, and local validation answer from that snapshot, so a newly added endpoint looks unknown until you upgrade. One free call tells you which situation you are in:
+**Why freshness matters.** This server ships a catalogue generated when it was built; the API keeps moving. Data calls always hit the live API and keep working, but discovery, pricing and local validation answer from that snapshot. The server checks this itself once per process and, when it is behind, adds one line to the next tool result. One free call tells you which situation you are in:
 
 ```
-socialcrawl_discover  action: "freshness"
+socialcrawl_account  view: "freshness"
 ```
-
-**Bundled vs live.** `list_platforms`, `list_endpoints`, `pricing`, and `get_docs` answer instantly from bundled data and need no key — prefer them for browsing. Reach for `socialcrawl_discover` when correctness matters more than latency: an endpoint looks missing, you need a metered endpoint's exact live price, or you are generating code that must match production today. Without a key it still answers everything except `llms` from bundled data, so discovery never hard-requires auth.
 
 These same endpoints are plain HTTP, so a third-party integration or a non-MCP agent framework gets the identical information with a `curl`.
 
 ### Pricing — know the cost before you spend
 
-`socialcrawl_pricing` exists because a single number is a lie for most of the surface. SocialCrawl bills three ways:
+`socialcrawl_estimate` exists because a single number is a lie for most of the surface. SocialCrawl bills three ways:
 
 - **Ladder** (431 endpoints) — the tier rate per request: standard 1cr, advanced 5cr, premium 10cr.
 - **Flat** (70 endpoints, 22 of them free) — a per-endpoint override, e.g. `/v1/search/everywhere` at 20cr flat.
@@ -400,7 +398,7 @@ About 50 list endpoints judge their rows for you at no extra credit. Posts carry
 - `label=intent` with `offer=` (what you sell),
 - `relevance=score|filter` with your own topic in `relevant_to=`.
 
-Each holds 1 credit per started 25 rows of the page (4cr on a 100-row page) and settles to the rows judged fresh. Already-judged rows and cached pages are free. `judgments=off` turns the defaults off, and `dry_run=1` previews the cost for 0 credits. `socialcrawl_pricing` with `action: "judgments"` lists every lane; `socialcrawl_get_docs` topic `judgments` is the full contract.
+Each holds 1 credit per started 25 rows of the page (4cr on a 100-row page) and settles to the rows judged fresh. Already-judged rows and cached pages are free. `judgments=off` turns the defaults off, and `dry_run=1` previews the cost for 0 credits. `socialcrawl_endpoint` with `id: "judgments"` is the full contract.
 
 ### Row hydration — one call instead of a page plus a lookup per row
 
@@ -417,22 +415,22 @@ GET /v1/linkedin/search/people?keywords=cto&include=profile&limit=3
 - **A row cap caps the bill.** `limit=3&include=profile` on LinkedIn holds 22 credits, not 50.
 - **It tells you what it did.** `data.hydration` reports rows, lookups, cache hits, credits held vs kept, and milliseconds; `_warnings` carries `<token>_partial` when only some rows filled.
 
-`socialcrawl_pricing` with `action: "hydration"` lists every join and its price; `socialcrawl_list_endpoints` with `hydrating: true` finds the endpoints that offer one; `socialcrawl_get_docs` topic `hydration` is the full contract.
+`socialcrawl_endpoint` with `id: "hydration"` lists every join, its price and the full contract; `socialcrawl_estimate` quotes one call with its `include`.
 
 ### Monitors — schedule any recipe
 
-`socialcrawl_monitors` wraps any registry endpoint or Prism composite in a scheduled, stateful monitor (`/v1/monitors/*`). It re-runs the recipe hourly/daily/weekly (or on a cron), delivers each result to an HMAC-signed webhook, raises alerts on metric thresholds or changes, and keeps a per-run time-series you can read back. *"Prism answers once; monitors watch it for you."* Managing monitors costs 0 credits; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium. See `socialcrawl_get_docs` topic `monitors` for the full contract.
+`socialcrawl_manage` with `area: "monitors"` wraps any registry endpoint or Prism composite in a scheduled, stateful monitor (`/v1/monitors/*`). It re-runs the recipe hourly/daily/weekly (or on a cron), delivers each result to an HMAC-signed webhook, raises alerts on metric thresholds or changes, and keeps a per-run time-series you can read back. *"Prism answers once; monitors watch it for you."* Managing monitors costs 0 credits; each scheduled run bills the recipe's normal cost plus a 1-credit scheduling premium. See `socialcrawl_endpoint` with `id: "monitors"` for the full contract.
 
 ### Web — scrape, crawl, browse
 
-`socialcrawl_web` drives the full web-scraping and browser-automation surface (the `web` platform, `/v1/web/*`) through a single `action` parameter:
+`socialcrawl_manage` with `area: "web"` drives the full web-scraping and browser-automation surface (the `web` platform, `/v1/web/*`) through a single `action` parameter:
 
 - **Sync reads** — `scrape` (URL → markdown/HTML/screenshot/links), `search` (web search with page content), `map` (discover a site's URLs), `extract` (LLM structured data from a page).
 - **Async jobs** — `crawl` a whole site, `batch_scrape` many URLs, or `agent` (autonomous multi-step web task); each returns a job you poll with `job_get`/`job_list`, inspect with `job_errors` (per-page failures), and stop with `job_cancel`. `crawl_preview` dry-runs a crawl's parameters for free before you pay for it.
 - **Monitors** — `monitor_create`/`list`/`get`/`update`/`delete`/`checks` re-check a URL on a cadence and deliver changes to a webhook.
 - **Sessions** — `session_create`/`get`/`list`, `session_execute` (run code in the live page), `session_close`.
 
-Most of the paid web surface is metered rather than flat: a crawl holds `limit` credits and refunds every page it did not crawl; a session holds against `ttl_seconds` and settles on close. Job, monitor, and session management is 0 credits. See `socialcrawl_get_docs` topic `web`, or `socialcrawl_pricing` with `platform: "web"`.
+Most of the paid web surface is metered rather than flat: a crawl holds `limit` credits and refunds every page it did not crawl; a session holds against `ttl_seconds` and settles on close. Job, monitor, and session management is 0 credits. See `socialcrawl_endpoint` with `id: "web"`, or `socialcrawl_estimate` with `id: "web"`.
 
 ### Smart validation
 
@@ -452,7 +450,7 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **TikTok** | 37 | Profiles, videos, comments & replies, on-screen text extraction, keyword/hashtag/user/music search + suggestions, hashtag details, trending (global or in-country For You), TikTok's own popular-hashtag and Top Videos boards, audience, similar accounts, followers, liked videos, playlists & collections, place feeds, effects, live, songs, transcripts, Ad Library, profile-360 |
 | **Facebook** | 29 | Pages, groups & group posts, posts, comments & replies, photos, reels (incl. full reels feed with view counts), events & event search, Marketplace, keyword search over posts/pages/people/videos/groups, transcripts, full Ad Library |
 | **YouTube** | 29 | Channels, videos, shorts, comments & replies, sponsors, playlists & items, community posts, search (advanced + autocomplete), trending, live streams, channel contact email lookup, media files (audio/video/subtitles/thumbnails), transcripts, batch videos/channels/transcripts, profile-360 |
-| **Web Scraping** | 22 | Scrape, web search, site map, LLM extract, async crawl/batch-scrape/agent jobs with per-page error feeds, change monitors, interactive browser sessions, document parse — driven by `socialcrawl_web` |
+| **Web Scraping** | 22 | Scrape, web search, site map, LLM extract, async crawl/batch-scrape/agent jobs with per-page error feeds, change monitors, interactive browser sessions, document parse — driven by `socialcrawl_manage` (area `web`) |
 | **US Congress Trades** | 19 | US Congress STOCK Act disclosures — trade feeds (all/48h/7d), members, per-politician and per-ticker stats and trades, state delegations, and the full statistics suite (party, sectors, issuers, volume, unusual activity, buy/sell ratio, late filings) |
 | **Klarna** | 18 | Product details and every merchant offer, keyword search + suggestions, user and professional reviews with score overviews, price history, product comparison, category browsing with filters/keywords/buying guides, store listings |
 | **Tripadvisor** | 16 | Hotels, restaurants, attractions and cruise ships — search and full detail for each, traveler reviews with owner replies, place lookup by URL, destination autocomplete, experience types |
@@ -477,7 +475,7 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **Pinterest** | 6 | Pins, boards, user boards, search, Pinterest Trends by country, URL save-counts |
 | **Spotify** | 6 | Artists, tracks, albums, podcasts, episodes, search |
 | **Threads** | 6 | Profiles, posts, post comments, keyword search, user search |
-| **Utility** | 6 | Free API self-discovery — quickstart, endpoint catalogue, per-endpoint usage guide, cross-cutting capabilities index, plain-words call planner, LLM context payload. 0 credits, served from the live registry. Driven by `socialcrawl_discover` |
+| **Utility** | 6 | Free API self-discovery — quickstart, endpoint catalogue, per-endpoint usage guide, cross-cutting capabilities index, plain-words call planner, LLM context payload. 0 credits, served from the live registry. Behind `socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate` and `socialcrawl_account` |
 | **Xiaohongshu** | 6 | RED / Little Red Book — note search, hot-search board, creator profiles and their notes, note detail, top-level comments (5cr per returned row) |
 | **Apple Music** | 5 | Catalog search, artist, album, track, per-country charts (songs, albums, music videos, playlists) |
 | **Google Shopping** | 5 | Product search, product details, price history, cross-retailer reviews, per-seller offers |
@@ -514,7 +512,7 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 | **Polymarket** | 1 | Prediction-market research — multi-query fan-out + ranking |
 | **Product Hunt** | 1 | Current Product Hunt launches (~50 per page), optionally by topic |
 
-**Total: 631 endpoints across 67 platforms.**
+**Total: 633 endpoints across 67 platforms.**
 
 ## Error Handling
 
