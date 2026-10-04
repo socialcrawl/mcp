@@ -1,4 +1,4 @@
-import { apiRequest } from "../client.js";
+import { apiRequest, withDryRun } from "../client.js";
 import { findEndpoint } from "../data/endpoints.js";
 import type { ApiContext } from "../context.js";
 
@@ -35,6 +35,7 @@ export interface MonitorsParams {
   suppress_webhook_unless_alert?: boolean;
   output_schema?: Record<string, unknown>;
   webhook_secret?: string;
+  track?: { metrics: string[]; row_key?: string; max_rows?: number };
   // list / runs filters
   status?: string;
   cursor?: string;
@@ -80,7 +81,8 @@ function pruneQuery(q: Record<string, string | undefined>): Record<string, strin
   return out;
 }
 
-export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<string> {
+export async function monitors(ctx: ApiContext, input: MonitorsParams, opts: { dryRun?: boolean } = {}): Promise<string> {
+  const send = (o: Parameters<typeof apiRequest>[1]) => apiRequest(ctx, withDryRun(o, opts.dryRun));
   const { action } = input;
 
   if (ID_ACTIONS.has(action) && !input.id) {
@@ -100,7 +102,8 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
       const missing: string[] = [];
       if (!input.recipe) missing.push("`recipe` (e.g., \"prism/brand-mentions\" or \"tiktok/profile\")");
       if (!input.cadence) missing.push("`cadence` (\"hourly\" | \"daily\" | \"weekly\" | a cron expression)");
-      if (!input.webhook_url) missing.push("`webhook_url`");
+      // A tracking monitor can be download-only; any other needs somewhere to deliver.
+      if (!input.webhook_url && !input.track) missing.push("`webhook_url` (or `track` for a download-only tracking monitor)");
       if (missing.length > 0) {
         return `Error: Missing required parameter(s) for create: ${missing.join(", ")}.`;
       }
@@ -116,8 +119,9 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
       const body: Record<string, unknown> = {
         recipe: input.recipe,
         cadence: toCadence(input.cadence!),
-        webhook_url: input.webhook_url,
       };
+      if (input.webhook_url) body.webhook_url = input.webhook_url;
+      if (input.track) body.track = input.track;
       if (input.params) body.params = input.params;
       if (input.name) body.name = input.name;
       if (input.alert_rules) body.alert_rules = input.alert_rules;
@@ -127,7 +131,7 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
       if (input.output_schema) body.output_schema = input.output_schema;
       if (input.webhook_secret) body.webhook_secret = input.webhook_secret;
 
-      response = await apiRequest(ctx, { method: "POST", path: "/v1/monitors", body });
+      response = await send({ method: "POST", path: "/v1/monitors", body });
       label = "POST /v1/monitors";
       break;
     }
@@ -138,13 +142,13 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
         cursor: input.cursor,
         limit: input.limit?.toString(),
       });
-      response = await apiRequest(ctx, { method: "GET", path: "/v1/monitors", query });
+      response = await send({ method: "GET", path: "/v1/monitors", query });
       label = "GET /v1/monitors";
       break;
     }
 
     case "get": {
-      response = await apiRequest(ctx, { method: "GET", path: `/v1/monitors/${id}` });
+      response = await send({ method: "GET", path: `/v1/monitors/${id}` });
       label = `GET /v1/monitors/${input.id}`;
       break;
     }
@@ -158,14 +162,14 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
         limit: input.limit?.toString(),
         include: input.include,
       });
-      response = await apiRequest(ctx, { method: "GET", path: `/v1/monitors/${id}/runs`, query });
+      response = await send({ method: "GET", path: `/v1/monitors/${id}/runs`, query });
       label = `GET /v1/monitors/${input.id}/runs`;
       break;
     }
 
     case "timeseries": {
       const query = pruneQuery({ metric: input.metric, from: input.from, to: input.to });
-      response = await apiRequest(ctx, { method: "GET", path: `/v1/monitors/${id}/timeseries`, query });
+      response = await send({ method: "GET", path: `/v1/monitors/${id}/timeseries`, query });
       label = `GET /v1/monitors/${input.id}/timeseries`;
       break;
     }
@@ -173,7 +177,7 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
     case "pause":
     case "resume": {
       const status = action === "pause" ? "paused" : "active";
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "PATCH",
         path: `/v1/monitors/${id}`,
         body: { status },
@@ -183,7 +187,7 @@ export async function monitors(ctx: ApiContext, input: MonitorsParams): Promise<
     }
 
     case "delete": {
-      response = await apiRequest(ctx, { method: "DELETE", path: `/v1/monitors/${id}` });
+      response = await send({ method: "DELETE", path: `/v1/monitors/${id}` });
       label = `DELETE /v1/monitors/${input.id}`;
       break;
     }

@@ -307,6 +307,31 @@ describe("socialcrawl_find: uncertain answers from /v1/utility/find", () => {
     expect(out.text).not.toContain("tiktok/post/comments");
   });
 
+  it("a refusal says plainly what SocialCrawl cannot do, with no Uncertain match line", async () => {
+    route({
+      "/v1/utility/find": {
+        status: 200,
+        body: { success: true, data: { results: [], reason: "not_a_data_job", uncertain: true, note: "This is not a data request." } },
+      },
+    });
+    const out = await findStructured(KEYED, { task: "reply to this tiktok comment" });
+    expect(out.text).not.toContain("Uncertain match");
+    expect(out.text).toMatch(/only reads public data/);
+    expect(out.text).toMatch(/post, reply, like, follow, message/);
+    expect(out.text).toMatch(/read the comments/);
+  });
+
+  it("keeps the Uncertain match line when results exist and the match is uncertain", async () => {
+    route({
+      "/v1/utility/find": {
+        status: 200,
+        body: { success: true, data: { uncertain: true, reason: "no_match", results: [{ id: "tiktok/profile", method: "GET", summary: "p", uncertain: true }] } },
+      },
+    });
+    const out = await findStructured(KEYED, { task: "tiktok thing" });
+    expect(out.text).toContain("Uncertain match: confirm with socialcrawl_endpoint before calling.");
+  });
+
   it("still falls back to the bundled ranker on a network error", async () => {
     vi.stubGlobal("fetch", async () => {
       throw new TypeError("fetch failed");

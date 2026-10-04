@@ -72,6 +72,8 @@ const FIXES: Record<string, string> = {
   NETWORK_ERROR: "Check connectivity to the API, then retry.",
   WRONG_TOOL: "Use socialcrawl_manage with area web for the web platform.",
   VALIDATION_ERROR: "Apply did_you_mean or the correction in reason; a 400 is not charged.",
+  RESULT_EXPIRED: "Repeat the request or walk; a cached repeat is free.",
+  DRY_RUN_UNSUPPORTED: "Nothing was kept. Check the fields yourself, or create it for real without dry_run.",
 };
 
 const STATUS_CODES: Record<number, string> = {
@@ -91,6 +93,8 @@ const LOCAL_CODES: Array<[RegExp, string, boolean]> = [
   [/^Error: The "web" platform/, "WRONG_TOOL", false],
   [/^Error: Request timed out/, "TIMEOUT", true],
   [/^Error: Could not reach/, "NETWORK_ERROR", true],
+  [/^Error: No stored result/, "RESULT_EXPIRED", false],
+  [/^Error: dry_run/, "DRY_RUN_UNSUPPORTED", false],
 ];
 
 /**
@@ -208,6 +212,11 @@ export function structureEnvelope(env: unknown, quotedMax?: number): Json {
     out.data = data;
   }
   return out;
+}
+
+/** A cursor short enough to print, or its head with "…" (the full value stays in structuredContent). */
+export function shortCursor(cursor: string, max = 64): string {
+  return cursor.length <= max ? cursor : `${cursor.slice(0, max)}…`;
 }
 
 /** The 2-4 line human summary that heads the compact JSON in `content`. */

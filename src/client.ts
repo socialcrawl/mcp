@@ -205,6 +205,11 @@ interface ApiRequestOptions extends LongCallOptions {
  * and the registry's batch POST endpoints (youtube/videos, prism/*). Shares the
  * same x-api-key auth, timeout, error mapping, and truncation.
  */
+/** `options` with `?dry_run=1` added when a dry run was asked for (validate and quote; nothing is created). */
+export function withDryRun(options: ApiRequestOptions, dryRun?: boolean): ApiRequestOptions {
+  return dryRun ? { ...options, query: { ...(options.query ?? {}), dry_run: "1" } } : options;
+}
+
 export async function apiRequest(ctx: ApiContext, options: ApiRequestOptions): Promise<string> {
   if (!ctx.apiKey && !options.anonymous) {
     return NO_API_KEY_ERROR;

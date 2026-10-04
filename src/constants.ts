@@ -5,6 +5,9 @@ export const CHARACTER_LIMIT = 25_000;
  */
 export const RESULT_CHAR_BUDGET = CHARACTER_LIMIT;
 export const TIMEOUT_MS = 30_000;
+/** A result this small comes back whole (text and structuredContent); larger ones sit behind a result_id. */
+export const INLINE_MAX_ROWS = 200;
+export const INLINE_MAX_BYTES = 60_000;
 
 // The tier ladder used to live here as a hand-copied literal. It is now
 // generated from the backend registry into `data/registry-meta.ts`
@@ -13,3 +16,10 @@ export const TIMEOUT_MS = 30_000;
 
 export const SERVER_NAME = "socialcrawl-mcp";
 export const SERVER_VERSION = "2.0.0";
+
+/**
+ * Inside a normalised `socialcrawl_request` params object: the names of the
+ * endpoint params that arrived as top-level arguments and were moved into
+ * params (comma-separated). The request tool removes it and says so.
+ */
+export const MOVED_PARAMS_KEY = "\u0000moved_from_top_level";

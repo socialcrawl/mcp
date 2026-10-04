@@ -89,12 +89,40 @@ async function single(ctx: ApiContext, input: EstimateParams, e: Endpoint): Prom
         ...(typeof data.formula === "string" ? { formula: data.formula } : {}),
         ...(Array.isArray(data.levers) && data.levers.length > 0 ? { levers: data.levers } : {}),
         ...(isObj(data.rejection) ? { rejection: data.rejection } : {}),
-        ...(data.items !== undefined ? { items: data.items } : {}),
         calls,
         total_hold: hold * calls,
       };
-      const warnings = Array.isArray(data.warnings) ? data.warnings.map(String) : [];
-      return { text: renderApi(quote, warnings), structured: { ok: true, source: "api", quote, ...(warnings.length ? { warnings } : {}) } };
+      // The API's own walk block can carry a null max; the walk below replaces it.
+      const warnings = (Array.isArray(data.warnings) ? data.warnings.map(String) : []).filter((w) => !UNPROVEN.test(w));
+      // The API ignores `items`: apply the same items -> pages walk, priced per page by the API's own quote.
+      let source = "api";
+      if (input.items !== undefined) {
+        const walk = walkQuote(e, input.items);
+        const w = walk.quote;
+        if (w) {
+          const perMin = num(data.expected_min) ?? hold;
+          const perMax = num(data.expected_max) ?? hold;
+          const lo = w.pages * perMin;
+          const hi = w.pages * perMax;
+          const perPageHold = hold;
+          const total = w.pages * perPageHold;
+          Object.assign(quote, {
+            hold: total,
+            pages: w.pages,
+            page_size: w.page_size,
+            price_basis: w.price_basis,
+            expected_min: lo,
+            expected_max: hi,
+            formula: `${input.items} items: ${w.pages} pages x ${perMin === perMax ? perMax : `${perMin}-${perMax}`} = ${lo === hi ? hi : `${lo}-${hi}`} credits.`,
+            walk: { pages: w.pages, page_size: w.page_size, per_page_hold: perPageHold, per_page_min: perMin, per_page_max: perMax },
+            items: { n: input.items, pages: w.pages, page_size: w.page_size, credits_min: lo, credits_max: hi },
+            total_hold: total * calls,
+          });
+          source = "api+walk";
+        }
+        warnings.push(...walkWarnings(walk.warnings, w ? { pages: w.pages, per: perPageRange(num(data.expected_min) ?? hold, num(data.expected_max) ?? hold) } : undefined));
+      }
+      return { text: renderApi(quote, warnings), structured: { ok: true, source, quote, ...(warnings.length ? { warnings } : {}) } };
     }
   }
 
@@ -128,7 +156,7 @@ async function single(ctx: ApiContext, input: EstimateParams, e: Endpoint): Prom
     calls,
     total_hold: perCall * calls,
   };
-  const warnings = walk.warnings;
+  const warnings = walkWarnings(walk.warnings, w ? { pages: w.pages, per: perPageRange(w.expected_min / w.pages, w.expected_max / w.pages) } : undefined);
   const head = `Local quote for ${id}: holds up to ${perCall} credits per call${w ? ` (${w.pages} pages)` : ""}${calls > 1 ? `, ${perCall * calls} for ${calls} calls` : ""}. The settled charge is refunded down to the work done.`;
   return {
     text: [head, ...(w ? [`Walk: ${w.formula}`] : []), ...warnings, "", priced.text].join("\n"),
@@ -136,9 +164,28 @@ async function single(ctx: ApiContext, input: EstimateParams, e: Endpoint): Prom
   };
 }
 
+/** The registry's "per-page price is not proven" notes (the API's and ours). */
+const UNPROVEN = /^price_basis_unknown\b/;
+
+const perPageRange = (min: number, max: number): string => (min === max ? `${max}` : `${min}-${max}`);
+
+/**
+ * A walk's warnings with the "per-page price is not proven" notes (which also
+ * say the max is null) folded into one caveat: the quote stands on the
+ * one-call price, and the caveat says how far to trust it.
+ */
+function walkWarnings(warnings: string[], walk?: { pages: number; per: string }): string[] {
+  const unproven = warnings.some((w) => UNPROVEN.test(w));
+  const rest = warnings.filter((w) => !UNPROVEN.test(w));
+  if (unproven && walk) {
+    rest.push(`walk: priced as ${walk.pages} pages x the one-call quote (${walk.per} credits each); a page's price is not proven, so check credits_used as pages arrive.`);
+  }
+  return rest;
+}
+
 function renderApi(q: Record<string, unknown>, warnings: string[]): string {
   const lines = [
-    `Quote for ${String(q.endpoint)} (API): holds ${String(q.hold)} credits${q.expected_min !== undefined ? `; expect ${String(q.expected_min)}-${String(q.expected_max)} after refunds` : ""}.`,
+    `Quote for ${String(q.endpoint)} (API): holds ${String(q.hold)} credits${q.pages !== undefined ? ` (${String(q.pages)} pages)` : ""}${q.expected_min !== undefined ? `; expect ${String(q.expected_min)}-${String(q.expected_max)} after refunds` : ""}.`,
   ];
   if (q.valid === false) {
     const r = q.rejection as Record<string, unknown> | undefined;

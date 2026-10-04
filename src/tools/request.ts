@@ -1,5 +1,5 @@
 import { findPlatform } from "../data/platforms.js";
-import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
+import { findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { makeRequest, apiRequest } from "../client.js";
 import type { ProgressTick, ResponseMeta } from "../client.js";
 import { timeoutSecondsFor, wantsStream } from "../timeouts.js";
@@ -9,15 +9,17 @@ import type { ApiContext } from "../context.js";
 import { quoteHydration } from "../hydration.js";
 import { quoteJudgments } from "../judgments.js";
 import type { Endpoint } from "../types.js";
-import { errorFromText, structureEnvelope, summaryLine } from "../result.js";
+import { errorFromText, shortCursor, structureEnvelope, summaryLine } from "../result.js";
 import type { ToolOutput } from "../result.js";
-import { RESULT_CHAR_BUDGET } from "../constants.js";
+import { INLINE_MAX_BYTES, INLINE_MAX_ROWS, MOVED_PARAMS_KEY, RESULT_CHAR_BUDGET } from "../constants.js";
 import { shapeEnvelope } from "../format/shape.js";
+import { outputsFor } from "../data/outputs.js";
 import { resultsStore, resultUri, scopeOf } from "../results-store.js";
 import { randomUUID } from "node:crypto";
 import { checkGuard, quoteCall } from "../cost-guard.js";
 import { recordSpend } from "../session-spend.js";
 import { suggestEndpoints, suggestPlatforms } from "../search/catalog.js";
+import { resolveEndpoint } from "../endpoint-resolve.js";
 
 interface RequestParams {
   platform: string;
@@ -64,37 +66,7 @@ export function stringifyParams(params: Record<string, ParamValue> | undefined):
   return out;
 }
 
-/**
- * Resolve a resource to its registered endpoint, accepting both the template
- * (`jobs/{job_id}` with `job_id` in params) and a concrete path
- * (`jobs/job_abc123`). Returns the path-param values a concrete path carried.
- */
-export function resolveEndpoint(
-  platform: string,
-  resource: string,
-  method: string | undefined,
-): { endpoint: Endpoint; pathValues: Record<string, string> } | undefined {
-  const direct = findEndpoint(platform, resource, method);
-  if (direct) return { endpoint: direct, pathValues: {} };
-  const parts = resource.split("/");
-  for (const e of ENDPOINTS) {
-    if (e.platform !== platform || !e.resource.includes("{")) continue;
-    if (method && e.method !== method) continue;
-    const tpl = e.resource.split("/");
-    if (tpl.length !== parts.length) continue;
-    const values: Record<string, string> = {};
-    const ok = tpl.every((seg, i) => {
-      const m = /^\{(\w+)\}$/.exec(seg);
-      if (m) {
-        values[m[1]] = decodeURIComponent(parts[i]);
-        return parts[i].length > 0;
-      }
-      return seg === parts[i];
-    });
-    if (ok) return { endpoint: e, pathValues: values };
-  }
-  return undefined;
-}
+export { resolveEndpoint };
 
 /** `jobs/{job_id}` + `{ job_id: "abc" }` → `jobs/abc`. */
 function fillPath(resource: string, values: Record<string, unknown>): string {
@@ -229,6 +201,24 @@ function unknownParams(
   return Object.keys(provided).filter((name) => !known.has(name));
 }
 
+/**
+ * The envelope for the text, with any long `next_cursor` cut to its head and
+ * "…" (a cursor can run to kilobytes). structuredContent keeps the full value.
+ */
+function clipCursors(env: Record<string, unknown>): Record<string, unknown> {
+  const clip = (p: unknown): unknown =>
+    p && typeof p === "object" && typeof (p as Record<string, unknown>).next_cursor === "string"
+      ? { ...(p as Record<string, unknown>), next_cursor: shortCursor((p as Record<string, string>).next_cursor) }
+      : p;
+  const out: Record<string, unknown> = { ...env };
+  if (out.pagination) out.pagination = clip(out.pagination);
+  const d = out.data;
+  if (d && typeof d === "object" && !Array.isArray(d) && (d as Record<string, unknown>).pagination) {
+    out.data = { ...(d as Record<string, unknown>), pagination: clip((d as Record<string, unknown>).pagination) };
+  }
+  return out;
+}
+
 /** What the success path learned, for the structured twin of the text. */
 interface Captured {
   structured?: Record<string, unknown>;
@@ -308,11 +298,39 @@ async function runRequest(
   }
 
   const isPost = endpoint.method === "POST";
+  const notices: string[] = [];
+  let inParams = input.params;
+  const lifted = inParams?.[MOVED_PARAMS_KEY];
+  if (inParams && lifted !== undefined) {
+    const { [MOVED_PARAMS_KEY]: _marker, ...restParams } = inParams;
+    inParams = restParams;
+    const names = String(lifted).split(",").map((n) => `\`${n}\``).join(", ");
+    notices.push(`Moved top-level ${names} into params: ${names} ${String(lifted).includes(",") ? "are" : "is a"} ${input.platform}/${endpoint.resource} param${String(lifted).includes(",") ? "s" : ""}. Put endpoint params in params next time.`);
+  }
+  let inBody = input.body;
+  // A POST endpoint takes its fields in the JSON body: params given without a
+  // body move there (path and query-only params stay), arrays intact.
+  if (isPost && inParams && Object.keys(inParams).length > 0 && (!inBody || Object.keys(inBody).length === 0)) {
+    const pathOnly = pathParamNames(endpoint.resource);
+    const keep: Record<string, ParamValue> = {};
+    const move: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(inParams)) {
+      if (pathOnly.has(k) || isQueryParam(endpoint, k)) keep[k] = v;
+      else move[k] = v;
+    }
+    if (Object.keys(move).length > 0) {
+      inParams = keep;
+      inBody = move;
+      notices.push(
+        `Moved ${Object.keys(move).map((k) => `\`${k}\``).join(", ")} from params to body: ${input.platform}/${endpoint.resource} is a POST endpoint and reads them from the JSON body.`,
+      );
+    }
+  }
   const providedParams: Record<string, string> = {
     ...resolved.pathValues,
-    ...stringifyParams(input.params),
+    ...stringifyParams(inParams),
   };
-  const providedBody = input.body ?? {};
+  const providedBody = inBody ?? {};
   // A required param may arrive via `params` or `body`; POST batch params
   // (ids/urls/items) conventionally live in `body`.
   const merged: Record<string, unknown> = { ...providedParams, ...providedBody };
@@ -349,12 +367,45 @@ async function runRequest(
     ].join("\n");
   }
 
+  const pathNames = pathParamNames(endpoint.resource);
+  // POST batch endpoint — split provided values into a JSON body and a query
+  // string, routing `in: "query"` params (e.g. YouTube `hl`) to the query and
+  // everything else to the body. Built here so the quote prices what is sent.
+  const postQuery: Record<string, string> = {};
+  const postBody: Record<string, unknown> = {};
+  if (isPost) {
+    for (const [k, v] of Object.entries(providedParams)) {
+      if (pathNames.has(k)) continue;
+      if (isQueryParam(endpoint, k)) postQuery[k] = v;
+      else postBody[k] = coerceJson(v);
+    }
+    for (const [k, v] of Object.entries(providedBody)) {
+      if (pathNames.has(k)) continue;
+      if (isQueryParam(endpoint, k)) postQuery[k] = String(v);
+      else postBody[k] = coerceJson(v);
+    }
+    if (input.fields) postQuery.fields = input.fields;
+  }
+
   // What to count as spent when a success does not say (the quoted hold).
   let holdCharge = opts.hold;
-  // Cost guard: quote the call, refuse over max_credits, ask above the threshold.
+  // The API's quote for this exact call, when it was asked.
+  let exactHold: number | undefined;
+  // Cost guard: quote the exact call, refuse over max_credits, ask above the threshold.
   if (!opts.skipGuard) {
-    const quote = await quoteCall(ctx, endpoint, merged, input.max_credits);
+    const exact = isPost ? { params: postQuery, body: postBody } : undefined;
+    const quote = await quoteCall(ctx, endpoint, merged, input.max_credits, exact);
+    if (quote.rejection) {
+      return [
+        "Error: Invalid parameter value(s) — the API would reject this with a 400 before billing:",
+        `- ${quote.rejection}`,
+        ...notices.map((n) => `- ${n}`),
+        "",
+        `Use socialcrawl_endpoint with id "${input.platform}/${endpoint.resource}" for the full parameter contract. No credits were charged.`,
+      ].join("\n");
+    }
     holdCharge = quote.hold;
+    if (quote.source === "estimate") exactHold = quote.hold;
     const stop = await checkGuard(ctx, {
       hold: quote.hold,
       exposure: quote.hold,
@@ -377,7 +428,6 @@ async function runRequest(
     meta: callMeta,
   };
 
-  const pathNames = pathParamNames(endpoint.resource);
   const resourcePath = fillPath(endpoint.resource, merged);
 
   if (!isPost) {
@@ -397,28 +447,12 @@ async function runRequest(
       ...longCall,
     });
   } else {
-    // POST batch endpoint — split provided values into a JSON body and a
-    // query string, routing `in: "query"` params (e.g. YouTube `hl`) to the
-    // query and everything else to the body.
-    const query: Record<string, string> = {};
-    const bodyOut: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(providedParams)) {
-      if (pathNames.has(k)) continue;
-      if (isQueryParam(endpoint, k)) query[k] = v;
-      else bodyOut[k] = coerceJson(v);
-    }
-    for (const [k, v] of Object.entries(providedBody)) {
-      if (pathNames.has(k)) continue;
-      if (isQueryParam(endpoint, k)) query[k] = String(v);
-      else bodyOut[k] = coerceJson(v);
-    }
-    if (input.fields) query.fields = input.fields;
     response = await apiRequest(ctx, {
       raw: true,
       method: "POST",
       path: `/v1/${input.platform}/${resourcePath}`,
-      query,
-      body: bodyOut,
+      query: postQuery,
+      body: postBody,
       idempotencyKey: input.idempotencyKey,
       errorPlatform: input.platform,
       ...longCall,
@@ -525,25 +559,36 @@ async function runRequest(
       `**Paging:** pass \`cursor\` from \`pagination.next_cursor\` for the next page; stop when \`pagination.has_more\` is false. Each page is billed separately.${extras.length > 0 ? ` Also: ${extras.join("; ")}.` : ""}`,
     );
   }
+  if (exactHold !== undefined) headerLines.push(`**Quote:** this exact call holds ${exactHold}cr (the API's estimate).`);
+  for (const n of notices) headerLines.push(`**Note:** ${n}`);
   const header = `${headerLines.join("\n")}\n\n`;
 
   if (/^Error(?::| \(\d+\):)/.test(response)) {
     return `${header}${response}`;
   }
 
-  const quotedMax = worstCaseCost(endpoint.pricing);
+  const quotedMax = exactHold ?? worstCaseCost(endpoint.pricing);
   const endpointName = `${input.platform}/${endpoint.resource}`;
   try {
     const parsed = JSON.parse(response) as Record<string, unknown>;
     // Cut only at row boundaries so the result is always valid JSON; the full
     // body goes to the results store behind a resource link.
     const format = input.format ?? "json";
-    const budget = RESULT_CHAR_BUDGET - header.length - 1500;
+    // A small page comes back whole (INLINE_MAX_ROWS rows, INLINE_MAX_BYTES); a larger one is cut to the budget.
+    // The rows get room on top of the usual budget; the rest of the page does not.
+    const pageRows = structureEnvelope(parsed).rows;
+    const rowBytes = Array.isArray(pageRows) ? JSON.stringify(pageRows).length : 0;
+    const small = Array.isArray(pageRows) && pageRows.length <= INLINE_MAX_ROWS && response.length <= INLINE_MAX_BYTES;
+    // A single-object endpoint's main object, from the contract (`rows_at: data.quote` -> quote).
+    const mainKey = /^data\.([A-Za-z0-9_]+)$/.exec(outputsFor(endpoint)?.rows_at ?? "")?.[1];
+    const smallObject = !Array.isArray(pageRows) && mainKey !== undefined && response.length <= INLINE_MAX_BYTES;
+    const budget = (smallObject ? INLINE_MAX_BYTES : RESULT_CHAR_BUDGET + (small ? rowBytes : 0)) - header.length - 1500;
     const shaped = shapeEnvelope(parsed, {
       fields: input.fields,
       maxItems: input.max_items,
       format,
       budget,
+      mainKey,
     });
     const structured: Record<string, unknown> = {
       ok: true,
@@ -559,6 +604,7 @@ async function runRequest(
     structured.credits = credits;
     captured.envelope = parsed;
     const notes: string[] = [];
+    if (notices.length > 0) structured.warnings = [...((structured.warnings as string[] | undefined) ?? []), ...notices];
     if (shaped.warnings && shaped.warnings.length > 0) {
       structured.warnings = [...((structured.warnings as string[] | undefined) ?? []), ...shaped.warnings];
       notes.push(...shaped.warnings);
@@ -567,8 +613,10 @@ async function runRequest(
     let uri: string | undefined;
     if (linkWorthy) {
       const id = typeof parsed.request_id === "string" && parsed.request_id ? parsed.request_id : randomUUID();
-      if (resultsStore.put(scopeOf(ctx.apiKey), id, response)) uri = resultUri(id);
-      else notes.push(`full body (${Buffer.byteLength(response).toLocaleString()} bytes) is too large to store; narrow the request (limit, fields) instead`);
+      if (resultsStore.put(scopeOf(ctx.apiKey), id, response)) {
+        uri = resultUri(id);
+        structured.result_id = id;
+      } else notes.push(`full body (${Buffer.byteLength(response).toLocaleString()} bytes) is too large to store; narrow the request (limit, fields) instead`);
     }
     if (shaped.cut && uri) {
       const trunc: Record<string, unknown> = { resource: uri };
@@ -577,18 +625,18 @@ async function runRequest(
         trunc.total = shaped.total;
         notes.push(
           shaped.shown
-            ? `rows 1–${shaped.shown} of ${shaped.total} shown; full page stored as resource ${uri}`
-            : `no row fit; ${shaped.total} rows stored as resource ${uri}`,
+            ? `rows 1–${shaped.shown} of ${shaped.total} shown; full page stored as resource ${uri} (read the rest in this session with result_id "${String(structured.result_id)}": socialcrawl_collect { result_id, offset: ${shaped.shown} })`
+            : `no row fit; ${shaped.total} rows stored as resource ${uri} (read them in this session with result_id "${String(structured.result_id)}": socialcrawl_collect { result_id })`,
         );
       } else {
         trunc.omitted_keys = shaped.omittedKeys;
         notes.push(
-          `${shaped.omittedKeys?.length ?? 0} large field(s) omitted (${(shaped.omittedKeys ?? []).join(", ")}); full body stored as resource ${uri}`,
+          `${shaped.omittedKeys?.length ?? 0} large field(s) omitted (${(shaped.omittedKeys ?? []).join(", ")}); full body stored as resource ${uri} (read it in this session with result_id "${String(structured.result_id)}": socialcrawl_collect { result_id })`,
         );
       }
       structured.truncated = trunc;
     } else if (uri) {
-      notes.push(`full body stored as resource ${uri}`);
+      notes.push(`full body stored as resource ${uri} (read it in this session with result_id "${String(structured.result_id)}": socialcrawl_collect { result_id })`);
     }
     // The table lives once, in the text; structuredContent carries only its row count
     // (a client reading both would otherwise pay for the CSV twice).
@@ -637,9 +685,9 @@ async function runRequest(
         const { items: _items, ...restData } = d;
         env.data = restData;
       }
-      payload = `\`\`\`json\n${JSON.stringify({ ...env, summary: shaped.summary })}\n\`\`\``;
+      payload = `\`\`\`json\n${JSON.stringify(clipCursors({ ...env, summary: shaped.summary }))}\n\`\`\``;
     }
-    else payload = `\`\`\`json\n${JSON.stringify(shaped.envelope)}\n\`\`\``;
+    else payload = `\`\`\`json\n${JSON.stringify(clipCursors(shaped.envelope))}\n\`\`\``;
     return `${header}**Result:** ${line}${noteBlock}\n\n${payload}`;
   } catch {
     // A body cut at the character limit is not JSON: report it, do not fail it.

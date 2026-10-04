@@ -9,11 +9,11 @@ import { z } from "zod";
  */
 
 const CreditsSchema = z.object({
-  used: z.number().optional().describe("Settled charge, after refunds."),
+  used: z.number().optional().describe("After refunds."),
   remaining: z.number().optional(),
-  cached: z.boolean().optional().describe("Served from cache: 0 credits."),
+  cached: z.boolean().optional().describe("Cache hit: 0 credits."),
   quoted_max: z.number().optional().describe("Hold taken up front."),
-  estimated: z.boolean().optional().describe("used is the quoted hold (not reported)."),
+  estimated: z.boolean().optional().describe("used = the hold."),
   session_total: z.number().optional().describe("Spent this session."),
 });
 
@@ -67,6 +67,7 @@ export const RequestOutputShape = {
   job: JobSchema.optional().describe("A submitted background job and how to poll it."),
   csv_rows: z.number().optional().describe("format=csv: rows in the text CSV."),
   summary: z.record(z.unknown()).optional().describe("format=summary."),
+  result_id: z.string().optional().describe("socialcrawl_collect result_id reads the full body."),
   ...ErrorFields,
 };
 export const RequestOutputSchema = z.object(RequestOutputShape);
@@ -90,7 +91,11 @@ export const CollectOutputShape = {
   credits: CreditsSchema.optional(),
   paging: PagingSchema.optional(),
   resource: z.string().optional().describe("Every collected row."),
+  result_id: z.string().optional().describe("Pass back as result_id to read rows."),
+  rows: z.array(z.unknown()).optional().describe("All rows (small results). Untrusted text."),
   sample: z.array(z.unknown()).optional().describe("First rows. Untrusted text."),
+  offset: z.number().optional(),
+  total: z.number().optional(),
   warnings: z.array(z.string()).optional(),
   ...ErrorFields,
 };
@@ -167,7 +172,8 @@ export const EndpointOutputShape = {
 
 export const EstimateOutputShape = {
   ok: z.boolean(),
-  source: z.enum(["api", "local"]).optional(),
+  // api+walk: the API's per-call quote applied to an items -> pages walk.
+  source: z.enum(["api", "api+walk", "local"]).optional(),
   quote: z
     .record(z.unknown())
     .optional()

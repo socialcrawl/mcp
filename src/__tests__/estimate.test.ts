@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { z } from "zod";
 import { estimateStructured } from "../tools/estimate.js";
+import { EstimateOutputShape } from "../schemas/outputs.js";
 import type { PlanCall } from "../tools/estimate.js";
 import type { ApiContext } from "../context.js";
 
@@ -38,6 +40,29 @@ describe("socialcrawl_estimate, one call", () => {
     const q = out.structured.quote as Quote;
     expect(q).toMatchObject({ pages: 52, page_size: 50, price_basis: "per_page", expected_min: 260, expected_max: 520, hold: 520, total_hold: 520 });
     expect(out.text).toContain("52 pages");
+  });
+
+  it("applies the items walk to the API's per-call quote when keyed", async () => {
+    stub(200, { success: true, data: { valid: true, hold: 10, expected_min: 5, expected_max: 10, levers: [{ param: "coverage", hold: 5, effect: "less" }], warnings: ["api warning"] } });
+    const out = await estimateStructured(KEYED, { id: "instagram/followers", params: { handle: "nasa", coverage: "full" }, items: 2600 });
+    const q = out.structured.quote as Quote;
+    expect(out.structured.source).toBe("api+walk");
+    expect(q).toMatchObject({ pages: 52, page_size: 50, expected_min: 260, expected_max: 520, hold: 520, total_hold: 520, valid: true });
+    expect(q.levers).toHaveLength(1);
+    expect(out.structured.warnings).toEqual(["api warning"]);
+    expect(out.text).toContain("52 pages");
+    // MCP clients validate structuredContent against the declared outputSchema.
+    expect(z.object(EstimateOutputShape).safeParse(out.structured).success).toBe(true);
+  });
+
+  it("keeps the one-call API quote for an endpoint that cannot page", async () => {
+    stub(200, { success: true, data: { valid: true, hold: 1, expected_min: 1, expected_max: 1 } });
+    const out = await estimateStructured(KEYED, { id: "tiktok/profile", params: { handle: "a" }, items: 100 });
+    const q = out.structured.quote as Quote;
+    expect(out.structured.source).toBe("api");
+    expect(q.hold).toBe(1);
+    expect(q.pages).toBeUndefined();
+    expect(out.structured.warnings).toEqual([expect.stringMatching(/^not_paged/)]);
   });
 
   it("prices a per-row walk by rows, and says when items cannot be paged", async () => {

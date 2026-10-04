@@ -249,7 +249,7 @@ export function contractFor(e: Endpoint): Record<string, unknown> {
  * next, freshness). Every block is checked; a malformed one is skipped, never
  * thrown on. True when anything was used.
  */
-function overlay(contract: Record<string, unknown>, data: Record<string, unknown>): boolean {
+function overlay(contract: Record<string, unknown>, data: Record<string, unknown>, bundledPaths: string[] = []): boolean {
   let used = false;
   const cost = contract.cost as Record<string, unknown>;
   if (isObj(data.credits)) {
@@ -265,8 +265,12 @@ function overlay(contract: Record<string, unknown>, data: Record<string, unknown
     if (isObj(c.purpose) && str(c.purpose.summary)) (contract.purpose = c.purpose), (used = true);
     if (isObj(c.outputs)) {
       const fields = cleanFields(c.outputs.fields);
-      if (fields.length > 0 || c.outputs.source === "unknown") {
-        const prev = contract.outputs as Record<string, unknown>;
+      const prev = contract.outputs as Record<string, unknown>;
+      // A deployed API can lag this release's field list: a live list that is empty, or only a
+      // part of the bundled one, would hide fields this server already knows. Keep the bundled list then.
+      const bundled = new Set(bundledPaths);
+      const stale = bundled.size > 0 && fields.length < bundled.size && fields.every((f) => bundled.has(f.path));
+      if ((fields.length > 0 || c.outputs.source === "unknown") && !stale) {
         contract.outputs = {
           archetype: str(c.outputs.archetype) ?? prev.archetype,
           rows_at: str(c.outputs.rows_at) ?? prev.rows_at ?? null,
@@ -364,7 +368,7 @@ export async function endpointStructured(ctx: ApiContext, params: EndpointParams
   const e = resolved.endpoint;
   const contract = contractFor(e);
   const live = await liveGuide(ctx, e);
-  const isLive = live !== undefined && overlay(contract, live);
+  const isLive = live !== undefined && overlay(contract, live, (outputsFor(e)?.fields ?? []).map((f) => f.path));
   const id = `${e.platform}/${e.resource}`;
   const structured = { ok: true, id, method: e.method, source: isLive ? "live" : "bundled", contract };
   return { text: render(id, e, contract, isLive), structured };

@@ -1,4 +1,4 @@
-import { apiRequest } from "../client.js";
+import { apiRequest, withDryRun } from "../client.js";
 import type { ResponseMeta } from "../client.js";
 import { timeoutSecondsFor } from "../timeouts.js";
 import { pollLine, webJobHandle } from "../jobs.js";
@@ -115,7 +115,8 @@ function toQuery(input: Record<string, unknown>): Record<string, string> {
   return out;
 }
 
-export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
+export async function web(ctx: ApiContext, params: WebParams, opts: { dryRun?: boolean } = {}): Promise<string> {
+  const send = (o: Parameters<typeof apiRequest>[1]) => apiRequest(ctx, withDryRun(o, opts.dryRun));
   const spec = ACTIONS[params.action];
   if (!spec) {
     return `Error: Unknown action "${String(params.action)}". Valid actions: ${Object.keys(ACTIONS).join(", ")}.`;
@@ -146,7 +147,7 @@ export async function web(ctx: ApiContext, params: WebParams): Promise<string> {
   const isBodyMethod = spec.method === "POST" || spec.method === "PATCH";
   const priced = findEndpoint("web", spec.resource, spec.method);
   const callMeta: ResponseMeta = {};
-  const response = await apiRequest(ctx, {
+  const response = await send({
     timeoutMs: timeoutSecondsFor(priced) * 1000,
     meta: callMeta,
     method: spec.method === "PATCH" ? "PATCH" : spec.method,

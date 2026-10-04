@@ -2,12 +2,10 @@
 
 # socialcrawl-mcp
 
-**Give your AI agent access to 67 platforms and 633 endpoints — social media, commerce, marketplaces & product reviews, retail, app stores, places, travel & local, business & software reputation, jobs & salaries, markets & finance, congressional trading disclosures, news, web research, full web scraping & browser automation, on-page SEO, prediction markets, search trends, cross-platform Prism composites, and a universal meta-search — through a single API, with exact credit pricing for every endpoint**
+**Give your AI agent access to every SocialCrawl platform and endpoint — social media, commerce, marketplaces & product reviews, retail, app stores, places, travel & local, business & software reputation, jobs & salaries, markets & finance, congressional trading disclosures, news, web research, full web scraping & browser automation, on-page SEO, prediction markets, search trends, cross-platform Prism composites, and a universal meta-search — through a single API, with exact credit pricing for every endpoint**
 
 [![npm](https://img.shields.io/npm/v/socialcrawl-mcp?style=flat-square&color=blue)](https://www.npmjs.com/package/socialcrawl-mcp)
 [![MCP Registry](https://img.shields.io/badge/MCP_Registry-listed-green?style=flat-square)](https://registry.modelcontextprotocol.io)
-[![Platforms](https://img.shields.io/badge/Platforms-67-blue?style=flat-square)](https://socialcrawl.dev)
-[![Endpoints](https://img.shields.io/badge/Endpoints-633-green?style=flat-square)](https://socialcrawl.dev/docs)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 [![mcp MCP server](https://glama.ai/mcp/servers/socialcrawl/mcp/badges/score.svg)](https://glama.ai/mcp/servers/socialcrawl/mcp)
 
@@ -15,36 +13,11 @@
   <img width="380" src="https://glama.ai/mcp/servers/socialcrawl/mcp/badges/card.svg" alt="Socialcrawl MCP server" />
 </a>
 
-[Overview](#overview) | [Installation](#installation) | [Setup](#setup) | [Usage](#usage) | [Tools](#available-tools) | [Platforms](#supported-platforms)
+[Installation](#installation) | [Overview](#overview) | [Setup](#setup) | [Usage](#usage) | [Tools](#available-tools) | [Platforms](#supported-platforms)
 
 </div>
 
 ---
-
-## Overview
-
-`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API covering 67 platforms and 633 endpoints.
-
-Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, Threads, Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, GitHub, Hacker News, Product Hunt, Polymarket, and 30 more platforms. Pull products, offers, price history, reviews, and sellers from Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, and Google Shopping; apps, charts, and reviews from Google Play and the Apple App Store; hotels, restaurants, attractions, cruises, and traveler reviews from Tripadvisor, plus local business data from Yelp and Google Business; brand reputation from Trustpilot and software reviews from G2; job listings and salary bands from LinkedIn, Indeed, Bing, and Xing; market quotes, price history, financial statements, and options chains; US congressional trading disclosures; Korean search and Data Lab trend series from Naver; cross-web brand mentions with sentiment via Content Analysis; Google News headlines and Google Trends interest curves — plus web research via Tavily and Perplexity, AI-powered X search via Grok, on-page SEO audits, and a single `/search/everywhere` endpoint that fans out across 14 sources in one call.
-
-New in v2.0.0: **seven tools instead of eleven** (`socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate`, `socialcrawl_request`, `socialcrawl_collect`, `socialcrawl_account`, `socialcrawl_manage`), ranked endpoint search, and an endpoint contract that says what data comes back. See [Available Tools](#available-tools) for the 1.x → 2.0 mapping; `SOCIALCRAWL_LEGACY_TOOLS=1` keeps the old names for this major version. The catalogue is now 633 endpoints (dump schema v4).
-
-In v1.13.0: a registry re-sync from **575 to 631 endpoints and 65 to 67 platforms**, plus first-class support for the API's new judgment and cost-lever layer.
-
-- **56 new endpoints.** Two new platforms: **Xiaohongshu** (search, trending, profile, notes, comments) and **Product Hunt** (launches). There are 22 new LinkedIn routes: profile bundles (`profile/all`, `profile/complete`, `profile/with-posts`), company by domain, also-viewed pages, employee counts, Pulse articles with their comments and reactions, hashtag/company/search-URL search, hiring teams, similar members and followed interests. Facebook gains keyword search over posts, pages, people, videos and groups. Prism adds 12 composites (`find-accounts`, `mentions`, `adverse-screen`, `brief-check`, `format-lift`, `earliness`, `trend-board`, `audience-language`, `comment-leads`, `investigate`) and **async background jobs** (`POST /v1/prism/jobs`, up to 5,000 items). Also new: `search/multi`, `tiktok/similar`, `instagram/media/screen-text`, `pinterest/trends`, `apple_music/charts`, `bluesky/search`, and the free `utility/capabilities` and `utility/plan`.
-- **Judgments, priced exactly.** About 50 list endpoints now label their rows for free by default (sponsored/intent/niche on posts, sentiment/question/purchase_intent/complaint on comments, sentiment/issue on reviews), and searches score relevance for free. Metered presets, `intent` with `offer=`, and `relevant_to=` hold 1 credit per started 25 rows. `socialcrawl_pricing` gains `action: "judgments"`, and `socialcrawl_request` quotes the hold on the call that spends it.
-- **Exact quotes for the call you will make.** `socialcrawl_pricing` with `action: "endpoint"` now takes `params` (the exact query: `include`, `label`, `relevant_to`, `max_pages`, …) and `calls`. It returns an itemised hold per page, per call (× `max_pages`), and for the whole job.
-- **60 endpoints changed price**, mostly flat ladder prices that became metered bands as they gained `label=`, `max_pages`, `seen` and `scan_pages`. Every surface quotes the new bands and names the levers that move them.
-- **New discovery.** `socialcrawl_discover` gains `capabilities` (each cross-cutting param, its price and every endpoint that supports it) and `plan` (a job in plain words turned into priced calls). Endpoint guides and listings show the registry's featured params and curated related endpoints.
-- **Path params and multi-method resources.** `socialcrawl_request` accepts `jobs/{job_id}` with `params: { job_id }` or the concrete path, and takes `method` (or infers POST from a `body`) for resources served by both GET and POST.
-- New docs topics: `judgments` and `batch-jobs`. The `credits` and `pagination` topics cover `max_pages`, `seen`, `since` / `stop_at_id`, `data._warnings` for dropped params, and `meta.hint`.
-
-**What the MCP server does:**
-- Finds the right endpoint for a task in plain words (ranked search across all 633, with URLs and handles resolved), and tells the agent what data each one returns
-- Fetches live data on your behalf across every platform, method, and composite
-- Prices every call up front — ladder, flat, or metered band — so an agent can budget before it spends
-- Validates requests locally before calling the API: required params, `oneOf` groups, enum values, integer ranges, parameter couplings, and CSV limits. A bad call fails free instead of burning credits
-- Provides built-in API documentation the agent can query on demand, paged rather than truncated
 
 ## Installation
 
@@ -90,13 +63,7 @@ Available on [npm](https://www.npmjs.com/package/socialcrawl-mcp). Most users do
 ### Claude Code (quickest)
 
 ```bash
-claude mcp add --scope user socialcrawl -- npx -y socialcrawl-mcp
-```
-
-Then set your API key:
-
-```bash
-claude mcp add-env socialcrawl SOCIALCRAWL_API_KEY sc_your_key_here
+claude mcp add --scope user socialcrawl -e SOCIALCRAWL_API_KEY=sc_your_key_here -- npx -y socialcrawl-mcp
 ```
 
 ### Claude Desktop
@@ -182,6 +149,21 @@ Any MCP client that supports stdio transport can use this server. The general pa
 
 Restart your AI client after saving the configuration.
 
+## Overview
+
+`socialcrawl-mcp` is an [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that connects AI agents to the [SocialCrawl API](https://socialcrawl.dev) — a unified data API over social, commerce, jobs, finance, research and web data. `socialcrawl_find` with no task lists every platform; `socialcrawl_account` view `freshness` shows the live counts.
+
+Retrieve profiles, posts, comments, search results, trending content, and analytics from TikTok, Instagram, YouTube, Twitter/X, LinkedIn, Reddit, Threads, Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, GitHub, Hacker News, Product Hunt, Polymarket, and many more platforms. Pull products, offers, price history, reviews, and sellers from Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, and Google Shopping; apps, charts, and reviews from Google Play and the Apple App Store; hotels, restaurants, attractions, cruises, and traveler reviews from Tripadvisor, plus local business data from Yelp and Google Business; brand reputation from Trustpilot and software reviews from G2; job listings and salary bands from LinkedIn, Indeed, Bing, and Xing; market quotes, price history, financial statements, and options chains; US congressional trading disclosures; Korean search and Data Lab trend series from Naver; cross-web brand mentions with sentiment via Content Analysis; Google News headlines and Google Trends interest curves — plus web research via Tavily and Perplexity, AI-powered X search via Grok, on-page SEO audits, and a single `/search/everywhere` endpoint that fans out across 14 sources in one call.
+
+New in v2.0.0: **seven tools instead of eleven** (`socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate`, `socialcrawl_request`, `socialcrawl_collect`, `socialcrawl_account`, `socialcrawl_manage`). See [Available Tools](#available-tools) for the 1.x → 2.0 mapping and [CHANGELOG.md](CHANGELOG.md) for every release.
+
+**What the MCP server does:**
+- Finds the right endpoint for a task in plain words (ranked search across every endpoint, with URLs and handles resolved), and tells the agent what data each one returns
+- Fetches live data on your behalf across every platform, method, and composite
+- Prices every call up front — ladder, flat, or metered band — so an agent can budget before it spends
+- Validates requests locally before calling the API: required params, `oneOf` groups, enum values, integer ranges, parameter couplings, and CSV limits. A bad call fails free instead of burning credits
+- Provides built-in API documentation the agent can query on demand, paged rather than truncated
+
 ## Setup
 
 ### 1. Get your API key
@@ -247,7 +229,7 @@ Show me all the TikTok endpoints
 Which endpoints can give me video transcripts?
 ```
 
-Each is a `socialcrawl_find` call: the task in plain words, ranked across all 633 endpoints, no platform needed.
+Each is a `socialcrawl_find` call: the task in plain words, ranked across every endpoint, no platform needed.
 
 ### Learn the API from the API
 
@@ -357,9 +339,9 @@ These same endpoints are plain HTTP, so a third-party integration or a non-MCP a
 
 `socialcrawl_estimate` exists because a single number is a lie for most of the surface. SocialCrawl bills three ways:
 
-- **Ladder** (431 endpoints) — the tier rate per request: standard 1cr, advanced 5cr, premium 10cr.
-- **Flat** (70 endpoints, 22 of them free) — a per-endpoint override, e.g. `/v1/search/everywhere` at 20cr flat.
-- **Metered** (130 endpoints) — the charge depends on the request. An upfront ceiling is deducted and refunded down to the work actually done.
+- **Ladder** — the tier rate per request: standard 1cr, advanced 5cr, premium 10cr.
+- **Flat** (some of them free) — a per-endpoint override, e.g. `/v1/search/everywhere` at 20cr flat.
+- **Metered** — the charge depends on the request. An upfront ceiling is deducted and refunded down to the work actually done.
 
 Quoting a metered endpoint's base cost understates every call: `/v1/search/news` has a 1cr base but really charges **2–62cr** — one credit per Google country leg that returns articles, plus per-article billing when the bing engine is added. The tool returns the real band, the registry's own charging rule, the parameters that move the bill, and the worst case to budget for:
 
@@ -402,7 +384,7 @@ Each holds 1 credit per started 25 rows of the page (4cr on a 100-row page) and 
 
 ### Row hydration — one call instead of a page plus a lookup per row
 
-Some lists are thin because the upstream publishes nothing else on them: a Pinterest search result has no save count, a LinkedIn reactor row no follower count, a YouTube playlist no view counts or durations. Another SocialCrawl endpoint answers each of those for one row — so 33 endpoints now accept an `include=` token that joins every row to that sibling in the same call.
+Some lists are thin because the upstream publishes nothing else on them: a Pinterest search result has no save count, a LinkedIn reactor row no follower count, a YouTube playlist no view counts or durations. Another SocialCrawl endpoint answers each of those for one row — so those endpoints accept an `include=` token that joins every row to that sibling in the same call.
 
 ```
 GET /v1/pinterest/search?query=kitchen&include=engagement      → saves, likes, comments, shares on every row
@@ -442,77 +424,77 @@ Pass an `idempotencyKey` to `socialcrawl_request` (UUIDv4 recommended) to make t
 
 ## Supported Platforms
 
-| Platform | Endpoints | Data Available |
-|----------|-----------|----------------|
-| **LinkedIn** | 68 | Profiles (single sub-resources or one-call bundles: all, complete, with-posts) & company pages (incl. lookup by domain, also-viewed, employee counts), posts & post-with-comments, reposts, reactions, comments & replies, Pulse articles with comments and reactions, people search (keyword or search-URL), company & hashtag search, similar members, profile sub-resources (experience, education, skills, position skills, certifications, followed schools/newsletters/Top Voices, last activity…), jobs (search, company jobs, jobs a member posted, hiring team, details), company insights, groups, the complete post-history archive (metered per post), transcripts, Ad Library, profile-360 |
-| **Prism** | 46 | Cross-platform composites — URL lookup, comment harvesting, batch post-stats/profile/comment lookup, async background jobs of up to 5,000 items, handle-audit, name→accounts resolution (find-accounts), handle/link mentions, adverse-post screening, campaign-brief checks, hook/format lift, term earliness, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, brand mentions, demand signals, AI visibility, crisis radar/post-mortem, reputation, share-of-voice, creator vetting & creator cards, org radar, Korea gap, AI consensus answers, video/app/product intelligence |
-| **Instagram** | 38 | Profiles, account transparency (profile/about), posts, reels, comments & comment replies, highlights, stories, tagged & location feeds, followers/following, similar accounts, post likers, reshare stats, one-call reels/posts feeds with share counts, engagement analytics, universal + popular-post search, reels/hashtag/profile/location/music search (reel search with creator cards via `include=creator`), on-screen text (OCR), trending, transcripts, profile-360 |
-| **TikTok** | 37 | Profiles, videos, comments & replies, on-screen text extraction, keyword/hashtag/user/music search + suggestions, hashtag details, trending (global or in-country For You), TikTok's own popular-hashtag and Top Videos boards, audience, similar accounts, followers, liked videos, playlists & collections, place feeds, effects, live, songs, transcripts, Ad Library, profile-360 |
-| **Facebook** | 29 | Pages, groups & group posts, posts, comments & replies, photos, reels (incl. full reels feed with view counts), events & event search, Marketplace, keyword search over posts/pages/people/videos/groups, transcripts, full Ad Library |
-| **YouTube** | 29 | Channels, videos, shorts, comments & replies, sponsors, playlists & items, community posts, search (advanced + autocomplete), trending, live streams, channel contact email lookup, media files (audio/video/subtitles/thumbnails), transcripts, batch videos/channels/transcripts, profile-360 |
-| **Web Scraping** | 22 | Scrape, web search, site map, LLM extract, async crawl/batch-scrape/agent jobs with per-page error feeds, change monitors, interactive browser sessions, document parse — driven by `socialcrawl_manage` (area `web`) |
-| **US Congress Trades** | 19 | US Congress STOCK Act disclosures — trade feeds (all/48h/7d), members, per-politician and per-ticker stats and trades, state delegations, and the full statistics suite (party, sectors, issuers, volume, unusual activity, buy/sell ratio, late filings) |
-| **Klarna** | 18 | Product details and every merchant offer, keyword search + suggestions, user and professional reviews with score overviews, price history, product comparison, category browsing with filters/keywords/buying guides, store listings |
-| **Tripadvisor** | 16 | Hotels, restaurants, attractions and cruise ships — search and full detail for each, traveler reviews with owner replies, place lookup by URL, destination autocomplete, experience types |
-| **Twitter/X** | 15 | Profiles, tweets and replies, tweet & user search, user media, followers, following, retweeters, communities, video transcripts, AI search via Grok, profile-360 |
-| **Naver** | 14 | Korea's #1 portal — blog, news, encyclopedia, cafe, KiN, local, image, web search, errata & adult classifiers, Data Lab search-trend & shopping-insight series, brief |
-| **Reddit** | 14 | Subreddits, post detail, comments, user profiles with post and comment history, keyword/comment/media search, subreddit discovery, transcripts, omni-search VoC sweep |
-| **GitHub** | 12 | Users, repos, issues, PRs, READMEs, releases, search, repo dossier, user profile-velocity |
-| **Gumtree** | 11 | UK classifieds — listing search and details, similar listings, seller profiles and their ads, search suggestions, trending searches, category tree with filters, location lookup |
-| **Jobs** | 11 | Job search and listing detail across LinkedIn, Indeed, Bing and Xing, LinkedIn organization-id resolution, and salary ranges by title and country |
-| **Sephora** | 11 | Product details, reviews, keyword search + suggestions, category tree browsing, brand listings and per-brand products, store lookup, per-SKU in-store availability |
-| **Content Analysis** | 10 | Cross-web brand mentions, sentiment, rating distributions, phrase/category trends |
-| **Google** | 10 | Web search, Ads Transparency, Business Profile (info, reviews, updates, Q&A), Travel hotels |
-| **AliExpress** | 9 | Product details, keyword search, similar products, reviews, per-SKU shipping, hot products, featured promotions, category tree |
-| **Apple App Store** | 9 | App search, search suggestions, app details, reviews, charts, listings database, reference data |
-| **Google Play** | 9 | App search, search suggestions, app details, reviews, charts, listings database, reference data |
-| **Amazon** | 8 | Product search, ASIN details, reviews, sellers, shop pages, Best Sellers charts, current deals, seller profiles — ~13 marketplaces |
-| **Douyin** | 8 | China's TikTok — video search, creator profiles and feeds, video detail, comments and comment replies, creator search, hot-search board (mostly metered per row) |
-| **Finance** | 7 | Instrument quotes, ticker search, markets overview, instrument news, daily price history, company financial statements, options chains |
-| **G2** | 7 | Software marketplace — product pages, reviews, category listings and the category index, vendor profiles and their catalogue, product URL index |
-| **Quora** | 7 | Question search and detail, answer search, Space post search, profile search, Space/topic search |
-| **H&M** | 6 | Keyword search + suggestions, store listings by country, countries/languages, category tree, per-product supplier and factory disclosure |
-| **Pinterest** | 6 | Pins, boards, user boards, search, Pinterest Trends by country, URL save-counts |
-| **Spotify** | 6 | Artists, tracks, albums, podcasts, episodes, search |
-| **Threads** | 6 | Profiles, posts, post comments, keyword search, user search |
-| **Utility** | 6 | Free API self-discovery — quickstart, endpoint catalogue, per-endpoint usage guide, cross-cutting capabilities index, plain-words call planner, LLM context payload. 0 credits, served from the live registry. Behind `socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate` and `socialcrawl_account` |
-| **Xiaohongshu** | 6 | RED / Little Red Book — note search, hot-search board, creator profiles and their notes, note detail, top-level comments (5cr per returned row) |
-| **Apple Music** | 5 | Catalog search, artist, album, track, per-country charts (songs, albums, music videos, playlists) |
-| **Google Shopping** | 5 | Product search, product details, price history, cross-retailer reviews, per-seller offers |
-| **Kohl's** | 5 | Keyword search, reviews, product questions and answers, store lookup, category tree |
-| **Rumble** | 5 | Search, channel videos, video details, comments, transcripts |
-| **Target** | 5 | Product details by TCIN, reviews, category browsing, full taxonomy, store lookup |
-| **TikTok Shop** | 5 | Products, reviews, listings, search, creator showcases |
-| **Universal Search** | 5 | One query fanned out across 14 platforms (20cr flat); `multi` — each named platform's own native search in one call at the sum of their page prices; forums lane; multi-country news lane (metered); creator-discovery lane across TikTok/Threads/Instagram |
-| **Walmart** | 5 | Product details, reviews, keyword search, category browsing, seller offers |
-| **Yelp** | 5 | Business profiles by encid, business reviews, business search (compact and full-card), search suggestions |
-| **Bluesky** | 4 | Profiles, user posts, post details, keyword post search |
-| **Etsy** | 4 | Listings by id or URL, a shop's catalogue, similar listings, search suggestions |
-| **Hacker News** | 4 | Story search, story, comment tree, profile |
-| **Home Depot** | 4 | Keyword search, product details by item id or URL (store/zip-aware pricing), reviews, store lookup by ZIP |
-| **Tavily** | 4 | Web search (with LLM answer), URL extraction, sitemap, full crawl |
-| **Twitch** | 4 | Profiles, clips, videos, schedules |
-| **Google Trends** | 3 | Interest-over-time (explore), rising/breakout related queries, and Trending Now by location |
-| **Kwai** | 3 | Profiles, posts |
-| **Telegram** | 3 | Public channel profiles, channel post feeds, single post lookup |
-| **Truth Social** | 3 | Profiles, posts |
-| **Wayfair** | 3 | Product search, product details by SKU, reviews |
-| **eBay** | 2 | Listing search incl. sold/completed with realised prices, listing details |
-| **Snapchat** | 2 | Profiles, Spotlight comments |
-| **Trustpilot** | 2 | Business search, company reviews |
-| **Google News** | 1 | Real-time Google News SERP search |
-| **Kick** | 1 | Clips |
-| **Komi** | 1 | Link pages |
-| **LinkBio** | 1 | Link pages |
-| **LinkMe** | 1 | Link pages |
-| **Linktree** | 1 | Link pages |
-| **On-Page** | 1 | Single-URL on-page SEO audit — the technical, content and meta checks in one call |
-| **Perplexity** | 1 | Sonar web research with cited sources |
-| **Pillar** | 1 | Link pages |
-| **Polymarket** | 1 | Prediction-market research — multi-query fan-out + ranking |
-| **Product Hunt** | 1 | Current Product Hunt launches (~50 per page), optionally by topic |
+| Platform | Data Available |
+|----------|----------------|
+| **LinkedIn** | Profiles (single sub-resources or one-call bundles: all, complete, with-posts) & company pages (incl. lookup by domain, also-viewed, employee counts), posts & post-with-comments, reposts, reactions, comments & replies, Pulse articles with comments and reactions, people search (keyword or search-URL), company & hashtag search, similar members, profile sub-resources (experience, education, skills, position skills, certifications, followed schools/newsletters/Top Voices, last activity…), jobs (search, company jobs, jobs a member posted, hiring team, details), company insights, groups, the complete post-history archive (metered per post), transcripts, Ad Library, profile-360 |
+| **Prism** | Cross-platform composites — URL lookup, comment harvesting, batch post-stats/profile/comment lookup, async background jobs of up to 5,000 items, handle-audit, name→accounts resolution (find-accounts), handle/link mentions, adverse-post screening, campaign-brief checks, hook/format lift, term earliness, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, brand mentions, demand signals, AI visibility, crisis radar/post-mortem, reputation, share-of-voice, creator vetting & creator cards, org radar, Korea gap, AI consensus answers, video/app/product intelligence |
+| **Instagram** | Profiles, account transparency (profile/about), posts, reels, comments & comment replies, highlights, stories, tagged & location feeds, followers/following, similar accounts, post likers, reshare stats, one-call reels/posts feeds with share counts, engagement analytics, universal + popular-post search, reels/hashtag/profile/location/music search (reel search with creator cards via `include=creator`), on-screen text (OCR), trending, transcripts, profile-360 |
+| **TikTok** | Profiles, videos, comments & replies, on-screen text extraction, keyword/hashtag/user/music search + suggestions, hashtag details, trending (global or in-country For You), TikTok's own popular-hashtag and Top Videos boards, audience, similar accounts, followers, liked videos, playlists & collections, place feeds, effects, live, songs, transcripts, Ad Library, profile-360 |
+| **Facebook** | Pages, groups & group posts, posts, comments & replies, photos, reels (incl. full reels feed with view counts), events & event search, Marketplace, keyword search over posts/pages/people/videos/groups, transcripts, full Ad Library |
+| **YouTube** | Channels, videos, shorts, comments & replies, sponsors, playlists & items, community posts, search (advanced + autocomplete), trending, live streams, channel contact email lookup, media files (audio/video/subtitles/thumbnails), transcripts, batch videos/channels/transcripts, profile-360 |
+| **Web Scraping** | Scrape, web search, site map, LLM extract, async crawl/batch-scrape/agent jobs with per-page error feeds, change monitors, interactive browser sessions, document parse — driven by `socialcrawl_manage` (area `web`) |
+| **US Congress Trades** | US Congress STOCK Act disclosures — trade feeds (all/48h/7d), members, per-politician and per-ticker stats and trades, state delegations, and the full statistics suite (party, sectors, issuers, volume, unusual activity, buy/sell ratio, late filings) |
+| **Klarna** | Product details and every merchant offer, keyword search + suggestions, user and professional reviews with score overviews, price history, product comparison, category browsing with filters/keywords/buying guides, store listings |
+| **Tripadvisor** | Hotels, restaurants, attractions and cruise ships — search and full detail for each, traveler reviews with owner replies, place lookup by URL, destination autocomplete, experience types |
+| **Twitter/X** | Profiles, tweets and replies, tweet & user search, user media, followers, following, retweeters, communities, video transcripts, AI search via Grok, profile-360 |
+| **Naver** | Korea's #1 portal — blog, news, encyclopedia, cafe, KiN, local, image, web search, errata & adult classifiers, Data Lab search-trend & shopping-insight series, brief |
+| **Reddit** | Subreddits, post detail, comments, user profiles with post and comment history, keyword/comment/media search, subreddit discovery, transcripts, omni-search VoC sweep |
+| **GitHub** | Users, repos, issues, PRs, READMEs, releases, search, repo dossier, user profile-velocity |
+| **Gumtree** | UK classifieds — listing search and details, similar listings, seller profiles and their ads, search suggestions, trending searches, category tree with filters, location lookup |
+| **Jobs** | Job search and listing detail across LinkedIn, Indeed, Bing and Xing, LinkedIn organization-id resolution, and salary ranges by title and country |
+| **Sephora** | Product details, reviews, keyword search + suggestions, category tree browsing, brand listings and per-brand products, store lookup, per-SKU in-store availability |
+| **Content Analysis** | Cross-web brand mentions, sentiment, rating distributions, phrase/category trends |
+| **Google** | Web search, Ads Transparency, Business Profile (info, reviews, updates, Q&A), Travel hotels |
+| **AliExpress** | Product details, keyword search, similar products, reviews, per-SKU shipping, hot products, featured promotions, category tree |
+| **Apple App Store** | App search, search suggestions, app details, reviews, charts, listings database, reference data |
+| **Google Play** | App search, search suggestions, app details, reviews, charts, listings database, reference data |
+| **Amazon** | Product search, ASIN details, reviews, sellers, shop pages, Best Sellers charts, current deals, seller profiles — ~13 marketplaces |
+| **Douyin** | China's TikTok — video search, creator profiles and feeds, video detail, comments and comment replies, creator search, hot-search board (mostly metered per row) |
+| **Finance** | Instrument quotes, ticker search, markets overview, instrument news, daily price history, company financial statements, options chains |
+| **G2** | Software marketplace — product pages, reviews, category listings and the category index, vendor profiles and their catalogue, product URL index |
+| **Quora** | Question search and detail, answer search, Space post search, profile search, Space/topic search |
+| **H&M** | Keyword search + suggestions, store listings by country, countries/languages, category tree, per-product supplier and factory disclosure |
+| **Pinterest** | Pins, boards, user boards, search, Pinterest Trends by country, URL save-counts |
+| **Spotify** | Artists, tracks, albums, podcasts, episodes, search |
+| **Threads** | Profiles, posts, post comments, keyword search, user search |
+| **Utility** | Free API self-discovery — quickstart, endpoint catalogue, per-endpoint usage guide, cross-cutting capabilities index, plain-words call planner, LLM context payload. 0 credits, served from the live registry. Behind `socialcrawl_find`, `socialcrawl_endpoint`, `socialcrawl_estimate` and `socialcrawl_account` |
+| **Xiaohongshu** | RED / Little Red Book — note search, hot-search board, creator profiles and their notes, note detail, top-level comments (5cr per returned row) |
+| **Apple Music** | Catalog search, artist, album, track, per-country charts (songs, albums, music videos, playlists) |
+| **Google Shopping** | Product search, product details, price history, cross-retailer reviews, per-seller offers |
+| **Kohl's** | Keyword search, reviews, product questions and answers, store lookup, category tree |
+| **Rumble** | Search, channel videos, video details, comments, transcripts |
+| **Target** | Product details by TCIN, reviews, category browsing, full taxonomy, store lookup |
+| **TikTok Shop** | Products, reviews, listings, search, creator showcases |
+| **Universal Search** | One query fanned out across many platforms (20cr flat); `multi` — each named platform's own native search in one call at the sum of their page prices; forums lane; multi-country news lane (metered); creator-discovery lane across TikTok/Threads/Instagram |
+| **Walmart** | Product details, reviews, keyword search, category browsing, seller offers |
+| **Yelp** | Business profiles by encid, business reviews, business search (compact and full-card), search suggestions |
+| **Bluesky** | Profiles, user posts, post details, keyword post search |
+| **Etsy** | Listings by id or URL, a shop's catalogue, similar listings, search suggestions |
+| **Hacker News** | Story search, story, comment tree, profile |
+| **Home Depot** | Keyword search, product details by item id or URL (store/zip-aware pricing), reviews, store lookup by ZIP |
+| **Tavily** | Web search (with LLM answer), URL extraction, sitemap, full crawl |
+| **Twitch** | Profiles, clips, videos, schedules |
+| **Google Trends** | Interest-over-time (explore), rising/breakout related queries, and Trending Now by location |
+| **Kwai** | Profiles, posts |
+| **Telegram** | Public channel profiles, channel post feeds, single post lookup |
+| **Truth Social** | Profiles, posts |
+| **Wayfair** | Product search, product details by SKU, reviews |
+| **eBay** | Listing search incl. sold/completed with realised prices, listing details |
+| **Snapchat** | Profiles, Spotlight comments |
+| **Trustpilot** | Business search, company reviews |
+| **Google News** | Real-time Google News SERP search |
+| **Kick** | Clips |
+| **Komi** | Link pages |
+| **LinkBio** | Link pages |
+| **LinkMe** | Link pages |
+| **Linktree** | Link pages |
+| **On-Page** | Single-URL on-page SEO audit — the technical, content and meta checks in one call |
+| **Perplexity** | Sonar web research with cited sources |
+| **Pillar** | Link pages |
+| **Polymarket** | Prediction-market research — multi-query fan-out + ranking |
+| **Product Hunt** | Current Product Hunt launches (~50 per page), optionally by topic |
 
-**Total: 633 endpoints across 67 platforms.**
+`socialcrawl_find` with no task lists every platform with its live endpoint count.
 
 ## Error Handling
 

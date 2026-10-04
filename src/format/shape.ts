@@ -10,6 +10,61 @@ export interface ShapeOptions {
   format?: Format;
   /** Characters available for the payload (page body / csv), after header and notes. */
   budget: number;
+  /**
+   * The key under `data` that holds a single-object endpoint's main object
+   * (from the contract's rows_at, e.g. `quote` for `data.quote`). It is never
+   * omitted to fit: its long strings and arrays are trimmed instead.
+   */
+  mainKey?: string;
+}
+
+/** Ever tighter caps for a main object that does not fit: [array items, string characters]. */
+const TRIM_LEVELS: Array<[number, number]> = [[50, 2000], [20, 500], [10, 200], [5, 100], [2, 60], [1, 30]];
+
+/** A copy with every array capped at `items` and every string cut at `chars` (with "…"). */
+function trimValue(v: unknown, items: number, chars: number, depth = 0): unknown {
+  if (typeof v === "string") return v.length > chars ? `${v.slice(0, chars)}…` : v;
+  if (Array.isArray(v)) return v.slice(0, items).map((x) => trimValue(x, items, chars, depth + 1));
+  if (isObject(v)) {
+    if (depth > 6) return "…";
+    const out: Json = {};
+    for (const [k, x] of Object.entries(v)) out[k] = trimValue(x, items, chars, depth + 1);
+    return out;
+  }
+  return v;
+}
+
+/**
+ * A single object that does not fit, cut around its main object: the main
+ * object stays (trimmed if it must be), then the other top-level keys of
+ * `data` in order while they fit; the rest are omitted.
+ */
+function keepMain(env: Json, data: Json, main: string, budget: number): { envelope: Json; omitted: string[]; note?: string } {
+  const base = size({ ...env, data: {} });
+  let value = data[main];
+  let note: string | undefined;
+  if (base + size(main) + size(value) + 2 > budget) {
+    for (const [items, chars] of TRIM_LEVELS) {
+      value = trimValue(data[main], items, chars);
+      note = `data.${main} trimmed to fit: arrays capped at ${items} item${items === 1 ? "" : "s"}, strings cut at ${chars} characters (the full body is behind the result link).`;
+      if (base + size(main) + size(value) + 2 <= budget) break;
+    }
+  }
+  let used = base + size(main) + size(value) + 2;
+  const kept: Json = {};
+  const omitted: string[] = [];
+  for (const [k, v] of Object.entries(data)) {
+    if (k === main) {
+      kept[k] = value;
+      continue;
+    }
+    const c = size(k) + size(v) + 2;
+    if (used + c <= budget) {
+      kept[k] = v;
+      used += c;
+    } else omitted.push(k);
+  }
+  return { envelope: { ...env, data: kept }, omitted, ...(note ? { note } : {}) };
 }
 
 export interface Shaped {
@@ -207,6 +262,17 @@ export function shapeEnvelope(parsed: Json, opts: ShapeOptions): Shaped {
   }
 
   // A single object (or scalar): cut at top-level keys of `data` when it is too big.
+  // The main object (the contract's, or the only key) is kept and trimmed, never omitted.
+  const dataObj = isObject(env.data) ? env.data : undefined;
+  const keys = dataObj ? Object.keys(dataObj).filter((k) => k !== "_warnings") : [];
+  const main = dataObj && opts.mainKey && opts.mainKey in dataObj ? opts.mainKey : keys.length === 1 && isObject(dataObj?.[keys[0]]) ? keys[0] : undefined;
+  if (dataObj && main && size(env) > opts.budget) {
+    const r = keepMain(env, dataObj, main, opts.budget);
+    if (size(r.envelope) <= opts.budget) {
+      const notes = [...warnings, ...(r.note ? [r.note] : [])];
+      return { envelope: r.envelope, cut: true, projected, omittedKeys: r.omitted, ...(notes.length > 0 ? { warnings: notes } : {}) };
+    }
+  }
   if (isObject(env.data) && size(env) > opts.budget) {
     const kept: Json = {};
     const omitted: string[] = [];

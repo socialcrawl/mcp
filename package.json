@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
   "version": "2.0.0",
-  "description": "Access 67 platforms and 633 endpoints through one unified API — social media (incl. Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, Product Hunt), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & local (Tripadvisor, Yelp, Google Business/Hotels), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search — with exact per-endpoint credit pricing (ladder, flat, and metered bands), free default row judgments with metered label/relevance quotes, and itemised per-call and per-job cost quotes for every one.",
+  "description": "One unified API for social and web data — social media (incl. Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, Product Hunt), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & local (Tripadvisor, Yelp, Google Business/Hotels), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search — with exact per-endpoint credit pricing (ladder, flat, and metered bands), free default row judgments with metered label/relevance quotes, and itemised per-call and per-job cost quotes for every one.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -52,7 +52,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RidioDevelopment/socialcrawl-mcp"
+    "url": "git+https://github.com/RidioDevelopment/socialcrawl-mcp.git"
   },
   "mcpName": "io.github.RidioDevelopment/socialcrawl",
   "dependencies": {

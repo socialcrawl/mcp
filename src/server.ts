@@ -15,6 +15,7 @@ import {
   AccountInputSchema,
   ManageInputSchema,
 } from "./schemas/tools.js";
+import { withNormalizedArgs } from "./schemas/normalize.js";
 import { findStructured } from "./tools/find.js";
 import { endpointStructured } from "./tools/endpoint.js";
 import { estimateStructured } from "./tools/estimate.js";
@@ -105,7 +106,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
       title: "Find the Endpoint for a Task",
       description:
         `Start here: a task in plain words -> the best endpoints (3 by default) of ${ENDPOINTS.length}, each with the params the task supplies (URLs and @handles resolved), the params still missing, the credit cost and the exact call. With no task it lists platforms, or one platform's endpoints. Free; no key needed.`,
-      inputSchema: FindInputSchema,
+      inputSchema: withNormalizedArgs(FindInputSchema, "find"),
       outputSchema: FindOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -120,8 +121,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Endpoint Contract",
       description:
-        "Read before calling: one endpoint's purpose, params, where the rows are and up to 25 response fields, cost rule, paging, latency, timeout, next endpoints and a sample link. Also takes a platform slug (its endpoints) or a guide topic (errors, pricing, pagination, judgments). Free.",
-      inputSchema: EndpointInputSchema,
+        "Read before calling: one endpoint's purpose, params, where the rows are and up to 25 response fields, cost rule, paging, latency, timeout, next endpoints and a sample link. id (or platform+resource, path), a platform slug (its endpoints) or a guide topic. Free.",
+      inputSchema: withNormalizedArgs(EndpointInputSchema, "endpoint"),
       outputSchema: EndpointOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -136,8 +137,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Estimate Credit Cost",
       description:
-        "Exact credits before you spend: one call (id plus the params you will send; calls for a job total; items for a walk) or a plan of several calls. Uses the API's estimator when available, else the bundled pricing. A platform slug gives its price table; no id gives the pricing overview. Free.",
-      inputSchema: EstimateInputSchema,
+        "Exact credits before you spend: one call (id, platform+resource or path, plus the params you will send; calls for a job total; items for a walk) or a plan of several calls. Uses the API's estimator when available, else the bundled pricing. A platform slug gives its price table; no id gives the pricing overview. Free.",
+      inputSchema: withNormalizedArgs(EstimateInputSchema, "estimate"),
       outputSchema: EstimateOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -160,8 +161,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Call an Endpoint",
       description:
-        "Call one endpoint. structuredContent: rows, credits (used, remaining), paging (has_more, next_cursor). Validated locally first (a bad call is free), quoted, refused above max_credits and confirmed above the threshold. A large page is cut at row boundaries with a link to the full body. Spends credits; needs SOCIALCRAWL_API_KEY.",
-      inputSchema: RequestInputSchema,
+        "Call one endpoint (platform+resource, or id, or path). Validated locally first (a bad call is free), quoted, refused above max_credits and confirmed above the threshold. A large page is cut at row boundaries; socialcrawl_collect result_id reads the rest. Spends credits; needs SOCIALCRAWL_API_KEY.",
+      inputSchema: withNormalizedArgs(RequestInputSchema, "request"),
       outputSchema: RequestOutputShape,
       annotations: {
         // Billable and not repeatable: each call can spend credits, and a repeat
@@ -196,8 +197,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Collect Rows Across Pages",
       description:
-        "Walk a paged endpoint to `items` unique rows, the last page or max_credits in one call: cursors supplied, duplicates dropped, stops on a 402, refused free when one page exceeds max_credits. Returns a summary and a link to every row (JSONL, JSON or CSV). Spends credits.",
-      inputSchema: CollectInputSchema,
+        "Walk a paged endpoint (id, platform+resource or path) to `items` unique rows, the last page or max_credits: cursors supplied, duplicates dropped, stops on a 402, refused free when one page exceeds max_credits. Small results come back whole. result_id (+offset, limit, format) reads a stored result, free. Spends credits.",
+      inputSchema: withNormalizedArgs(CollectInputSchema, "collect"),
       outputSchema: CollectOutputShape,
       annotations: {
         // Spends credits page after page; a repeat spends again (cached pages are free).
@@ -216,6 +217,9 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
         format: params.format,
         fields: params.fields,
         confirm: params.confirm,
+        result_id: params.result_id,
+        offset: params.offset,
+        limit: params.limit,
       });
       return toResult(output.text, output.structured, output.links);
     },
@@ -227,7 +231,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
       title: "Account and Service Status",
       description:
         "Free checks: balance (with this session's spend), transactions (itemised ledger; the receipts for one request_id), status (platform health; read it before retrying a 502/503) and freshness (whether this server's bundled catalogue is behind the API).",
-      inputSchema: AccountInputSchema,
+      inputSchema: withNormalizedArgs(AccountInputSchema, "account"),
       outputSchema: AccountOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
@@ -247,8 +251,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Manage Monitors, Cohorts, Web and Jobs",
       description:
-        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.",
-      inputSchema: ManageInputSchema,
+        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.\ndry_run: true validates and quotes a create/update and never creates it.",
+      inputSchema: withNormalizedArgs(ManageInputSchema, "manage"),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },
     async (params) => {
@@ -258,6 +262,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
         id: params.id,
         input: params.input,
         idempotencyKey: params.idempotencyKey,
+        dry_run: params.dry_run,
       });
       return toResult(output.text, output.structured, output.links);
     },

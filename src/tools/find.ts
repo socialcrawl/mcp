@@ -2,11 +2,15 @@ import { apiRequest } from "../client.js";
 import { DISCOVERY_TIMEOUT_MS, noteRoute, routeMissing } from "../discovery-routes.js";
 import type { ApiContext } from "../context.js";
 import { findPlatform, PLATFORMS } from "../data/platforms.js";
+import { findEndpoint } from "../data/endpoints.js";
+import { DOCS } from "../data/docs.js";
+import { outputsFor } from "../data/outputs.js";
 import { localQuote, fetchEstimateData } from "../cost-guard.js";
 import { bestCaseCost, formatCost, worstCaseCost } from "../pricing.js";
 import { errorFromText } from "../result.js";
 import type { ToolOutput } from "../result.js";
 import { searchTasks, suggestPlatforms } from "../search/catalog.js";
+import { manageDocs } from "../search/manage-docs.js";
 import type { ManageDoc } from "../search/manage-docs.js";
 import type { Endpoint } from "../types.js";
 import { listEndpoints } from "./list-endpoints.js";
@@ -195,7 +199,19 @@ interface ApiHit {
   method?: string;
   summary?: string;
   why?: string;
+  /** The params the API copied from the task (`params_filled`). */
+  filled: Record<string, string>;
   meta: MatchMeta;
+}
+
+/** A record's scalar values as strings (the API's params_filled). */
+function stringValues(v: unknown): Record<string, string> {
+  if (!isObj(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, x] of Object.entries(v)) {
+    if (typeof x === "string" || typeof x === "number" || typeof x === "boolean") out[k] = String(x);
+  }
+  return out;
 }
 
 interface ApiFindAnswer {
@@ -232,6 +248,7 @@ async function apiFind(ctx: ApiContext, params: FindParams, limit: number): Prom
       method: typeof item.method === "string" ? item.method.toUpperCase() : undefined,
       summary: typeof item.summary === "string" ? item.summary : undefined,
       why: typeof item.why === "string" ? item.why : undefined,
+      filled: stringValues(item.params_filled ?? item.params),
       meta: readMeta(item),
     });
   }
@@ -329,13 +346,41 @@ function callFor(e: Endpoint, filled: Record<string, string>): Record<string, un
     const { job_id, ...input } = filled;
     return { tool: "socialcrawl_manage", arguments: { area: "jobs", action: job.action, ...(job_id ? { id: job_id } : {}), input } };
   }
+  const { params, body } = splitForMethod(e, filled);
   return {
     tool: "socialcrawl_request",
     arguments: {
       platform: e.platform,
       resource: e.resource,
       ...(e.method !== "GET" ? { method: e.method } : {}),
-      params: filled,
+      ...(params ? { params } : {}),
+      ...(body ? { body } : {}),
+    },
+  };
+}
+
+/** A POST endpoint reads its fields from the JSON body (query-only params stay in params). */
+function splitForMethod(e: Endpoint, filled: Record<string, string>): { params?: Record<string, string>; body?: Record<string, string> } {
+  if (e.method !== "POST") return { params: filled };
+  const params: Record<string, string> = {};
+  const body: Record<string, string> = {};
+  for (const [k, v] of Object.entries(filled)) {
+    if (e.optionalParams.find((o) => o.name === k)?.in === "query") params[k] = v;
+    else body[k] = v;
+  }
+  return { ...(Object.keys(params).length > 0 ? { params } : {}), body };
+}
+
+/** The ready socialcrawl_estimate call for this endpoint with these params. */
+function estimateFor(e: Endpoint, filled: Record<string, string>): Record<string, unknown> {
+  const { params, body } = splitForMethod(e, filled);
+  return {
+    tool: "socialcrawl_estimate",
+    arguments: {
+      id: `${e.platform}/${e.resource}`,
+      ...(e.method !== "GET" ? { method: e.method } : {}),
+      ...(params && Object.keys(params).length > 0 ? { params } : {}),
+      ...(body && Object.keys(body).length > 0 ? { body } : {}),
     },
   };
 }
@@ -413,10 +458,10 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
   }
 
   // Candidates in rank order: the API's, else the local ranker's.
-  let pool: Array<{ id: string; endpoint?: Endpoint; manage?: ManageDoc; summary?: string; why?: string; meta?: MatchMeta }>;
+  let pool: Array<{ id: string; endpoint?: Endpoint; manage?: ManageDoc; summary?: string; why?: string; filled?: Record<string, string>; meta?: MatchMeta }>;
   const source: "api" | "local" = apiHits ? "api" : "local";
   if (apiHits) {
-    pool = apiHits.map((h) => ({ id: h.id, endpoint: bundled(h.id, h.method), summary: h.summary, why: h.why, meta: h.meta }));
+    pool = apiHits.map((h) => ({ id: h.id, endpoint: bundled(h.id, h.method), summary: h.summary, why: h.why, filled: h.filled, meta: h.meta }));
   } else {
     const query = facts.rankQuery || task;
     pool = searchTasks(query, { platform: params.platform, limit: POOL }).map((h) =>
@@ -430,16 +475,20 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
   if (resolvedIds.size > 0) {
     pool = [...pool.filter((c) => resolvedIds.has(c.id)), ...pool.filter((c) => !resolvedIds.has(c.id))];
   }
+  const watch = wantsMonitor(task);
+  // A monitoring task gets one scheduling pointer (below), not the ranker's generic area doc.
+  if (watch) pool = pool.filter((c) => c.manage?.area !== "monitors");
   const top = pool.slice(0, limit);
 
-  const results = await Promise.all(
+  const endpointResults = await Promise.all(
     top.map(async (c) => {
       if (c.manage) return manageResult(c.manage);
       const e = c.endpoint;
       if (!e) {
-        return { id: c.id, summary: c.summary ?? c.why ?? "", params_filled: {}, params_missing: [] as string[], bundled: false, ...c.meta };
+        return { id: c.id, summary: c.summary ?? c.why ?? "", params_filled: c.filled ?? {}, params_missing: [] as string[], bundled: false, ...c.meta };
       }
-      const filled = fill(e, facts, resolved);
+      // The API's params_filled wins over what was read locally from the task.
+      const filled = { ...fill(e, facts, resolved), ...(c.filled ?? {}) };
       const miss = missing(e, filled);
       return {
         id: c.id,
@@ -450,10 +499,13 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
         params_filled: filled,
         params_missing: miss,
         call: callFor(e, filled),
+        estimate: estimateFor(e, filled),
         ...c.meta,
       };
     }),
   );
+  const pointer = watch ? monitorPointer(task, facts, top, endpointResults) : undefined;
+  const results = pointer ? [pointer, ...endpointResults] : endpointResults;
 
   const structured: Record<string, unknown> = { ok: true, source, results, ...metaFields(topMeta) };
   const unbundled = results.filter((r) => "bundled" in r && r.bundled === false).map((r) => r.id);
@@ -462,6 +514,117 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
     structured.resolved = resolved.map((r) => ({ input: r.input, platform: r.platform, kind: r.kind, confidence: r.confidence, canonical: r.canonical }));
   }
   return { text: render(task, source, results, topMeta), structured };
+}
+
+/**
+ * Words that ask for something to run on a schedule or fire on a change,
+ * rather than one read now: alert, notify, monitor, watch, every day/week,
+ * schedule, "when ... posts/changes".
+ */
+const MONITOR_INTENT =
+  /\b(alerts?|notify|notifications?|monitor(?:ing)?|watch(?:ing)?|schedul(?:e|ed|ing)|recurring|daily|weekly|hourly|nightly|every\s+(?:day|week|hour|morning|evening|night|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b|\bwhen\b.*\b(posts?|posted|uploads?|changes?|changed|updates?|updated|publish(?:es)?|goes live|drops?)\b/i;
+
+export const wantsMonitor = (task: string): boolean => MONITOR_INTENT.test(task);
+
+/** The cadence a task asks for: hourly, weekly, else daily. */
+function cadenceOf(task: string): "hourly" | "daily" | "weekly" {
+  if (/\b(hourly|every\s+hour)\b/i.test(task)) return "hourly";
+  if (/\b(weekly|every\s+(?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|each\s+week)\b/i.test(task)) return "weekly";
+  return "daily";
+}
+const firstSentence = (text: string): string => /^.*?[.!?](?=\s|$)/.exec(text)?.[0] ?? text;
+const CADENCE_MINUTES = { hourly: 60, daily: 1440, weekly: 10080 } as const;
+
+type EndpointResult = { id: string; params_filled: Record<string, string>; kind?: string; bundled?: boolean };
+
+/** Replace with the caller's own HTTPS endpoint (listed in params_missing). */
+const WEBHOOK_PLACEHOLDER = "https://your-server.example/socialcrawl-webhook";
+
+/** A task about new items: "new video", "posts", "uploads". */
+const NEW_ITEMS = /\bnew\b|\b(posts?|uploads?|publish(?:es)?)\b/i;
+
+/**
+ * The new-items alert as the bundled monitors guide documents it: its
+ * rows_new rule (only on a tracking monitor), its webhook-only-on-alert
+ * switch, and a track over one of the recipe's numeric row fields (from the
+ * endpoint's output contract). Undefined when the guide or the contract has
+ * no such pattern.
+ */
+function newItemsAlert(e: Endpoint): Record<string, unknown> | undefined {
+  const guide = DOCS.monitors ?? "";
+  const rule = /\{"metric":"rows_new"[^}]*\}/.exec(guide);
+  if (!rule) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rule[0]);
+  } catch {
+    return undefined;
+  }
+  const out = outputsFor(e);
+  const rowsAt = out?.rows_at ?? "";
+  if (!rowsAt.startsWith("data.items[]")) return undefined;
+  const numeric = (out?.fields ?? []).filter((f) => /number|integer/.test(f.type) && !/published|_at$|epoch/.test(f.path));
+  const metric = numeric.find((f) => /engagement\.views$/.test(f.path)) ?? numeric.find((f) => /engagement\./.test(f.path)) ?? numeric[0];
+  if (!metric) return undefined;
+  return {
+    track: { metrics: [`items[].${metric.path}`] },
+    alert_rules: [parsed],
+    ...(/suppress_webhook_unless_alert/.test(guide) ? { suppress_webhook_unless_alert: true } : {}),
+  };
+}
+
+/**
+ * For a monitoring task, where to schedule it: a web change monitor for a
+ * page's URL ("notify me when this page changes"), else a recipe monitor over
+ * the best endpoint result, with its filled params and the cadence the task
+ * asks for. The call validates first (dry_run: true); the area's own text
+ * comes from the bundled manage docs.
+ */
+function monitorPointer(
+  task: string,
+  facts: TaskFacts,
+  pool: Array<{ id: string; endpoint?: Endpoint }>,
+  results: EndpointResult[],
+) {
+  const cadence = cadenceOf(task);
+  const pageUrl = facts.urls.find((u) => {
+    const p = platformFromUrl(u);
+    return !p || p === "web";
+  });
+  if (pageUrl && /\b(chang\w*|updat\w*|page|site|website|differ\w*)\b/i.test(task)) {
+    const e = findEndpoint("web", "monitors", "POST");
+    const input = { url: pageUrl, cadence_minutes: CADENCE_MINUTES[cadence] };
+    return {
+      id: "web/monitors",
+      kind: "manage" as const,
+      area: "web",
+      action: "monitor_create",
+      summary: `Schedule a change check of ${pageUrl} (${cadence}). ${e?.purpose?.summary ?? e?.summary ?? ""}`.trim(),
+      params_filled: { url: pageUrl, cadence_minutes: String(input.cadence_minutes) },
+      params_missing: [] as string[],
+      call: { tool: "socialcrawl_manage", arguments: { area: "web", action: "monitor_create", dry_run: true, input } },
+    };
+  }
+  const recipe = results.find((r) => r.kind !== "manage" && r.bundled !== false && !r.id.startsWith("web/") && pool.some((c) => c.id === r.id && c.endpoint));
+  const doc = manageDocs().find((d) => d.area === "monitors");
+  const recipeEndpoint = recipe ? pool.find((c) => c.id === recipe.id)?.endpoint : undefined;
+  const alert = NEW_ITEMS.test(task) && recipeEndpoint ? newItemsAlert(recipeEndpoint) : undefined;
+  const input = {
+    ...(recipe ? { recipe: recipe.id, params: recipe.params_filled } : {}),
+    cadence,
+    webhook_url: WEBHOOK_PLACEHOLDER,
+    ...(alert ?? {}),
+  };
+  return {
+    id: "monitors",
+    kind: "manage" as const,
+    area: "monitors",
+    action: "create",
+    summary: `Schedule ${recipe ? recipe.id : "a recipe"} ${cadence}; ${alert ? "the webhook fires only when a run finds new rows (rows_new on a tracking monitor)" : "each run's result goes to your webhook"}. ${firstSentence(doc?.summary ?? "")}`.trim(),
+    params_filled: { ...(recipe ? { recipe: recipe.id } : {}), cadence },
+    params_missing: [...(recipe ? [] : ["recipe"]), "webhook_url"],
+    call: { tool: "socialcrawl_manage", arguments: { area: "monitors", action: "create", dry_run: true, input } },
+  };
 }
 
 /**
@@ -521,6 +684,7 @@ async function planOutput(ctx: ApiContext, task: string, steps: PlanHit[]): Prom
         params_missing: st.missing,
         ...(st.binds ? { binds: st.binds } : {}),
         call: callFor(e, st.params),
+        estimate: estimateFor(e, st.params),
       };
     }),
   );
@@ -533,16 +697,16 @@ async function planOutput(ctx: ApiContext, task: string, steps: PlanHit[]): Prom
 function render(
   task: string,
   source: "api" | "local" | "plan",
-  results: Array<{ id: string; method?: string; summary?: string; returns?: string; credits?: Record<string, unknown>; params_missing: string[]; call?: Record<string, unknown>; bundled?: boolean; binds?: Record<string, string>; kind?: "manage"; area?: string; actions?: string[] } & MatchMeta>,
+  results: Array<{ id: string; method?: string; summary?: string; returns?: string; credits?: Record<string, unknown>; params_missing: string[]; call?: Record<string, unknown>; estimate?: Record<string, unknown>; bundled?: boolean; binds?: Record<string, string>; kind?: "manage"; area?: string; actions?: string[] } & MatchMeta>,
   meta: MatchMeta = {},
 ): string {
   const uncertain = meta.uncertain === true || results.some((r) => r.uncertain === true);
-  const lines: string[] = uncertain ? [UNCERTAIN_LINE] : [];
+  const lines: string[] = uncertain && results.length > 0 ? [UNCERTAIN_LINE] : [];
   const top = metaLine(meta);
   if (results.length === 0) {
     lines.push(
       source === "api" && meta.reason
-        ? `No endpoint for "${task}" (${top}).`
+        ? `No endpoint for "${task}" (${top}). SocialCrawl only reads public data; it can't post, reply, like, follow, message or manage accounts. It can read the comments or the post itself instead.`
         : `No endpoint matches "${task}". Try other words, or socialcrawl_find with a platform and no task to list that platform's endpoints.`,
     );
     return lines.join("\n");
@@ -553,7 +717,11 @@ function render(
   results.forEach((r, i) => {
     if (r.kind === "manage") {
       lines.push(`${i + 1}. ${r.id} (socialcrawl_manage area "${r.area}") - ${r.summary ?? ""}`);
-      lines.push(`   Actions: ${(r.actions ?? []).join(", ")}. Read first: socialcrawl_endpoint with id "${r.id}".`);
+      if (r.actions) lines.push(`   Actions: ${r.actions.join(", ")}. Read first: socialcrawl_endpoint with id "${r.id}".`);
+      else {
+        const needs = r.params_missing.length > 0 ? ` Add ${r.params_missing.join(", ")} to input.` : "";
+        lines.push(`   To run it on a schedule:${needs} dry_run: true validates and quotes it without creating anything; repeat without dry_run to create it.`);
+      }
       if (r.call) lines.push(`   Call: ${JSON.stringify(r.call)}`);
       return;
     }
@@ -568,6 +736,7 @@ function render(
     if (r.returns) lines.push(`   ${r.returns}`);
     if (r.binds) lines.push(`   Filled from earlier rows: ${Object.entries(r.binds).map(([k, v]) => `${k} <- ${v}`).join(", ")}`);
     if (r.call) lines.push(`   Call: ${JSON.stringify(r.call)}`);
+    if (r.estimate) lines.push(`   Estimate: ${JSON.stringify(r.estimate)}`);
     const rowMeta = metaLine({ uncertain: r.uncertain, reason: r.reason, source: r.source, ...("confidence" in r ? { confidence: r.confidence } : {}), note: r.note });
     if (r.uncertain === true || rowMeta) lines.push(`   ${r.uncertain === true ? "Uncertain" : "Match"}: ${rowMeta ?? "unconfirmed"}`);
   });

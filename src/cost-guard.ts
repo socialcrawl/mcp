@@ -21,6 +21,14 @@ export interface Quote {
   /** Credits the call holds up front (its ceiling). */
   hold: number;
   source: "estimate" | "local";
+  /** The API's estimator says the router would refuse this exact call (free 400). */
+  rejection?: string;
+}
+
+/** The request exactly as it will be sent, for the API's estimator. */
+export interface ExactCall {
+  params?: Record<string, unknown>;
+  body?: Record<string, unknown>;
 }
 
 export interface GuardInput {
@@ -121,20 +129,29 @@ function estimatePayload(response: string): Record<string, unknown> | undefined 
   }
 }
 
-/** The API's own hold, or undefined when the route is not deployed, fails, or rejects the call. */
+/**
+ * The API's own quote for the exact call: its hold, or the rejection the router
+ * would answer with; undefined when the route is not deployed or fails.
+ */
 async function fetchEstimate(
   ctx: ApiContext,
   endpoint: Endpoint,
   params: Record<string, unknown>,
-): Promise<number | undefined> {
+  exact?: ExactCall,
+): Promise<{ hold: number } | { rejection: string } | undefined> {
+  const isGet = endpoint.method === "GET";
   const body = await fetchEstimateData(ctx, {
     id: `${endpoint.platform}/${endpoint.resource}`,
     method: endpoint.method,
-    params: endpoint.method === "GET" ? params : undefined,
-    body: endpoint.method === "GET" ? undefined : params,
+    params: exact ? exact.params : isGet ? params : undefined,
+    body: exact ? exact.body : isGet ? undefined : params,
   });
-  if (!body || body.valid === false) return undefined;
-  return typeof body.hold === "number" && Number.isFinite(body.hold) && body.hold >= 0 ? body.hold : undefined;
+  if (!body) return undefined;
+  if (body.valid === false) {
+    const r = body.rejection as { message?: unknown } | undefined;
+    return typeof r?.message === "string" ? { rejection: r.message } : undefined;
+  }
+  return typeof body.hold === "number" && Number.isFinite(body.hold) && body.hold >= 0 ? { hold: body.hold } : undefined;
 }
 
 /**
@@ -147,12 +164,15 @@ export async function quoteCall(
   endpoint: Endpoint,
   params: Record<string, unknown>,
   maxCredits?: number,
+  exact?: ExactCall,
 ): Promise<Quote> {
   const local = localQuote(endpoint, params);
   const bar = Math.min(confirmThreshold(), maxCredits ?? Number.POSITIVE_INFINITY);
   if (local <= bar || !ctx.apiKey) return { hold: local, source: "local" };
-  const est = await fetchEstimate(ctx, endpoint, params);
-  return est === undefined ? { hold: local, source: "local" } : { hold: est, source: "estimate" };
+  const est = await fetchEstimate(ctx, endpoint, params, exact);
+  if (est === undefined) return { hold: local, source: "local" };
+  if ("rejection" in est) return { hold: 0, source: "estimate", rejection: est.rejection };
+  return { hold: est.hold, source: "estimate" };
 }
 
 function confirmationStop(reason: string, exposure: number): GuardStop {

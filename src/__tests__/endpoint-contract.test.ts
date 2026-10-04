@@ -162,7 +162,7 @@ describe("socialcrawl_endpoint: live contract (T18 shape) and malformed payloads
       id: "tiktok/post/comments",
       contract: {
         id: "tiktok/post/comments",
-        outputs: { archetype: "CommentList", rows_at: "data.items[].comment", source: "field_map", fields: [{ path: "comment.text", type: "string", nullable: false, meaning: "Text", fill: 0.99 }], never_filled: [], page_level: [] },
+        outputs: { archetype: "CommentList", rows_at: "data.items[].comment", source: "field_map", fields: [{ path: "comment.text", type: "string", nullable: false, meaning: "Text", fill: 0.99 }, { path: "comment.live_only", type: "string", nullable: true }], never_filled: [], page_level: [] },
         next: [{ to: "tiktok/video/comment/replies", bind: { comment_id: "items[].comment.id" }, why: "expand a thread", source: "curated" }],
         latency_ms: { p50: 2100, p95: 6400, p99: 9000, n: 50, sampled: "a..b", provisional: false, low_sample: false, recommended_timeout_s: 14 },
         paging: { style: "cursor", page_size: 50, page_size_source: "observed", page_size_max: 100, max_pages: null, max_pages_when: null, per_n_items: "ceil(N/50) x 1", price_basis: "per_page" },
@@ -172,7 +172,9 @@ describe("socialcrawl_endpoint: live contract (T18 shape) and malformed payloads
     const out = await endpointStructured(KEYED, { id: "tiktok/post/comments" });
     expect(out.structured.source).toBe("live");
     const c = contractOf(out.structured) as Record<string, any>;
-    expect(c.outputs.fields).toEqual([{ path: "comment.text", type: "string", meaning: "Text", fill: 0.99 }]);
+    // A live list that names a field this release does not know is newer, so it replaces the bundled one.
+    expect(c.outputs.fields).toHaveLength(2);
+    expect(c.outputs.fields).toContainEqual({ path: "comment.text", type: "string", meaning: "Text", fill: 0.99 });
     expect(c.next).toEqual([{ id: "tiktok/video/comment/replies", why: "expand a thread", bind: { comment_id: "items[].comment.id" } }]);
     expect(c.latency_ms).toMatchObject({ p50: 2100, p95: 6400 });
     expect(c.timeout_s).toBe(14);

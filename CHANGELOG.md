@@ -8,6 +8,17 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Version 2.0.0 (package.json, `SERVER_VERSION`, server.json). Everything below ships in it.
 
+### Fixed: first-run friction from a fresh-agent trial
+
+- **One argument shape everywhere.** `socialcrawl_request`, `collect`, `estimate` (and its `plan[]`) and `endpoint` each take an endpoint as `id: "platform/resource"`, `platform` + `resource`, or `path: "/v1/platform/resource"`. `fields` takes a comma string or an array; an array given as `estimate.calls` is read as the plan. One shared preprocessor does it (`src/schemas/normalize.ts`); the advertised schemas are unchanged, and an unknown key is refused with the key to use instead.
+- **`socialcrawl_find` returns ready calls.** The API's `params_filled` is in each Call example (in `body` for a POST endpoint), every result carries a ready `socialcrawl_estimate` call, and a monitoring task ("alert when ... posts", "notify me when this page changes", "every week") also gets a `socialcrawl_manage` pointer: a recipe monitor or a web change monitor, with the cadence and a `dry_run: true` call.
+- **`socialcrawl_manage` `dry_run: true`** validates and quotes monitors/cohorts create and web `monitor_create`/`monitor_update` via `?dry_run=1`. Anything the API creates anyway is deleted at once and the call is refused.
+- **Stored results readable through a tool.** `socialcrawl_collect` with `result_id` (+ `offset`, `limit`, `format`) reads a stored walk or request body, free. Results up to 200 rows and 60 KB come back whole from collect and request; long cursors are shortened in the text (full value in structuredContent).
+- **The cost guard prices the exact request.** A POST endpoint called with `params` and no `body` has them moved to `body` (with a warning), and the confirmation threshold is checked against the API's quote for that exact call, not the endpoint's ceiling.
+- **Estimates never return a null max.** The "per-page price not proven" notes fold into one walk caveat on top of the one-call quote.
+- **Round 2.** A single-object endpoint's main object (the contract's `rows_at`, e.g. `data.quote`) is never omitted to fit; its arrays and long strings are trimmed instead, with a note. Top-level endpoint params on `socialcrawl_request` (`limit`, `url`, ...) move into params with a warning. `socialcrawl_account` takes `action` for `view` and `ledger`/`history` for `transactions`. Stored-result notes say "read it in this session with result_id"; collect inlines rows whenever they fit in the requested format (CSV is checked as CSV). The monitor suggestion for "alert when ... posts a new video" is a complete tracking monitor: `track`, the guide's `rows_new` rule, `suppress_webhook_unless_alert`, a `webhook_url` placeholder, `dry_run: true`; `socialcrawl_manage` monitors create now accepts `track`.
+- README: no hard-coded platform or endpoint counts, a working `claude mcp add ... -e SOCIALCRAWL_API_KEY=...` install line, and Install first.
+
 ### Added: resources, templates, completions and prompts (MCP-05)
 
 - 7 static resources: `socialcrawl://guide` (the skill body), `recipes` (JSON with typed inputs and computed cost), `pricing`, `errors`, `llms`, `quickstart`, `capabilities`.

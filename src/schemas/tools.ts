@@ -60,12 +60,12 @@ const MaxCreditsSchema = z
   .int()
   .min(1)
   .optional()
-  .describe("Spend cap. Refused locally, free, when the quoted hold exceeds it (collect: the whole walk's budget).");
+  .describe("Spend cap: refused free when the quoted hold exceeds it (collect: the walk's budget).");
 
 const ConfirmSchema = z
   .boolean()
   .optional()
-  .describe("true only after the user approved a spend above the confirmation threshold (default 100 credits).");
+  .describe("true only once the user approved spending above the threshold (default 100 credits).");
 
 export const RequestInputSchema = z.object({
   platform: z.string().min(1).describe("Platform slug, e.g. 'tiktok'. An unknown slug gets a did-you-mean."),
@@ -90,7 +90,7 @@ export const RequestInputSchema = z.object({
     .min(16, "Idempotency-Key should be at least 16 characters (UUIDv4 recommended)")
     .optional()
     .describe("Makes a retry safe: a replay returns the original response for 0 credits (24h)."),
-  fields: z.string().optional().describe("Row paths exactly as socialcrawl_endpoint lists them, e.g. 'post.id,post.content.text,post.engagement.*'. Cuts tokens."),
+  fields: z.string().optional().describe("Row paths exactly as socialcrawl_endpoint lists them, e.g. 'post.id,post.content.text,post.engagement.*' (or an array). Cuts tokens."),
   max_items: z.number().int().min(1).optional().describe("Show at most this many rows; the full page stays behind the result link."),
   format: z.enum(["json", "csv", "summary"]).optional().describe("json (default), csv (canonical columns) or summary."),
   max_credits: MaxCreditsSchema,
@@ -98,13 +98,16 @@ export const RequestInputSchema = z.object({
 }).strict();
 
 export const CollectInputSchema = z.object({
-  id: z.string().min(3).describe("platform/resource of a paged endpoint, e.g. 'tiktok/post/comments'."),
+  id: z.string().min(3).optional().describe("platform/resource of a paged endpoint, e.g. 'tiktok/post/comments'."),
   params: z.record(ParamValueSchema).optional().describe("Params for every page, as in socialcrawl_request. No cursor."),
-  items: z.number().int().min(1).max(10000).describe("Stop once this many unique rows are collected."),
+  items: z.number().int().min(1).max(10000).optional().describe("Stop once this many unique rows are collected."),
   max_credits: MaxCreditsSchema,
-  format: z.enum(["jsonl", "json", "csv"]).optional().describe("Stored format: jsonl (default), json or csv."),
+  format: z.enum(["jsonl", "json", "csv"]).optional().describe("jsonl (default), json or csv."),
   fields: z.string().optional().describe("Row paths as socialcrawl_endpoint lists them, e.g. 'comment.text,comment.engagement.likes'."),
   confirm: ConfirmSchema,
+  result_id: z.string().optional().describe("Read a stored result instead of walking. Free."),
+  offset: z.number().int().optional().describe("result_id: first row."),
+  limit: z.number().int().optional().describe("result_id: rows (200)."),
 }).strict();
 
 const MethodSchema = z.enum(["GET", "POST", "PATCH", "DELETE"]);
@@ -144,7 +147,7 @@ export const EstimateInputSchema = z.object({
   method: MethodSchema.optional(),
   params: z.record(ParamValueSchema).optional().describe("The exact params you will send."),
   body: z.record(z.unknown()).optional().describe("POST body, for batch endpoints."),
-  calls: z.number().int().min(1).max(1_000_000).optional().describe("Number of such calls."),
+  calls: z.number().int().min(1).max(1_000_000).optional().describe("Number of such calls (an array is read as plan)."),
   items: z.number().int().min(1).optional().describe("Rows wanted (prices a walk)."),
   plan: z.array(PlanCallSchema).max(50).optional().describe("Several calls to total, instead of id."),
 }).strict();
@@ -173,6 +176,7 @@ export const ManageInputSchema = z.object({
     .optional()
     .describe("The action's fields, e.g. { recipe, cadence }, { url }, { keywords }, or the job body (max_credits, confirm allowed). Monitor alert rules, incl. rows_new: socialcrawl_endpoint id=monitors."),
   idempotencyKey: z.string().min(16).optional().describe("For web crawl/batch, cohort writes and job submit."),
+  dry_run: z.boolean().optional(),
 }).strict();
 
 export const CheckBalanceInputSchema = z.object({
@@ -265,6 +269,17 @@ export const MonitorsInputSchema = z.object({
     .string()
     .optional()
     .describe("create: optional signing secret (8-200 chars); otherwise one is generated and returned once."),
+  track: z
+    .object({
+      metrics: z.array(z.string()).min(1).max(20),
+      row_key: z.string().optional(),
+      max_rows: z.number().int().min(1).max(200).optional(),
+    })
+    .strict()
+    .optional()
+    .describe(
+      "create: a tracking monitor: the numbers to keep per row, e.g. { metrics: ['items[].post.engagement.views'] }. Needed for the rows_new alert; webhook_url becomes optional.",
+    ),
   status: z
     .string()
     .optional()

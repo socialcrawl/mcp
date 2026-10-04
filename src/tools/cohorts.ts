@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { apiRequest } from "../client.js";
+import { apiRequest, withDryRun } from "../client.js";
 import type { ApiContext } from "../context.js";
 
 /**
@@ -200,7 +200,8 @@ function unsupportedPlatforms(platforms: string[]): string[] {
   return [...new Set(platforms.filter((p) => !allowed.has(p)))];
 }
 
-export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<string> {
+export async function cohorts(ctx: ApiContext, input: CohortsParams, opts: { dryRun?: boolean } = {}): Promise<string> {
+  const send = (o: Parameters<typeof apiRequest>[1]) => apiRequest(ctx, withDryRun(o, opts.dryRun));
   const { action } = input;
 
   const needsCohort = new Set<CohortAction>(["get", "delete", "add_members", "query"]);
@@ -286,7 +287,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
         }
         body.retention_days = input.retention_days;
       }
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "POST",
         path: "/v1/cohorts",
         body,
@@ -298,7 +299,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
     }
 
     case "get": {
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "GET",
         path: `/v1/cohorts/${cohortId}`,
         errorPlatform: "cohorts",
@@ -308,7 +309,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
     }
 
     case "delete": {
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "DELETE",
         path: `/v1/cohorts/${cohortId}`,
         errorPlatform: "cohorts",
@@ -336,7 +337,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
       if (bad.length > 0) {
         return `Error: Unsupported cohort platform(s): ${bad.join(", ")}. Cohort identities must be one of ${COHORT_IDENTITY_PLATFORMS.join(", ")}.`;
       }
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "PUT",
         path: `/v1/cohorts/${cohortId}/members`,
         body: { members },
@@ -400,7 +401,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
       if (input.date_to) body.date_to = input.date_to;
       if (input.platforms && input.platforms.length > 0) body.platforms = input.platforms;
 
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "POST",
         path: `/v1/cohorts/${cohortId}/queries`,
         body,
@@ -414,7 +415,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
     }
 
     case "query_status": {
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "GET",
         path: `/v1/cohort-queries/${queryId}`,
         errorPlatform: "cohorts",
@@ -434,7 +435,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
         limit: input.limit?.toString(),
         cursor: input.cursor,
       });
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "GET",
         path: `/v1/cohort-queries/${queryId}/results`,
         query,
@@ -445,7 +446,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams): Promise<st
     }
 
     case "query_cancel": {
-      response = await apiRequest(ctx, {
+      response = await send({
         method: "DELETE",
         path: `/v1/cohort-queries/${queryId}`,
         errorPlatform: "cohorts",

@@ -11,7 +11,7 @@
  * same fingerprint accept exactly the same calls; the freshness check compares
  * it with the live API's.
  */
-export const REGISTRY_FINGERPRINT = "32f6edd1da53c21e53cf301be3b7827085f467d04c047224a28ed248d8e62785";
+export const REGISTRY_FINGERPRINT = "afebb7b68955b5ac4a2ca4099b78b61d5db084c5e24abe501604d8c3823b35cc";
 
 /** Live platform / endpoint / tier counts from the backend registry. */
 export const REGISTRY_STATS = {
