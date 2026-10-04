@@ -2,6 +2,8 @@ import { apiRequest, makeRequest } from "../client.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
 import { PLATFORMS, findPlatform } from "../data/platforms.js";
 import { REGISTRY_FINGERPRINT, REGISTRY_STATS } from "../data/registry-meta.js";
+import { checkFreshness } from "../freshness.js";
+import type { FreshnessReport } from "../freshness.js";
 import { capabilityIndex } from "../judgments.js";
 import { SERVER_VERSION } from "../constants.js";
 import { page } from "../paginate.js";
@@ -793,30 +795,30 @@ function renderPlan(data: Record<string, unknown>, query: string): string {
 
 // ── freshness ──────────────────────────────────────────────────────────
 
-function renderFreshness(live: { platforms?: number; endpoints?: number } | null): string {
-  if (!live) {
+function renderFreshness(report: FreshnessReport): string {
+  const bundledFp = REGISTRY_FINGERPRINT.slice(0, 12);
+  if (report.state === "unknown" || !report.live) {
     return [
       "# Catalogue freshness — could not reach the live registry",
       "",
-      "The check calls `GET /v1/utility/endpoints` (0 credits) and compares its live registry stats against this server's bundled catalogue. It needs a configured API key and network access.",
+      "The check calls `GET /v1/utility/endpoints` (0 credits) and compares the live registry fingerprint (or, failing that, its platform and endpoint counts) with this server's bundled catalogue. It needs a configured API key and network access.",
       "",
-      `Bundled catalogue: **${REGISTRY_STATS.totalPlatforms} platforms, ${REGISTRY_STATS.totalEndpoints} endpoints** (socialcrawl-mcp v${SERVER_VERSION}, registry fingerprint \`${REGISTRY_FINGERPRINT.slice(0, 12)}\`).`,
+      `Bundled catalogue: **${REGISTRY_STATS.totalPlatforms} platforms, ${REGISTRY_STATS.totalEndpoints} endpoints** (socialcrawl-mcp v${SERVER_VERSION}, registry fingerprint \`${bundledFp}\`).`,
     ].join("\n");
   }
 
-  const samePlatforms = live.platforms === REGISTRY_STATS.totalPlatforms;
-  const sameEndpoints = live.endpoints === REGISTRY_STATS.totalEndpoints;
-  const current = samePlatforms && sameEndpoints;
-
+  const live = report.live;
+  const current = report.state === "fresh";
+  const liveFp = live.fingerprint ? `\`${live.fingerprint.slice(0, 12)}\`` : "not published";
   const lines = [
     `# Catalogue freshness — ${current ? "up to date" : "OUT OF DATE"}`,
     "",
-    "| | Platforms | Endpoints |",
-    "|---|-----------|-----------|",
-    `| Live API | ${live.platforms ?? "?"} | ${live.endpoints ?? "?"} |`,
-    `| This server (v${SERVER_VERSION}) | ${REGISTRY_STATS.totalPlatforms} | ${REGISTRY_STATS.totalEndpoints} |`,
+    "| | Platforms | Endpoints | Fingerprint |",
+    "|---|-----------|-----------|-------------|",
+    `| Live API | ${live.platforms ?? "?"} | ${live.endpoints ?? "?"} | ${liveFp} |`,
+    `| This server (v${SERVER_VERSION}) | ${REGISTRY_STATS.totalPlatforms} | ${REGISTRY_STATS.totalEndpoints} | \`${bundledFp}\` |`,
     "",
-    `Bundled registry fingerprint: \`${REGISTRY_FINGERPRINT.slice(0, 12)}\` (a hash of every endpoint's method, path and parameter names). Equal counts with a different backend fingerprint mean a parameter changed; \`action: "endpoint"\` always reads the live contract.`,
+    `Compared by ${report.basis === "fingerprint" ? "registry fingerprint (a hash of every endpoint's method, path and parameter names)" : "platform and endpoint counts (the live API publishes no fingerprint)"}. \`socialcrawl_endpoint\` with a key always reads the live contract.`,
     "",
   ];
 
@@ -825,12 +827,14 @@ function renderFreshness(live: { platforms?: number; endpoints?: number } | null
       "This server's bundled catalogue matches the live registry. Discovery, pricing, and validation answered from bundled data are current.",
     );
   } else {
-    const dPlatforms = (live.platforms ?? 0) - REGISTRY_STATS.totalPlatforms;
-    const dEndpoints = (live.endpoints ?? 0) - REGISTRY_STATS.totalEndpoints;
+    const dPlatforms = (live.platforms ?? REGISTRY_STATS.totalPlatforms) - REGISTRY_STATS.totalPlatforms;
+    const dEndpoints = (live.endpoints ?? REGISTRY_STATS.totalEndpoints) - REGISTRY_STATS.totalEndpoints;
     lines.push(
-      `The live API has **${dEndpoints >= 0 ? "+" : ""}${dEndpoints} endpoints** and **${dPlatforms >= 0 ? "+" : ""}${dPlatforms} platforms** relative to this server's bundled catalogue.`,
+      dPlatforms === 0 && dEndpoints === 0
+        ? "The counts match but the fingerprints differ: an endpoint's parameters changed since this server was built."
+        : `The live API has **${dEndpoints >= 0 ? "+" : ""}${dEndpoints} endpoints** and **${dPlatforms >= 0 ? "+" : ""}${dPlatforms} platforms** relative to this server's bundled catalogue.`,
       "",
-      "**What this means:** `socialcrawl_request` still calls the live API and works for any endpoint — but this server's *discovery* surfaces (`list_platforms`, `list_endpoints`, `pricing`, `get_docs`) and its local parameter validation are answering from a snapshot, so a newer endpoint will look unknown.",
+      "**What this means:** `socialcrawl_request` still calls the live API and works for any endpoint — but this server's bundled answers (`socialcrawl_find` offline, `socialcrawl_estimate` without a key, local parameter validation) come from a snapshot, so a newer endpoint or parameter can look unknown.",
       "",
       "**What to do:**",
       "- Upgrade the package: `npx -y socialcrawl-mcp@latest` (or bump the pinned version in your MCP client config).",
@@ -986,18 +990,9 @@ export async function discover(ctx: ApiContext, params: DiscoverParams): Promise
     }
 
     case "freshness": {
-      if (!canGoLive) return renderFreshness(null);
-      // Ask for a filter that matches nothing: the `stats` block is always the
-      // whole-registry totals regardless of filter, so this returns the live
-      // counts in a few hundred bytes instead of all 381 catalogue rows.
-      const response = await makeRequest(ctx, {
-        platform: "utility",
-        resource: "endpoints",
-        params: { search: " freshness-probe" },
-      });
-      const data = envelopeData(response);
-      const stats = (data as { stats?: { platforms?: number; endpoints?: number } } | null)?.stats;
-      return renderFreshness(stats ?? null);
+      if (!canGoLive) return renderFreshness({ state: "unknown" });
+      // The same check as the stale note on tool results (freshness.ts).
+      return renderFreshness(await checkFreshness(ctx));
     }
 
     case "status": {

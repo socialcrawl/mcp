@@ -6,7 +6,7 @@ import type { ToolOutput } from "../result.js";
 import { suggestEndpoints, suggestPlatforms } from "../search/catalog.js";
 import type { Endpoint } from "../types.js";
 import { normalizeEndpointId } from "./discover.js";
-import { pricingStructured } from "./pricing.js";
+import { pricingStructured, v2Wording } from "./pricing.js";
 import { resolveEndpoint, stringifyParams } from "./request.js";
 import { walkQuote } from "../walk-quote.js";
 
@@ -159,7 +159,7 @@ async function single(ctx: ApiContext, input: EstimateParams, e: Endpoint): Prom
   const warnings = walkWarnings(walk.warnings, w ? { pages: w.pages, per: perPageRange(w.expected_min / w.pages, w.expected_max / w.pages) } : undefined);
   const head = `Local quote for ${id}: holds up to ${perCall} credits per call${w ? ` (${w.pages} pages)` : ""}${calls > 1 ? `, ${perCall * calls} for ${calls} calls` : ""}. The settled charge is refunded down to the work done.`;
   return {
-    text: [head, ...(w ? [`Walk: ${w.formula}`] : []), ...warnings, "", priced.text].join("\n"),
+    text: [head, ...(w ? [`Walk: ${w.formula}`] : []), ...warnings, "", v2Wording(priced.text)].join("\n"),
     structured: { ok: true, source: "local", quote, ...(warnings.length ? { warnings } : {}) },
   };
 }
@@ -262,7 +262,7 @@ export async function estimateStructured(ctx: ApiContext, input: EstimateParams)
   if (input.plan && input.plan.length > 0) return plan(ctx, input.plan);
   if (!input.id) {
     const o = pricingStructured({ action: "overview" });
-    return { text: o.text, structured: { ok: true, source: "local" } };
+    return { text: v2Wording(o.text), structured: { ok: true, source: "local" } };
   }
   const key = normalizeEndpointId(input.id);
   if (!key.includes("/")) {
@@ -271,7 +271,7 @@ export async function estimateStructured(ctx: ApiContext, input: EstimateParams)
       return errorOutput("error" in hit ? hit.error : `Error: Unknown platform "${key}".`);
     }
     const t = pricingStructured({ action: "platform", platform: key });
-    return { text: t.text, structured: { ok: true, source: "local" } };
+    return { text: v2Wording(t.text), structured: { ok: true, source: "local" } };
   }
   const hit = lookup(key, input.method);
   if ("error" in hit) return errorOutput(hit.error);

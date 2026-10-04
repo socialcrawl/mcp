@@ -52,7 +52,7 @@ Three billing models:
 - **Flat** — a per-endpoint override (e.g. \`GET /v1/search/everywhere\` at 20cr; the ${free.length} free endpoints at 0cr).
 - **Metered** (${metered.length} endpoints) — the charge depends on the request. An upfront ceiling is deducted and automatically refunded down to the work actually done.
 
-Cache hits, idempotent replays, empty results, and upstream failures all cost 0 credits. Use the \`socialcrawl_estimate\` tool (or the \`pricing\` docs topic) for the exact cost of every endpoint.
+Cache hits, idempotent replays, empty results, and upstream failures all cost 0 credits. Use the \`socialcrawl_estimate\` tool (or \`socialcrawl_endpoint\` with id \`pricing\`) for the exact cost of every endpoint.
 
 ## Judgments — free by default
 

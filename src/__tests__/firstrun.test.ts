@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -6,6 +6,8 @@ import { createServer } from "../server.js";
 import { resetSessionSpend } from "../session-spend.js";
 import type { ApiContext } from "../context.js";
 import { expectValidOutput, valuesAt } from "./helpers/output-schema.js";
+import { REGISTRY_FINGERPRINT, REGISTRY_STATS } from "../data/registry-meta.js";
+import { STALE_LINE, resetFreshness, startFreshnessCheck } from "../freshness.js";
 
 /**
  * FIX-mcp-firstrun: what eight fresh agents tripped over on real jobs. Every
@@ -724,5 +726,93 @@ describe("item 6: a live contract that lags the bundled field list does not hide
     const r = await call(KEYED, "socialcrawl_endpoint", { id: "prism/post-stats" });
     expect(text(r)).not.toContain("Fields not published");
     expect(text(r)).toContain("summary.credits_charged");
+  });
+});
+
+// ── 2.0.1: one freshness answer, no 1.x names ─────────────────────────────
+
+describe("2.0.1: every staleness message comes from one freshness check", () => {
+  const stats = { platforms: REGISTRY_STATS.totalPlatforms, endpoints: REGISTRY_STATS.totalEndpoints };
+  /** The live registry: a fingerprint route and the counts route. */
+  const registry = (fingerprint: string): Handler => (c) => {
+    if (c.path !== "/v1/utility/endpoints") return undefined;
+    if (c.url.searchParams.get("fingerprint") === "1") return { body: { success: true, data: { kind: "registry_fingerprint", fingerprint, ...stats } } };
+    return { body: { success: true, data: { kind: "endpoint_catalog", stats, total: 0, endpoints: [] } } };
+  };
+  const estimateApi: Handler = (c) => (c.path === "/v1/utility/estimate" ? { body: { success: true, data: { valid: true, hold: 1, expected_min: 1, expected_max: 1 } } } : undefined);
+
+  beforeEach(() => {
+    resetFreshness();
+    vi.stubEnv("SOCIALCRAWL_FRESHNESS_CHECK", "1");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetFreshness();
+  });
+
+  it("equal fingerprints: no stale note anywhere, and the account view says up to date", async () => {
+    fakeApi(registry(REGISTRY_FINGERPRINT), estimateApi);
+    const acct = await call(KEYED, "socialcrawl_account", { view: "freshness" });
+    expect(text(acct)).toMatch(/up to date/);
+    expect(text(acct)).not.toContain(STALE_LINE);
+    const est = await call(KEYED, "socialcrawl_estimate", { id: "tiktok/profile", params: { handle: "nasa" } });
+    expect(text(est)).not.toContain(STALE_LINE);
+    expectValidOutput("socialcrawl_estimate", est.structuredContent);
+  });
+
+  it("a different fingerprint with equal counts is out of date in the account view too", async () => {
+    fakeApi(registry("f".repeat(64)), estimateApi);
+    const acct = await call(KEYED, "socialcrawl_account", { view: "freshness" });
+    expect(text(acct)).toMatch(/OUT OF DATE/);
+    expect(text(acct)).toMatch(/fingerprint/);
+    const est = await call(KEYED, "socialcrawl_estimate", { id: "tiktok/profile", params: { handle: "nasa" } });
+    expect(text(est)).toContain(STALE_LINE);
+  });
+
+  it("a stale answer is not kept for the life of the process", async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    fakeApi(registry("f".repeat(64)));
+    expect(await startFreshnessCheck(KEYED)).toBe(true);
+    fakeApi(registry(REGISTRY_FINGERPRINT));
+    clock.mockReturnValue(now + 60 * 60 * 1000);
+    expect(await startFreshnessCheck(KEYED)).toBe(false);
+    clock.mockRestore();
+  });
+});
+
+describe("2.0.1: no 1.x tool names or arguments in 2.0 text", () => {
+  const LEFTOVER = /action: \\?"(endpoint|platform|list|overview|judgments|hydration|catalog|quickstart|capabilities|plan|llms|freshness|status)\\?"|socialcrawl_(pricing|discover|get_docs|list_platforms|list_endpoints|check_balance)\b|`(list_platforms|list_endpoints|get_docs)`/;
+  const clean = (t: string): string[] => t.split("\n").filter((l) => LEFTOVER.test(l) && !/LEGACY_TOOLS/.test(l));
+
+  it.each([
+    ["socialcrawl_estimate", {}],
+    ["socialcrawl_estimate", { id: "tiktok" }],
+    ["socialcrawl_estimate", { id: "tiktok/profile", params: { handle: "nasa" } }],
+    ["socialcrawl_endpoint", { id: "tiktok" }],
+    ["socialcrawl_find", { platform: "tiktok" }],
+    ["socialcrawl_endpoint", { id: "pricing" }],
+    ["socialcrawl_endpoint", { id: "judgments" }],
+    ["socialcrawl_endpoint", { id: "hydration" }],
+    ["socialcrawl_endpoint", { id: "overview" }],
+    ["socialcrawl_endpoint", { id: "errors" }],
+    ["socialcrawl_endpoint", { id: "pagination" }],
+  ])("%s %j", async (tool, args) => {
+    fakeApi();
+    const r = await call(ANON, tool as string, args as Record<string, unknown>);
+    expect(clean(text(r))).toEqual([]);
+  });
+
+  it("the account freshness view, current and stale", async () => {
+    for (const fp of [REGISTRY_FINGERPRINT, "f".repeat(64)]) {
+      fakeApi((c) =>
+        c.path === "/v1/utility/endpoints"
+          ? { body: { success: true, data: { fingerprint: fp, stats: { platforms: 1, endpoints: 1 }, platforms: 1, endpoints: 1 } } }
+          : undefined,
+      );
+      const r = await call(KEYED, "socialcrawl_account", { view: "freshness" });
+      expect(clean(text(r))).toEqual([]);
+      expect(text(r)).toContain("socialcrawl_endpoint");
+    }
   });
 });

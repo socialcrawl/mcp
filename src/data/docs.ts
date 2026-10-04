@@ -447,7 +447,7 @@ function buildJudgmentsDoc(): string {
     );
   }
   lines.push(
-    'Quote one call exactly with `socialcrawl_estimate` (`id` plus `params: { label: "mention", brand: "Acme" }`), or list every judged lane with `action: "judgments"`.',
+    'Quote one call exactly with `socialcrawl_estimate` (`id` plus `params: { label: "mention", brand: "Acme" }`), or read every judged lane in the table above.',
   );
   return lines.join("\n");
 }

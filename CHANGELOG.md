@@ -6,7 +6,15 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-Version 2.0.0 (package.json, `SERVER_VERSION`, server.json). Everything below ships in it.
+## [2.0.1] - 2026-10-04
+
+### Fixed
+
+- **One freshness answer.** `socialcrawl_account` view `freshness` and the one-line "catalogue is behind" note on tool results now use the same check (`checkFreshness` in `src/freshness.ts`): the live registry fingerprint first, the platform and endpoint counts only when no fingerprint is published. Before, the account view compared counts while the note compared fingerprints, and the note's answer was kept for the life of the process, so a long-running (hosted) server that started before an API redeploy kept saying "behind" while the account view said "up to date". An answer now stands for 10 minutes. The account view shows both fingerprints and what it compared.
+- **No 1.x names in 2.0 text.** The freshness view names `socialcrawl_endpoint` (not `action: "endpoint"`); `socialcrawl_estimate`'s overview and platform tables point at `socialcrawl_estimate` / `socialcrawl_endpoint` instead of the 1.x pricing tool's `action: ...` arguments; the judgments and overview docs topics no longer point at 1.x arguments.
+
+
+## [2.0.0]
 
 ### Fixed: first-run friction from a fresh-agent trial
 

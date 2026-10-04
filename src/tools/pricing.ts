@@ -682,6 +682,25 @@ export function pricing(params: PricingParams): string {
  * per-call quote as numbers (the band and its worst case); the catalogue
  * actions are prose tables, so they report `ok` and the action only.
  */
+/**
+ * The 1.x pricing tool's text, worded for the 2.0 tools that reuse it
+ * (`socialcrawl_estimate`): each `action: "..."` pointer becomes the 2.0 call
+ * that gives the same answer.
+ */
+const V2_WORDING: Array<[RegExp, string]> = [
+  [/`action: \\?"endpoint\\?"` with a platform \+ resource/g, '`socialcrawl_estimate` with `id: "platform/resource"`'],
+  [/`action: \\?"endpoint\\?"` with `platform`, `resource`(,)? and/g, '`socialcrawl_estimate` with `id: "platform/resource"` and'],
+  [/use `action: \\?"endpoint\\?"` with/g, "use `socialcrawl_estimate` with"],
+  [/`action: \\?"platform\\?"`/g, "`socialcrawl_estimate` with a platform slug as `id`"],
+  [/, or `action: \\?"list\\?"` with `maxCost` \/ `model` \/ `sort` to rank endpoints by price/g, ""],
+  [/`action: \\?"overview\\?"`/g, "`socialcrawl_estimate` with no `id`"],
+  [/`action: \\?"(judgments|hydration)\\?"`/g, '`socialcrawl_endpoint` with `id: "$1"`'],
+];
+
+export function v2Wording(text: string): string {
+  return V2_WORDING.reduce((t, [re, to]) => t.replace(re, to), text);
+}
+
 export function pricingStructured(params: PricingParams): ToolOutput {
   const text = pricing(params);
   if (isErrorText(text)) return { text, structured: errorFromText(text) };
