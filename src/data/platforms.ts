@@ -223,7 +223,7 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "trustpilot",
     name: "Trustpilot",
-    endpointCount: 2,
+    endpointCount: 3,
     social: false,
     category: "commerce",
     description:

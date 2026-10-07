@@ -336,17 +336,22 @@ export interface Endpoint {
   latency_ms?: LatencyStats;
 }
 
-/** Registry `purpose` block: one line each, generated from the same source as the skill. */
+/**
+ * Registry `purpose` block: one line each, generated from the same source as the skill.
+ * Every field is nullable: an endpoint can reach the dump before its copy is written,
+ * and consumers fall back to `Endpoint.summary` (or skip the line).
+ */
 export interface EndpointPurpose {
-  summary: string;
+  summary: string | null;
   returns: string | null;
   use_when: string | null;
   not_for: string | null;
 }
 
+/** Job taxonomy; null while an endpoint is not classified yet. */
 export interface EndpointTaxonomy {
-  purpose: string;
-  job_family: string;
+  purpose: string | null;
+  job_family: string | null;
   takes_item_id_from_another_endpoint?: boolean;
 }
 

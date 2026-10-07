@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ENDPOINTS, findEndpoint } from "../data/endpoints.js";
 import { outputsFor, pagingFor } from "../data/outputs.js";
 import { REGISTRY_STATS } from "../data/registry-meta.js";
+import type { EndpointPurpose, EndpointTaxonomy } from "../types.js";
 
 /**
  * Registry dump schema v4 (purpose, taxonomy, outputs, latency) flows into the
@@ -67,5 +68,33 @@ describe("dump v4 data", () => {
     expect(pagingFor(findEndpoint("tiktok", "profile")!)).toBeUndefined();
     const sized = ENDPOINTS.filter((e) => pagingFor(e)?.page_size);
     expect(sized.length).toBeGreaterThanOrEqual(127);
+  });
+});
+
+/**
+ * A registry endpoint can ship before its purpose copy or taxonomy label is
+ * written; the dump then carries nulls. The bundled types must accept them
+ * (`tsc` over src/data/endpoints.ts is the build gate), so one incomplete
+ * endpoint cannot break the build.
+ */
+describe("incomplete purpose and taxonomy", () => {
+  it("types every purpose copy and taxonomy label as nullable", () => {
+    const purpose: EndpointPurpose = { summary: null, returns: null, use_when: null, not_for: null };
+    const taxonomy: EndpointTaxonomy = { purpose: null, job_family: null, takes_item_id_from_another_endpoint: false };
+    expect(Object.values(purpose).every((v) => v === null)).toBe(true);
+    expect(taxonomy.purpose ?? taxonomy.job_family).toBeNull();
+  });
+
+  it("falls back to the endpoint summary wherever a purpose summary is missing", () => {
+    for (const e of ENDPOINTS) expect(e.purpose?.summary ?? e.summary, `${e.platform}/${e.resource}`).toBeTruthy();
+  });
+});
+
+describe("endpoint contract with a null purpose summary", () => {
+  it("falls back to the endpoint summary", async () => {
+    const { contractFor } = await import("../tools/endpoint.js");
+    const base = findEndpoint("tiktok", "profile")!;
+    const e = { ...base, purpose: { summary: null, returns: null, use_when: null, not_for: null } };
+    expect((contractFor(e).purpose as { summary: string }).summary).toBe(base.summary);
   });
 });

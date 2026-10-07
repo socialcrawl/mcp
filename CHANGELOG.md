@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-10-07
+
+### Fixed
+
+- **The monitor suggestion no longer over-triggers.** `socialcrawl_find` reads schedule and alert words (alert, notify, monitor, watch, schedule, whenever, daily/weekly/hourly, every day/week/hour, track ... over time, when ... posts/changes) on the task's words only, with URLs and @handles taken out. A YouTube `watch?v=` URL had made "get views and likes for each of these posts" lead with a monitors pointer.
+- **Batch calls carry the task's URLs and handles.** For a batch POST endpoint, the suggested call fills the list param from every URL and @handle in the task, shaped like the param's registry example: `body.urls` for `prism/post-stats`, `body.items` as `{ platform, handle }` for `prism/profiles` (platforms the task names), `{ <..._url> }` items for URL lists. It was `body: {}` or one URL.
+- **"Most recent" tasks.** When a task says newest, most recent or latest, the suggested params carry the endpoint's own newest-first sort value (read from its `sort` enum) and, where the endpoint has `scan_pages`, enough pages for the count asked (e.g. `tiktok/post/comments`: `sort=recent`, `scan_pages=3` for 100).
+- **Monitors document `track`.** `socialcrawl_endpoint id=monitors` documents `track` (`metrics` as `items[].<numeric path>`, `row_key`, `max_rows`), that `rows_new` requires it, and the whole new-items pattern; `webhook_url` is optional with `track`. The manage description says rows_new alerts need track, and find's monitor suggestion says to keep `track` and `alert_rules` together.
+
+
 ## [2.0.1] - 2026-10-04
 
 ### Fixed

@@ -251,7 +251,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Manage Monitors, Cohorts, Web and Jobs",
       description:
-        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.\ndry_run: true validates and quotes a create/update and never creates it.",
+        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.\ndry_run: true validates and quotes a create/update and never creates it. rows_new alerts need track (id=monitors).",
       inputSchema: withNormalizedArgs(ManageInputSchema, "manage"),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },

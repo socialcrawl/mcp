@@ -192,7 +192,7 @@ function cleanNext(raw: unknown): Array<Record<string, unknown>> | undefined {
 export function contractFor(e: Endpoint): Record<string, unknown> {
   const out = outputsFor(e);
   const contract: Record<string, unknown> = {
-    purpose: e.purpose ?? { summary: e.summary },
+    purpose: e.purpose ? { ...e.purpose, summary: e.purpose.summary ?? e.summary } : { summary: e.summary },
     params: {
       required: e.params.map((p) => ({ name: p.name, description: p.description, example: p.example })),
       one_of: e.oneOfGroups,

@@ -15,7 +15,7 @@ export const INLINE_MAX_BYTES = 60_000;
 // stale copy behind. Import it from there.
 
 export const SERVER_NAME = "socialcrawl-mcp";
-export const SERVER_VERSION = "2.0.1";
+export const SERVER_VERSION = "2.0.2";
 
 /**
  * Inside a normalised `socialcrawl_request` params object: the names of the

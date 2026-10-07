@@ -220,7 +220,8 @@ describe("socialcrawl_find: ready calls with the filled params", () => {
     fakeApi(findApi([{ id: "prism/post-stats", method: "POST", params_filled: { urls: "https://www.tiktok.com/@a/video/1" }, missing: [] }]));
     const r = await call(KEYED, "socialcrawl_find", { task: "stats for https://www.tiktok.com/@a/video/1" });
     const top = r.structuredContent!.results[0];
-    expect(top.call.arguments).toMatchObject({ platform: "prism", resource: "post-stats", body: { urls: "https://www.tiktok.com/@a/video/1" } });
+    // urls is a list param: the task's URLs as the array the endpoint takes (2.0.2).
+    expect(top.call.arguments).toMatchObject({ platform: "prism", resource: "post-stats", body: { urls: ["https://www.tiktok.com/@a/video/1"] } });
     expect(top.call.arguments.params).toBeUndefined();
   });
 
@@ -814,5 +815,131 @@ describe("2.0.1: no 1.x tool names or arguments in 2.0 text", () => {
       expect(clean(text(r))).toEqual([]);
       expect(text(r)).toContain("socialcrawl_endpoint");
     }
+  });
+});
+
+// ── 2.0.2 ─────────────────────────────────────────────────────────────────
+
+describe("2.0.2: the monitor intent needs explicit schedule or alert words", () => {
+  const four = "https://www.tiktok.com/@a/video/1 https://www.instagram.com/p/Cabc123/ https://www.youtube.com/watch?v=dQw4w9WgXcQ https://x.com/a/status/1";
+  const pointer = (r: Res) => (r.structuredContent!.results as Array<Record<string, unknown>>).find((x) => x.kind === "manage");
+
+  it.each([
+    `I have these 4 posts. Get views, likes and comments for each in one table: ${four}`,
+    "Get the stats for each of these videos: https://www.youtube.com/watch?v=dQw4w9WgXcQ https://www.youtube.com/watch?v=9bZkp7q19f0",
+    "export the comments on https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    "what did @nasa post this week on instagram",
+    "compare engagement across my posts for each platform",
+    "get the latest posts of @nasa on tiktok",
+    "get the comments on https://example.com/blog/alert-weekly-monitor-watch",
+  ])("no monitor pointer for: %s", async (task) => {
+    fakeApi(findApi([{ id: "prism/post-stats", method: "POST", params_filled: {}, missing: ["urls"] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task });
+    expect(pointer(r)).toBeUndefined();
+  });
+
+  it.each([
+    "weekly alert when @mrbeast posts a new video",
+    "notify me when https://example.com/pricing changes",
+    "track @nasa's follower count over time",
+    "whenever @nasa uploads a reel, tell me",
+    "check @nasa's tiktok every day",
+    "monitor mentions of acme on reddit",
+  ])("a monitor pointer for: %s", async (task) => {
+    fakeApi(findApi([{ id: "tiktok/profile", method: "GET", params_filled: {}, missing: ["handle"] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task });
+    expect(pointer(r)).toBeDefined();
+  });
+});
+
+describe("2.0.2: batch POST calls carry the task's URLs and handles", () => {
+  it("prism/post-stats gets body.urls as an array of every URL in the task", async () => {
+    const urls = ["https://www.tiktok.com/@a/video/1", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"];
+    fakeApi(findApi([{ id: "prism/post-stats", method: "POST", params_filled: { urls: urls[0] }, missing: [] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task: `views and likes for each: ${urls.join(" ")}` });
+    const top = (r.structuredContent!.results as Array<Record<string, any>>).find((x) => x.id === "prism/post-stats")!; // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(top.call.arguments.body.urls).toEqual(urls);
+    expect(top.estimate.arguments.body.urls).toEqual(urls);
+    expect(top.params_missing).toEqual([]);
+    expectValidOutput("socialcrawl_find", r.structuredContent);
+  });
+
+  it("prism/profiles gets body.items from the handles and the platforms the task names", async () => {
+    fakeApi(findApi([{ id: "prism/profiles", method: "POST", params_filled: {}, missing: ["items"] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task: "follower counts for @nasa and @spacex on tiktok" });
+    const top = (r.structuredContent!.results as Array<Record<string, any>>).find((x) => x.id === "prism/profiles")!; // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(top.call.arguments.body.items).toEqual([
+      { platform: "tiktok", handle: "nasa" },
+      { platform: "tiktok", handle: "spacex" },
+    ]);
+    expectValidOutput("socialcrawl_find", r.structuredContent);
+  });
+});
+
+describe("2.0.2: monitors docs and suggestion say track goes with rows_new", () => {
+  it("socialcrawl_endpoint id=monitors documents track", async () => {
+    const r = await call(ANON, "socialcrawl_endpoint", { id: "monitors" });
+    const t = text(r);
+    expect(t).toMatch(/`track`/);
+    expect(t).toMatch(/items\[\]\./);
+    expect(t).toMatch(/rows_new[^\n]*requires `track`|requires `track`[^\n]*rows_new/);
+  });
+
+  it("the manage description names track for new-row alerts", async () => {
+    const client = await connect(ANON);
+    const { tools } = await client.listTools();
+    expect(tools.find((t) => t.name === "socialcrawl_manage")!.description).toMatch(/track/);
+  });
+
+  it("the find suggestion says to keep track and alert_rules together", async () => {
+    fakeApi(findApi([{ id: "tiktok/profile/videos", method: "GET", params_filled: { handle: "mrbeast" }, missing: [] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task: "weekly alert when @mrbeast posts a new video" });
+    expect(text(r)).toMatch(/keep track and alert_rules together/i);
+  });
+});
+
+describe("2.0.2: most recent tasks get the endpoint's recency params", () => {
+  it("tiktok/post/comments: sort=recent and scan_pages sized to the count", async () => {
+    fakeApi(findApi([{ id: "tiktok/post/comments", method: "GET", params_filled: { url: "https://www.tiktok.com/@a/video/1" }, missing: [] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task: "the 100 most recent comments on https://www.tiktok.com/@a/video/1" });
+    const top = r.structuredContent!.results[0];
+    expect(top.call.arguments.params).toMatchObject({ url: "https://www.tiktok.com/@a/video/1", sort: "recent", scan_pages: "3" });
+  });
+
+  it("a small count needs one page; no count sets only the sort", async () => {
+    fakeApi(findApi([{ id: "tiktok/post/comments", method: "GET", params_filled: { url: "https://www.tiktok.com/@a/video/1" }, missing: [] }]));
+    const a = await call(KEYED, "socialcrawl_find", { task: "the 20 newest comments on https://www.tiktok.com/@a/video/1" });
+    expect(a.structuredContent!.results[0].call.arguments.params).toMatchObject({ sort: "recent", scan_pages: "1" });
+    const b = await call(KEYED, "socialcrawl_find", { task: "latest comments on https://www.tiktok.com/@a/video/1" });
+    expect(b.structuredContent!.results[0].call.arguments.params.sort).toBe("recent");
+    expect(b.structuredContent!.results[0].call.arguments.params.scan_pages).toBeUndefined();
+  });
+
+  it("reads the recency value from the registry for another endpoint", async () => {
+    fakeApi();
+    const r = await call(ANON, "socialcrawl_find", { task: "newest reviews of a product on amazon B0BSHF7WHW" });
+    const hits = (r.structuredContent!.results as Array<Record<string, any>>).filter((x) => x.call?.arguments?.params?.sort !== undefined); // eslint-disable-line @typescript-eslint/no-explicit-any
+    for (const h of hits) expect(String(h.call.arguments.params.sort)).toMatch(/recent|new|latest|date|time|chrono|creat/i);
+  });
+
+  it("an older-first or unrelated task does not get a sort", async () => {
+    fakeApi(findApi([{ id: "tiktok/post/comments", method: "GET", params_filled: { url: "https://www.tiktok.com/@a/video/1" }, missing: [] }]));
+    const r = await call(KEYED, "socialcrawl_find", { task: "comments on https://www.tiktok.com/@a/video/1" });
+    expect(r.structuredContent!.results[0].call.arguments.params.sort).toBeUndefined();
+  });
+});
+
+describe("2.0.2: recency and batch fills survive a resolved URL", () => {
+  it("adds sort/scan_pages when /v1/utility/resolve answered for the URL", async () => {
+    const url = "https://www.tiktok.com/@a/video/1";
+    fakeApi(
+      findApi([{ id: "tiktok/post/comments", method: "GET", params_filled: { url }, missing: [] }]),
+      (c) =>
+        c.path === "/v1/utility/resolve"
+          ? { body: { success: true, data: { results: [{ input: url, platform: "tiktok", kind: "post", canonical: { url }, endpoints: [{ id: "tiktok/post/comments", param: "url" }] }] } } }
+          : undefined,
+    );
+    const r = await call(KEYED, "socialcrawl_find", { task: `the 100 most recent comments on ${url}` });
+    expect(r.structuredContent!.results[0].call.arguments.params).toMatchObject({ url, sort: "recent", scan_pages: "3" });
   });
 });

@@ -844,7 +844,7 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "user_id", type: "string", description: "TikTok user id. Use this for faster responses." },
       { name: "sort_by", type: "enum", enumValues: ["latest", "popular"], description: "Accepted for compatibility and ignored on this endpoint: neither `latest` nor `popular` reorders the page. Videos come back in the source's own order, described above. To rank a creator's videos by views or likes, page through with `max_cursor` and sort the collected rows yourself." },
       { name: "max_cursor", type: "string", description: "Cursor to get more videos. Get 'max_cursor' from previous response." },
-      { name: "region", type: "string", description: "Region (Country) you want the proxy in. Defaults to US." },
+      { name: "region", type: "string", description: "Region (Country) you want the proxy in. Defaults to US. It does not filter the videos. The country TikTok registers each video to is post.ext.region." },
       { name: "trim", type: "boolean", description: "Accepted for compatibility; the response is already the canonical shape, so this flag has no effect." },
       { name: "format", type: "enum", enumValues: ["stationery"], description: "Optional. stationery files each video into wedding, birthday, birth, sympathy, seasonal greeting, or leaves it ungrouped. data.format_buckets gives the counts, the ungrouped share, and a by-day count when the page spans more than one day. A null save count stays null. brief= skips the walk when the page is not about that subject. No extra credits." },
       { name: "brief", type: "string", description: "Optional, with format=stationery. The subject these videos should be about. When the page is not about it, data.format_buckets.skip_creator is true and the videos are not filed." },
@@ -868,7 +868,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "List TikTok user videos",
     description:
-      "Returns a paginated list of recent public videos posted by a TikTok user. Each video includes view count, like count, comment count, share count, caption, and thumbnail URL. Profiles with TikTok 'audience controls' enabled (a login/age wall in the browser) are supported when looked up by `handle`; page-1 order on those gated accounts may follow recency rather than pinned-first.",
+      "Returns a paginated list of recent public videos posted by a TikTok user. Each video includes view count, like count, comment count, share count, caption, and thumbnail URL. `post.ext.region` is the ISO 3166-1 alpha-2 country TikTok registers that video to, normally the creator's account country when they posted. It is not the viewer's country, and a video with no registered country has it null. The creator's account country on its own is `author.location` from `/v1/tiktok/profile`. Profiles with TikTok 'audience controls' enabled (a login/age wall in the browser) are supported when looked up by `handle`; page-1 order on those gated accounts may follow recency rather than pinned-first.",
     budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "max_cursor" },
     cache: { category: "post", ttlSeconds: 600 },
@@ -1224,7 +1224,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "PostList",
     summary: "Search TikTok by hashtag",
     description:
-      "Searches TikTok for videos under a specific hashtag. Returns matching videos with engagement metrics and author info.",
+      "Searches TikTok for videos under a specific hashtag. Returns matching videos with engagement metrics and author info. `post.ext.region` is the ISO country TikTok registers each video to, when the source sends one.",
     budget_ms: 20000,
     pagination: { style: "cursor", nativeParam: "cursor" },
     cache: { category: "search", ttlSeconds: 120 },
@@ -2228,7 +2228,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Author",
     summary: "Get Instagram user profile",
     description:
-      "Returns public profile information for an Instagram user including the exact integer follower count, following count, bio, profile picture URL, and verification status. `author.posts_count` is the account's lifetime post count, for accounts of any size, in the same call and for the same 1 credit. In the rare case that count cannot be read in time the leaf is null rather than a wrong number, and a repeat call normally fills it. Age-restricted (18+) profiles are supported. When the account publishes a contact address in its bio, it is returned as `author.ext.public_email`; otherwise that leaf is null. Instagram's in-app tap-to-email button is not readable from any public surface, so the bio is the only source for it.",
+      "Returns public profile information for an Instagram user including the exact integer follower count, following count, bio, profile picture URL, and verification status. `author.posts_count` is the account's lifetime post count, for accounts of any size, in the same call and for the same 1 credit. In the rare case that count cannot be read in time the leaf is null rather than a wrong number, and a repeat call normally fills it. Age-restricted (18+) profiles are supported. When the account publishes a contact address in its bio, it is returned as `author.ext.public_email`; otherwise that leaf is null. Instagram's in-app tap-to-email button is not readable from any public surface, so the bio is the only source for it. To vet a creator by market, call /v1/instagram/profile/about instead: it returns the follower count and the declared country in one call, at the same price, so there is no need to call both.",
     budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "scrapecreators", fallbackKinds: ["hiker", "rapidapi-prosocial"] },
@@ -2267,7 +2267,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "Author",
     summary: "Get Instagram account transparency details",
     description:
-      "Returns the data behind Instagram's \"About this account\" panel for a public account: the country the account is based in (`author.ext.country`), the month it joined (`author.ext.account_created`), and the public contact address and phone the account publishes (`author.ext.public_email`, `author.ext.public_phone`). Country is the account's own declared country, not the country you are calling from. The same call returns the profile itself: follower and following counts, bio, avatar, verification, and the account's lifetime post count as `author.posts_count`. Coverage follows what Instagram publishes: an account that shows no transparency panel returns null for those fields.",
+      "Returns the data behind Instagram's \"About this account\" panel for a public account: the country the account is based in (`author.ext.country`), the month it joined (`author.ext.account_created`), and the public contact address and phone the account publishes (`author.ext.public_email`, `author.ext.public_phone`). Country is the account's own declared country, not the country you are calling from. The same call returns the profile itself: follower and following counts (`author.followers`), bio, avatar, verification, and the account's lifetime post count as `author.posts_count`. It gives the follower count and the declared country in one call, so there is no need to call /v1/instagram/profile as well. Coverage follows what Instagram publishes: an account that shows no transparency panel returns null for those fields.",
     budget_ms: 20000,
     cache: { category: "profile", ttlSeconds: 900 },
     upstream: { kind: "hiker", fallbackKinds: ["apify-instagram-profile"] },
@@ -11775,7 +11775,7 @@ export const ENDPOINTS: Endpoint[] = [
     },
     taxonomy: { purpose: "data_retrieval", job_family: "trends_and_charts", takes_item_id_from_another_endpoint: false },
   },
-  // --- trustpilot (2 endpoints) ---
+  // --- trustpilot (3 endpoints) ---
   {
     platform: "trustpilot",
     resource: "business-search",
@@ -11834,7 +11834,7 @@ export const ENDPOINTS: Endpoint[] = [
     archetype: "ReviewList",
     summary: "Get Trustpilot reviews for a business",
     description:
-      "Returns a unified ReviewList of customer reviews for a business on Trustpilot, keyed by its domain (`entity_id` on every review). Each review carries the star rating, full text, title, verified-status, language (reviews arrive in many languages: filter client-side via `language`), reviewer profile, owner/brand `responses[]`, and publish date. Reviews are about the COMPANY (shipping, refunds, support), never a specific product: for product reviews use /v1/google_shopping/reviews or /v1/amazon/reviews. Get the domain from /v1/trustpilot/business-search. The platform exposes no deeper pagination: `depth` caps at 200 (the most recent / most relevant); a business with no Trustpilot reviews returns 404 (auto-refunded). Read from a task-based upstream (first calls ~15-45s, then cached).",
+      "Returns a unified ReviewList of customer reviews for a business on Trustpilot, keyed by its domain (`entity_id` on every review). Each review carries the star rating, full text, title, verified-status, language (reviews arrive in many languages: filter client-side via `language`), reviewer profile, owner/brand `responses[]`, and publish date. Reviews are about the COMPANY (shipping, refunds, support), never a specific product: for product reviews use /v1/google_shopping/reviews or /v1/amazon/reviews. Get the domain from /v1/trustpilot/business-search. The platform exposes no deeper pagination: `depth` caps at 200 (the most recent / most relevant); a business with no Trustpilot reviews returns 404 (auto-refunded). Read from a task-based upstream (a short depth is usually under a minute; depth=200 can take about a minute, then cached).",
     singlePage: "Depth-based fan-out: page size is controlled by depth, one call.",
     cache: { category: "comments", ttlSeconds: 300 },
     upstream: { kind: "dfs-trustpilot" },
@@ -11853,6 +11853,35 @@ export const ENDPOINTS: Endpoint[] = [
       returns: "Returns customer reviews of a business on Trustpilot by its domain: star rating, title, full text, language, reviewer, company replies, and publish date.",
       use_when: "Use it for opinions about a company, such as shipping, refunds, or support. For reviews of one product, use Amazon or Google Shopping reviews.",
       not_for: "Not for one product's ratings across several shops (prism/product-reviews) or a company's blended reputation across sources (prism/reputation).",
+    },
+    taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
+  },
+  {
+    platform: "trustpilot",
+    resource: "reviews/history",
+    method: "POST",
+    params: [
+      { name: "domain", required: true, description: "The business domain, for example booking.com.", example: "booking.com" },
+      { name: "depth", required: true, description: "How many reviews to collect, an integer from 1 to 10000. Page the result with GET /v1/trustpilot/reviews/history/{job_id}?offset=&limit=.", example: "772" },
+    ],
+    optionalParams: [],
+    oneOfGroups: [],
+    creditTier: "standard",
+    creditCost: 1,
+    pricing: { cost: 1, tier: "standard", ladderCost: 1, model: "metered", minCost: 6, maxCost: 10005, description: "1 credit per returned review, plus 5 credits to open. Submitting holds depth plus 5 credits and refunds the unused portion when the job settles." },
+    archetype: "Analytics",
+    summary: "Start a Trustpilot review history job",
+    description:
+      "Starts a job that collects up to `depth` reviews for one Trustpilot domain and returns a job id. Read a page with GET /v1/trustpilot/reviews/history/{job_id}?offset=&limit=. `depth` is an integer from 1 to 10000. GET /v1/trustpilot/reviews is unchanged and still returns at most 200 reviews.",
+    execution: "async",
+    cache: { category: "comments", ttlSeconds: 0 },
+    upstream: { kind: "apify-review-history" },
+    tags: ["trustpilot"],
+    purpose: {
+      summary: "Start a Trustpilot review history job",
+      returns: "Starts a background job that collects up to depth reviews (1 to 10,000) of one business on Trustpilot by its domain, and returns its job id right away, holding depth plus 5 credits.",
+      use_when: "Use it when you need more of a company's review history than GET /v1/trustpilot/reviews returns (200 at most); read the reviews later by job id with offset and limit.",
+      not_for: "Not for a quick look at a company's latest reviews (trustpilot/reviews) or reviews of one product (Amazon or Google Shopping reviews).",
     },
     taxonomy: { purpose: "data_retrieval", job_family: "reviews_and_ratings", takes_item_id_from_another_endpoint: false },
   },
@@ -16939,11 +16968,12 @@ export const ENDPOINTS: Endpoint[] = [
     platform: "utility",
     resource: "plan",
     method: "GET",
-    params: [
-      { name: "query", required: true, description: "The job in plain words, in any language. Up to 600 characters are read", example: "Combine @acme's TikTok profile with their recent videos and the comments on them" },
+    params: [],
+    optionalParams: [
+      { name: "query", type: "string", description: "The job in plain words, in any language. Up to 600 characters are read. Provide this or task", example: "Combine @acme's TikTok profile with their recent videos and the comments on them" },
+      { name: "task", type: "string", description: "Alias for query (utility/find's name). Provide this or query" },
     ],
-    optionalParams: [],
-    oneOfGroups: [],
+    oneOfGroups: [["query", "task"]],
     creditTier: "standard",
     creditCost: 0,
     pricing: { cost: 0, tier: "standard", ladderCost: 1, model: "flat", description: "Free (0 credits)" },

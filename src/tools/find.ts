@@ -19,6 +19,7 @@ import { JOB_ACTION_RESOURCES } from "./manage.js";
 import { normalizeEndpointId } from "./discover.js";
 import { resolveEndpoint } from "./request.js";
 import { WEB_ACTION_RESOURCES } from "./web.js";
+import { pageSizeOf } from "../walk-quote.js";
 
 /**
  * `socialcrawl_find` (MCP-04): a task in plain words → the few endpoints that
@@ -91,6 +92,8 @@ interface TaskFacts {
   /** The task with URLs and handles taken out, plus the URLs' platform names, for the ranker. */
   rankQuery: string;
   urlPlatforms: string[];
+  /** The task with URLs and handles taken out (intent words are read here, never inside a URL). */
+  text: string;
 }
 
 export function readTask(task: string): TaskFacts {
@@ -112,6 +115,7 @@ export function readTask(task: string): TaskFacts {
     quoted: q ? (q[1] ?? q[2]) : undefined,
     rankQuery: [rest, ...names].join(" ").replace(/\s+/g, " ").trim(),
     urlPlatforms,
+    text: rest.replace(/\s+/g, " ").trim(),
   };
 }
 
@@ -304,7 +308,7 @@ function fill(e: Endpoint, facts: TaskFacts, resolved: Resolved[]): Record<strin
     const lane = r.endpoints.find((x) => x.id === id);
     if (lane) {
       const value = r.canonical[lane.param] ?? (lane.param === "url" ? r.canonical.url ?? r.input : undefined) ?? r.input;
-      return { [lane.param]: value };
+      return { [lane.param]: value, ...(e.method === "POST" ? batchFill(e, facts) : {}), ...recencyFill(e, facts) };
     }
   }
   const names = new Set(paramNames(e));
@@ -323,8 +327,93 @@ function fill(e: Endpoint, facts: TaskFacts, resolved: Resolved[]): Record<strin
     const textParam = TEXT_PARAMS.find((n) => names.has(n));
     if (textParam) out[textParam] = facts.quoted;
   }
+  if (e.method === "POST") Object.assign(out, batchFill(e, facts));
+  Object.assign(out, recencyFill(e, facts));
   return out;
 }
+
+/** The platforms a task names in words ("on tiktok", "Instagram"). */
+function namedPlatforms(text: string): string[] {
+  const t = ` ${text.toLowerCase()} `;
+  return PLATFORMS.filter((p) => new RegExp(`[^a-z0-9_](${p.slug}|${p.name.toLowerCase().replace(/[^a-z0-9]+/g, "\\W?")})[^a-z0-9_]`).test(t)).map((p) => p.slug);
+}
+
+/**
+ * A batch POST endpoint's list param, from every URL and @handle in the task,
+ * shaped like the param's own registry example: a list of URLs (`urls`), of
+ * handles (`handles`), or of objects keyed like the example's first item
+ * (`{ <..._url>: url }`, `{ platform, handle }`). JSON-encoded here; the
+ * suggested call carries it as a real array.
+ */
+function batchFill(e: Endpoint, facts: TaskFacts): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const p of [...e.params, ...e.optionalParams]) {
+    let example: unknown;
+    try {
+      example = JSON.parse(p.example ?? "");
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(example) || example.length === 0) continue;
+    const first = example[0];
+    let list: unknown[] = [];
+    if (typeof first === "string") {
+      if (/urls?$/i.test(p.name)) list = facts.urls;
+      else if (/handles?$/i.test(p.name)) list = facts.handles;
+    } else if (isObj(first)) {
+      const keys = Object.keys(first);
+      const urlKey = keys.find((k) => /url$/i.test(k));
+      if (urlKey && facts.urls.length > 0) list = facts.urls.map((u) => ({ [urlKey]: u }));
+      else if (keys.includes("platform") && keys.includes("handle") && facts.handles.length > 0) {
+        const platforms = namedPlatforms(facts.text);
+        list = platforms.flatMap((platform) => facts.handles.map((handle) => ({ platform, handle })));
+      }
+    }
+    if (list.length > 0) out[p.name] = JSON.stringify(list);
+  }
+  return out;
+}
+
+/** Sort values that mean newest first, best first. */
+const RECENCY_VALUES = [/^recent$/i, /^most[_-]?recent$/i, /^newest$/i, /^latest$/i, /^new$/i, /^recency$/i, /^date[_-]?posted$/i, /^date$/i, /^chronological$/i, /^created$/i, /^creation_time_descend$/i, /^time$/i, /^pub_date$/i, /^newly_listed$/i];
+const SORT_PARAMS = new Set(["sort", "sort_by", "sortBy", "order", "order_by", "sort_order"]);
+
+/**
+ * "Newest", "most recent", "latest": the endpoint's own newest-first sort
+ * value (read from its enum), and, when it can read several pages before
+ * sorting (`scan_pages`), enough pages for the count the task asks for.
+ */
+function recencyFill(e: Endpoint, facts: TaskFacts): Record<string, string> {
+  if (!/\b(newest|most\s+recent|latest|recent|new(?:er)?\s+first)\b/i.test(facts.text)) return {};
+  const out: Record<string, string> = {};
+  for (const o of e.optionalParams) {
+    if (!SORT_PARAMS.has(o.name) || !o.enumValues) continue;
+    const value = RECENCY_VALUES.map((re) => o.enumValues!.find((v) => re.test(v))).find((v) => v !== undefined);
+    if (value) {
+      out[o.name] = value;
+      break;
+    }
+  }
+  if (Object.keys(out).length === 0) return {};
+  const scan = e.optionalParams.find((o) => o.name === "scan_pages");
+  const count = Number(/\b(\d{1,5})\b/.exec(facts.text)?.[1]);
+  const size = pageSizeOf(e);
+  if (scan && Number.isFinite(count) && count > 0 && size) {
+    const pages = Math.min(scan.maximum ?? Number.POSITIVE_INFINITY, Math.max(scan.minimum ?? 1, Math.ceil(count / size)));
+    out.scan_pages = String(pages);
+  }
+  return out;
+}
+
+/** A JSON-encoded list (from batchFill) back as the array the API takes. */
+const asSent = (v: string): unknown => {
+  if (!v.startsWith("[")) return v;
+  try {
+    return JSON.parse(v) as unknown;
+  } catch {
+    return v;
+  }
+};
 
 function missing(e: Endpoint, filled: Record<string, string>): string[] {
   const out = e.params.filter((p) => p.required && filled[p.name] === undefined).map((p) => p.name);
@@ -360,13 +449,13 @@ function callFor(e: Endpoint, filled: Record<string, string>): Record<string, un
 }
 
 /** A POST endpoint reads its fields from the JSON body (query-only params stay in params). */
-function splitForMethod(e: Endpoint, filled: Record<string, string>): { params?: Record<string, string>; body?: Record<string, string> } {
+function splitForMethod(e: Endpoint, filled: Record<string, string>): { params?: Record<string, string>; body?: Record<string, unknown> } {
   if (e.method !== "POST") return { params: filled };
   const params: Record<string, string> = {};
-  const body: Record<string, string> = {};
+  const body: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(filled)) {
     if (e.optionalParams.find((o) => o.name === k)?.in === "query") params[k] = v;
-    else body[k] = v;
+    else body[k] = asSent(v);
   }
   return { ...(Object.keys(params).length > 0 ? { params } : {}), body };
 }
@@ -487,8 +576,11 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
       if (!e) {
         return { id: c.id, summary: c.summary ?? c.why ?? "", params_filled: c.filled ?? {}, params_missing: [] as string[], bundled: false, ...c.meta };
       }
-      // The API's params_filled wins over what was read locally from the task.
-      const filled = { ...fill(e, facts, resolved), ...(c.filled ?? {}) };
+      // The API's params_filled wins over what was read locally from the task,
+      // except a whole list built from every URL / handle in it (the API fills one).
+      const local = fill(e, facts, resolved);
+      const filled = { ...local, ...(c.filled ?? {}) };
+      for (const [k, v] of Object.entries(local)) if (v.startsWith("[")) filled[k] = v;
       const miss = missing(e, filled);
       return {
         id: c.id,
@@ -522,9 +614,10 @@ export async function findStructured(ctx: ApiContext, params: FindParams): Promi
  * schedule, "when ... posts/changes".
  */
 const MONITOR_INTENT =
-  /\b(alerts?|notify|notifications?|monitor(?:ing)?|watch(?:ing)?|schedul(?:e|ed|ing)|recurring|daily|weekly|hourly|nightly|every\s+(?:day|week|hour|morning|evening|night|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b|\bwhen\b.*\b(posts?|posted|uploads?|changes?|changed|updates?|updated|publish(?:es)?|goes live|drops?)\b/i;
+  /\b(alerts?|alerting|notify|notifications?|monitor(?:s|ing)?|watch(?:ing)?|schedul(?:e|ed|ing)|recurring|daily|weekly|hourly|nightly|whenever|every\s+(?:day|week|hour|morning|evening|night|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b|\btrack\w*\b[^.?!]{0,60}\bover\s+time\b|\bwhen\b[^.?!]{0,60}\b(posts?|posted|uploads?|changes?|changed|updates?|updated|publish(?:es)?|goes\s+live|drops?)\b/i;
 
-export const wantsMonitor = (task: string): boolean => MONITOR_INTENT.test(task);
+/** Read on the task's words only: URLs and handles are taken out first (a YouTube `watch?v=` is not intent). */
+export const wantsMonitor = (task: string): boolean => MONITOR_INTENT.test(readTask(task).text);
 
 /** The cadence a task asks for: hourly, weekly, else daily. */
 function cadenceOf(task: string): "hourly" | "daily" | "weekly" {
@@ -719,7 +812,9 @@ function render(
       lines.push(`${i + 1}. ${r.id} (socialcrawl_manage area "${r.area}") - ${r.summary ?? ""}`);
       if (r.actions) lines.push(`   Actions: ${r.actions.join(", ")}. Read first: socialcrawl_endpoint with id "${r.id}".`);
       else {
-        const needs = r.params_missing.length > 0 ? ` Add ${r.params_missing.join(", ")} to input.` : "";
+        const needs = r.params_missing.length > 0 ? ` Replace or add ${r.params_missing.join(", ")} in input.` : "";
+        const input = ((r.call?.arguments as Record<string, unknown> | undefined)?.input ?? {}) as Record<string, unknown>;
+        if (input.track && input.alert_rules) lines.push("   Keep track and alert_rules together: the rows_new alert needs track.");
         lines.push(`   To run it on a schedule:${needs} dry_run: true validates and quotes it without creating anything; repeat without dry_run to create it.`);
       }
       if (r.call) lines.push(`   Call: ${JSON.stringify(r.call)}`);

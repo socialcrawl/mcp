@@ -100,8 +100,10 @@ interface DumpEndpoint {
   featuredParams?: { name: string; benefit: string; example: string }[];
   related?: { id: string; why: string }[];
   // ── schema v4 ──
-  purpose?: { summary: string; returns?: string | null; use_when?: string | null; not_for?: string | null };
-  taxonomy?: { purpose: string; job_family: string; takes_item_id_from_another_endpoint?: boolean };
+  // Every copy and label is nullable: an endpoint can reach the dump before its
+  // copy or taxonomy is written, and that must not break the build.
+  purpose?: { summary?: string | null; returns?: string | null; use_when?: string | null; not_for?: string | null };
+  taxonomy?: { purpose?: string | null; job_family?: string | null; takes_item_id_from_another_endpoint?: boolean | null };
   latency_ms?: { p50: number; p95: number; p99: number; n: number; provisional?: boolean; low_sample?: boolean } | null;
   outputs?: DumpOutputs;
   /** The contract's paging facts; absent on an endpoint that does not page. */
@@ -364,6 +366,8 @@ if (missing.length > 0) {
 }
 
 const str = (s: string): string => JSON.stringify(s);
+/** A literal for nullable copy: `null` for null, undefined or blank. */
+const strOrNull = (s: string | null | undefined): string => (s && s.trim() ? str(s) : "null");
 
 // ── platforms.ts ────────────────────────────────────────────────────────
 const platformBlocks = dump.platforms
@@ -653,15 +657,14 @@ function renderEndpoint(e: DumpEndpoint): string {
   if (e.purpose) {
     const p = e.purpose;
     lines.push("    purpose: {");
-    lines.push(`      summary: ${str(p.summary)},`);
-    for (const k of ["returns", "use_when", "not_for"] as const) {
-      lines.push(`      ${k}: ${p[k] ? str(p[k] as string) : "null"},`);
+    for (const k of ["summary", "returns", "use_when", "not_for"] as const) {
+      lines.push(`      ${k}: ${strOrNull(p[k])},`);
     }
     lines.push("    },");
   }
   if (e.taxonomy) {
     lines.push(
-      `    taxonomy: { purpose: ${str(e.taxonomy.purpose)}, job_family: ${str(e.taxonomy.job_family)}, takes_item_id_from_another_endpoint: ${e.taxonomy.takes_item_id_from_another_endpoint === true} },`,
+      `    taxonomy: { purpose: ${strOrNull(e.taxonomy.purpose)}, job_family: ${strOrNull(e.taxonomy.job_family)}, takes_item_id_from_another_endpoint: ${e.taxonomy.takes_item_id_from_another_endpoint === true} },`,
     );
   }
   if (e.latency_ms) {

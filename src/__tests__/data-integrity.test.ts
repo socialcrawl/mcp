@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { PLATFORMS, findPlatform, getAllPlatformSlugs } from "../data/platforms.js";
 import { ENDPOINTS, findEndpoint, getEndpointsByPlatform } from "../data/endpoints.js";
@@ -7,12 +9,28 @@ import { formatCost, worstCaseCost, bestCaseCost } from "../pricing.js";
 import { paginate } from "../paginate.js";
 
 /**
- * Drift guards. The hardcoded platform/endpoint totals are intentional: they
- * fail loudly when the backend registry moves, which is the signal to re-run
- * the two-step regeneration pipeline (see scripts/generate-data.ts).
+ * Drift guards. The expected totals come from the backend dump the bundled
+ * data was generated from (registry-dump.json `stats`), so registry growth
+ * does not break the test, but bundled data that is stale against the dump
+ * does (the signal to re-run scripts/generate-data.ts). The floors catch an
+ * empty or truncated dump.
  */
-const EXPECTED_PLATFORMS = 68;
-const EXPECTED_ENDPOINTS = 645;
+const DUMP_STATS = (
+  JSON.parse(readFileSync(resolve(import.meta.dirname, "../../registry-dump.json"), "utf8")) as {
+    stats: { totalPlatforms: number; totalEndpoints: number };
+  }
+).stats;
+const EXPECTED_PLATFORMS = DUMP_STATS.totalPlatforms;
+const EXPECTED_ENDPOINTS = DUMP_STATS.totalEndpoints;
+const MIN_PLATFORMS = 60;
+const MIN_ENDPOINTS = 600;
+
+describe("registry dump sanity floor", () => {
+  it(`the dump holds at least ${MIN_PLATFORMS} platforms and ${MIN_ENDPOINTS} endpoints`, () => {
+    expect(EXPECTED_PLATFORMS).toBeGreaterThanOrEqual(MIN_PLATFORMS);
+    expect(EXPECTED_ENDPOINTS).toBeGreaterThanOrEqual(MIN_ENDPOINTS);
+  });
+});
 
 describe("Platform data integrity", () => {
   it(`has exactly ${EXPECTED_PLATFORMS} platforms`, () => {
