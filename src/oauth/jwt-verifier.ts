@@ -39,10 +39,16 @@ export function createJwtVerifier(options: JwtVerifierOptions): OAuthTokenVerifi
           algorithms: options.algorithms ?? DEFAULT_ALGORITHMS,
           requiredClaims: ["exp"],
           clockTolerance: options.clockToleranceSec ?? 30,
+          // RFC 9068. The authorization server signs other JWTs with the same
+          // key (Better Auth's session JWTs); only access tokens may pass.
+          typ: "at+jwt",
         }));
       } catch (error) {
         throw toAuthError(error);
       }
+      // A DPoP-bound token is only safe with a proof check, which this server
+      // does not do, so it is refused rather than accepted as a bearer token.
+      if (payload.cnf !== undefined) throw new InvalidTokenError("Sender-constrained tokens are not supported");
       return {
         token,
         clientId: stringClaim(payload.client_id) ?? stringClaim(payload.azp) ?? "",

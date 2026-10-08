@@ -4,7 +4,7 @@ import { metadataHandler } from "@modelcontextprotocol/sdk/server/auth/handlers/
 import { getOAuthProtectedResourceMetadataUrl } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import type { OAuthProtectedResourceMetadata } from "@modelcontextprotocol/sdk/shared/auth.js";
 import { extractApiKey, extractBearerToken, isJwtShaped } from "../auth.js";
-import { SCOPES_SUPPORTED, missingScopesForBody } from "./scopes.js";
+import { SCOPES_SUPPORTED, missingScopesForBody, needsSignIn } from "./scopes.js";
 import { ApiKeyLookupUnavailableError } from "./api-key-resolver.js";
 import type { OAuthResourceServerConfig } from "./config.js";
 
@@ -40,7 +40,9 @@ export function mountProtectedResourceMetadata(app: express.Express, config: OAu
  *                       → resolve the SocialCrawl API key (401 if unlinked).
  *  - x-api-key, or a non-JWT Bearer value → unchanged API-key path, so
  *                       headless clients keep working.
- *  - no credentials   → 401 + `WWW-Authenticate: Bearer resource_metadata=…`
+ *  - no credentials   → initialize, tools/list and the free discovery tools
+ *                       run anonymously; a call that needs an account gets
+ *                       401 + `WWW-Authenticate: Bearer resource_metadata=…`
  *                       so connector clients (claude.ai) start the OAuth flow.
  *
  * SECURITY: nothing here logs or echoes the token or the resolved key.
@@ -52,6 +54,14 @@ export function oauthGate(config: OAuthResourceServerConfig): express.RequestHan
   return (req, res, next) => {
     if (!isJwtShaped(extractBearerToken(req.headers))) {
       if (extractApiKey(req.headers) !== "") {
+        next();
+        return;
+      }
+      // Lazy authentication: anonymous discovery keeps working, and only a
+      // call that needs an account gets the 401. The challenge has to be an
+      // HTTP 401 sent before the SDK runs; a tool result would be a 200, and
+      // clients only start sign-in on the 401.
+      if (req.is("application/json") && req.body !== undefined && !needsSignIn(req.body)) {
         next();
         return;
       }

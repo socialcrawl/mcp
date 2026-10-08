@@ -6,6 +6,11 @@ and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **OAuth preview: lazy sign-in.** With `SOCIALCRAWL_OAUTH=1`, an anonymous caller keeps `initialize`, `tools/list` and the free discovery tools (`find`, `endpoint`, `estimate`); only a `tools/call` that needs an account (`account`, `request`, `collect`, `manage`, an unknown tool, or a body that is not parsed JSON) gets the HTTP 401 challenge. Before, every anonymous request got the 401, so the free tools stopped working the moment OAuth was on. The 401 is sent before the SDK runs because clients such as Claude start sign-in only on an HTTP 401, never on a tool error inside a 200, which is why a keyless paid call used to end at "No API key configured" with no way to sign in. Allow-list: `ANONYMOUS_TOOLS` in `src/oauth/scopes.ts`.
+- **OAuth preview: stricter access tokens.** A JWT must carry header `typ: at+jwt` (RFC 9068), so another JWT the authorization server signs with the same key (a Better Auth session JWT) is refused, and a DPoP-bound token (`cnf` claim) is refused because proofs are not checked.
+
 ## [2.0.2] - 2026-10-07
 
 ### Fixed

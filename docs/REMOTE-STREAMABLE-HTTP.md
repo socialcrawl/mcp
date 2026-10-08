@@ -394,6 +394,18 @@ Discovery tools work with no key, so you can explore before signing up.
 
 > **Status: preview, off by default.** Set `SOCIALCRAWL_OAUTH=1` to turn it on.
 > With the flag off, every behaviour in this guide is unchanged.
+>
+> **08/10/2026 (DX-059):** the authorization server and the key-lookup endpoint
+> now exist in the `codebase/` monorepo, in-tree and not deployed:
+> `packages/auth/src/oauth/mcp-provider.ts` (Better Auth 1.7.7 `jwt` + `mcp` +
+> `cimd`, on when `MCP_AUTH_ISSUER` is set), root discovery routes in
+> `apps/web/src/app/well-known/`, and `POST /api/mcp/key-lookup`
+> (`packages/api/src/modules/mcp-oauth/`). Production values for this server:
+> `SOCIALCRAWL_OAUTH_ISSUER=https://www.socialcrawl.dev`,
+> `SOCIALCRAWL_OAUTH_JWKS_URL=https://www.socialcrawl.dev/api/auth/jwks`,
+> `SOCIALCRAWL_OAUTH_KEY_LOOKUP_URL=https://www.socialcrawl.dev/api/mcp/key-lookup`,
+> `SOCIALCRAWL_OAUTH_ALGORITHMS=ES256`. The deploy order is in the backend
+> defect log entry DX-059 (`docs/features/API/SOCIAL-API-BACKEND.md`).
 
 claude.ai custom connectors and the connector directory only talk to remote MCP
 servers that follow the MCP authorization spec (revision 2026-07-28). In that
@@ -407,8 +419,9 @@ to provide so it can work: an authorization server and one backend endpoint.
 | Request | Response |
 |---|---|
 | `GET /.well-known/oauth-protected-resource/mcp` (and the root `/.well-known/oauth-protected-resource`) | RFC 9728 metadata: `resource`, `authorization_servers: [<issuer>]`, `scopes_supported`, `bearer_methods_supported: ["header"]` |
-| `POST /mcp` with no credentials | `401`, `WWW-Authenticate: Bearer resource_metadata="<…/oauth-protected-resource/mcp>", scope="socialcrawl:read socialcrawl:spend socialcrawl:manage"` |
-| `POST /mcp` with `Authorization: Bearer <JWT>` | Verified locally against the JWKS: signature (alg allow-list), `iss` = issuer, `aud` contains the resource URL, `exp` present and in the future. Failure → `401 error="invalid_token"` |
+| `POST /mcp` with no credentials: `initialize`, `tools/list`, other non-call methods, and a `tools/call` of a free discovery tool (`find`, `endpoint`, `estimate`, and the 1.x `list_platforms`, `list_endpoints`, `pricing`, `discover`, `get_docs`) | Served anonymously, exactly as with the flag off (lazy authentication) |
+| `POST /mcp` with no credentials: a `tools/call` of any tool that needs an account (`account`, `request`, `collect`, `manage`, and the 1.x `check_balance`, `web`, `monitors`, `cohorts`), an unknown tool, or a body Express did not parse as JSON | `401`, `WWW-Authenticate: Bearer resource_metadata="<…/oauth-protected-resource/mcp>", scope="socialcrawl:read socialcrawl:spend socialcrawl:manage"`, sent before the SDK runs, so no tool executes |
+| `POST /mcp` with `Authorization: Bearer <JWT>` | Verified locally against the JWKS: signature (alg allow-list), header `typ` = `at+jwt` (RFC 9068, so another JWT the authorization server signs, such as a Better Auth session JWT, never passes), `iss` = issuer, `aud` contains the resource URL, `exp` present and in the future, and no `cnf` claim (a DPoP-bound token is refused, because proofs are not checked here). Failure → `401 error="invalid_token"`. This applies to every method, free ones included, so an expired token always gets the 401 that makes a client refresh |
 | … valid token, but the `tools/call` needs a scope it lacks | `403`, `WWW-Authenticate: Bearer error="insufficient_scope", scope="<held + needed>", resource_metadata="…"` (the spec's step-up challenge) |
 | … valid token with enough scope | `sc_api_key_ref` claim → backend lookup → the SocialCrawl API key. Calls run with that key. Unknown or revoked ref → `401 invalid_token`; lookup backend down → `503` |
 | `POST /mcp` with `x-api-key: sc_…`, or `Authorization: Bearer sc_…` (not a JWT) | The existing API-key path, unchanged. Headless clients keep working |
@@ -429,9 +442,17 @@ reason: the SDK transport accepts any Content-Type that *contains*
 ever run on the body Express actually parsed. As a second guard, a body that is
 not a JSON object or array needs every scope.
 
-Anonymous discovery goes away when the flag is on. A credential-less request
-gets the 401 challenge, which is the signal a connector client needs to start
-the OAuth flow.
+Anonymous discovery keeps working when the flag is on. This is the lazy
+authentication pattern Claude documents
+(<https://claude.com/docs/connectors/building/lazy-authentication>): a user adds
+the connector, browses the free tools with no sign-in, and the first call that
+needs an account gets the 401. Claude then shows an inline Connect card, runs the
+OAuth flow, and retries the same call with the new token. The 401 must be an HTTP
+status sent before the MCP SDK runs. A tool result is always wrapped in a `200`,
+and clients never start sign-in on a `200`, which is why a paid call without a key
+used to come back as the "No API key configured" tool error with no way to sign
+in. The anonymous allow-list is `ANONYMOUS_TOOLS` in `src/oauth/scopes.ts`;
+anything not on it, including an unknown tool, needs sign-in.
 
 The access token is never forwarded anywhere: not to the SocialCrawl API, and not
 to the lookup backend. The spec forbids token passthrough. Neither the token nor
@@ -551,11 +572,11 @@ over real HTTP: a local JWKS host, lookup backend and upstream).
 
 ## 11. What's intentionally NOT here (deferred)
 
-- **The OAuth authorization server and key-lookup endpoint.** The MCP side
-  (resource server, 401 challenge, scopes) ships as a preview behind
-  `SOCIALCRAWL_OAUTH=1`. See [§10a](#10a-oauth-preview). The authorization server
-  and lookup endpoint it depends on belong in the main `codebase/` monorepo and
-  are not built yet. Until they are, header auth is the way.
+- **Turning OAuth on in production.** The MCP side (resource server, lazy 401
+  challenge, scopes) ships as a preview behind `SOCIALCRAWL_OAUTH=1`, and the
+  authorization server and lookup endpoint are built in the `codebase/`
+  monorepo (DX-059, 08/10/2026). Neither is deployed yet. See
+  [§10a](#10a-oauth-preview). Until both are live, header auth is the way.
 - **The actual cloud deployment.** The container host, DNS (`mcp.socialcrawl.dev`
   CNAME), TLS, and publishing the registry entry are a manual ops checklist
   (Appendix A of the plan). Blocked on the hosting-platform decision. Notably,

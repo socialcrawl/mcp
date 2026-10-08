@@ -39,6 +39,39 @@ export const TOOL_SCOPES: Record<string, readonly string[]> = {
   socialcrawl_cohorts: [SCOPES.spend, SCOPES.manage],
 };
 
+/**
+ * Tools that work with no API key at all (free, local discovery). With OAuth
+ * on, an anonymous caller may use these, initialize and tools/list; anything
+ * else gets the 401 challenge that starts sign-in (lazy authentication).
+ */
+export const ANONYMOUS_TOOLS: ReadonlySet<string> = new Set([
+  "socialcrawl_find",
+  "socialcrawl_endpoint",
+  "socialcrawl_estimate",
+  // 1.x names (legacy flag).
+  "socialcrawl_list_platforms",
+  "socialcrawl_list_endpoints",
+  "socialcrawl_pricing",
+  "socialcrawl_discover",
+  "socialcrawl_get_docs",
+]);
+
+/**
+ * True when an anonymous JSON-RPC body (single message or batch) contains a
+ * tools/call that needs an API key. Fails closed like missingScopesForBody: a
+ * body that is not a parsed JSON-RPC object, a nameless call or an unknown
+ * tool all need sign-in.
+ */
+export function needsSignIn(body: unknown): boolean {
+  const messages = Array.isArray(body) ? body : [body];
+  return messages.some((message) => {
+    if (typeof message !== "object" || message === null || Array.isArray(message)) return true;
+    if ((message as { method?: unknown }).method !== "tools/call") return false;
+    const name = (message as { params?: { name?: unknown } }).params?.name;
+    return typeof name !== "string" || !ANONYMOUS_TOOLS.has(name);
+  });
+}
+
 /** Scopes a tool needs. Unknown tools fail closed and need every scope. */
 export function requiredScopesForTool(name: string): readonly string[] {
   return Object.hasOwn(TOOL_SCOPES, name) ? TOOL_SCOPES[name] : SCOPES_SUPPORTED;

@@ -149,9 +149,27 @@ describe("OAuth protected resource metadata (RFC 9728)", () => {
   });
 });
 
-describe("401 challenge", () => {
-  it("answers an unauthenticated POST /mcp with 401 and a resource_metadata challenge", async () => {
-    const res = await post(rpc("tools/list"));
+describe("lazy sign-in (anonymous discovery stays open)", () => {
+  it("serves initialize, tools/list and a free tool to an anonymous caller with no challenge", async () => {
+    const init = await post(
+      rpc("initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "0" } }),
+    );
+    expect(init.status).toBe(200);
+    expect(init.headers.get("www-authenticate")).toBeNull();
+
+    const client = await connect({});
+    const { tools } = await client.listTools();
+    expect(tools.length).toBeGreaterThanOrEqual(7);
+    const found = await client.callTool({ name: "socialcrawl_find", arguments: {} });
+    expect(found.isError).toBeFalsy();
+    await client.close();
+    expect(upstreamHits).toHaveLength(0);
+  });
+
+  it("answers an anonymous paid tools/call with 401 and a resource_metadata challenge, before any tool runs", async () => {
+    const res = await post(
+      rpc("tools/call", { name: "socialcrawl_request", arguments: { platform: "tiktok", resource: "profile" } }),
+    );
     expect(res.status).toBe(401);
     const challenge = res.headers.get("www-authenticate") ?? "";
     expect(challenge).toMatch(/^Bearer /);
@@ -159,7 +177,32 @@ describe("401 challenge", () => {
     expect(challenge).toContain(`scope="${SCOPES_SUPPORTED.join(" ")}"`);
     // RFC 6750 §3.1: no error code when the request carried no credentials at all.
     expect(challenge).not.toContain("error=");
+    expect(upstreamHits).toHaveLength(0);
   });
+
+  it("asks an anonymous caller to sign in for account reads and for a batch that contains a paid call", async () => {
+    const account = await post(rpc("tools/call", { name: "socialcrawl_account", arguments: {} }));
+    expect(account.status).toBe(401);
+    const batch = JSON.stringify([
+      { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "socialcrawl_find", arguments: {} } },
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "socialcrawl_collect", arguments: {} } },
+    ]);
+    expect((await post(batch)).status).toBe(401);
+    expect(upstreamHits).toHaveLength(0);
+  });
+
+  it("SECURITY: an anonymous body Express did not parse gets the challenge, not the tool", async () => {
+    const res = await fetch(mcpUrl, {
+      method: "POST",
+      headers: { Accept: "application/json, text/event-stream", "Content-Type": "text/plain; x=application/json" },
+      body: rpc("tools/call", { name: "socialcrawl_request", arguments: { platform: "tiktok", resource: "profile" } }),
+    });
+    expect(res.status).toBe(401);
+    expect(upstreamHits).toHaveLength(0);
+  });
+});
+
+describe("401 challenge", () => {
 
   it("rejects a token for another audience with 401 invalid_token", async () => {
     const token = await mint({ scope: "socialcrawl:read" }, { aud: "https://other.example.test/mcp" });

@@ -6,7 +6,15 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { InvalidTokenError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { createServer } from "../server.js";
 import { isJwtShaped } from "../auth.js";
-import { SCOPES, SCOPES_SUPPORTED, TOOL_SCOPES, requiredScopesForTool, missingScopesForBody } from "../oauth/scopes.js";
+import {
+  ANONYMOUS_TOOLS,
+  SCOPES,
+  SCOPES_SUPPORTED,
+  TOOL_SCOPES,
+  requiredScopesForTool,
+  missingScopesForBody,
+  needsSignIn,
+} from "../oauth/scopes.js";
 import { oauthConfigFromEnv } from "../oauth/config.js";
 import { createJwtVerifier } from "../oauth/jwt-verifier.js";
 import { createLookupResolver, ApiKeyLookupUnavailableError } from "../oauth/api-key-resolver.js";
@@ -94,6 +102,63 @@ describe("scope → tool mapping", () => {
       SCOPES.spend,
       SCOPES.manage,
     ]);
+  });
+});
+
+describe("lazy sign-in: which anonymous requests need an account", () => {
+  const call = (name: string) => ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: {} } });
+
+  it("lets initialize, tools/list and the free discovery tools through without an account", () => {
+    expect(needsSignIn({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} })).toBe(false);
+    expect(needsSignIn({ jsonrpc: "2.0", id: 1, method: "tools/list" })).toBe(false);
+    expect(needsSignIn({ jsonrpc: "2.0", method: "notifications/initialized" })).toBe(false);
+    for (const name of [
+      "socialcrawl_find",
+      "socialcrawl_endpoint",
+      "socialcrawl_estimate",
+      "socialcrawl_list_platforms",
+      "socialcrawl_list_endpoints",
+      "socialcrawl_pricing",
+      "socialcrawl_discover",
+      "socialcrawl_get_docs",
+    ]) {
+      expect(needsSignIn(call(name)), name).toBe(false);
+    }
+  });
+
+  it("asks for sign-in on every tool that needs an API key, account reads included", () => {
+    for (const name of [
+      "socialcrawl_account",
+      "socialcrawl_request",
+      "socialcrawl_collect",
+      "socialcrawl_manage",
+      "socialcrawl_check_balance",
+      "socialcrawl_web",
+      "socialcrawl_monitors",
+      "socialcrawl_cohorts",
+    ]) {
+      expect(needsSignIn(call(name)), name).toBe(true);
+    }
+    expect(needsSignIn([call("socialcrawl_find"), call("socialcrawl_request")])).toBe(true);
+  });
+
+  it("SECURITY: fails closed on unknown tools, nameless calls and bodies that are not parsed JSON-RPC", () => {
+    expect(needsSignIn(call("socialcrawl_not_a_tool"))).toBe(true);
+    expect(needsSignIn({ jsonrpc: "2.0", id: 1, method: "tools/call", params: {} })).toBe(true);
+    for (const body of [undefined, null, "", "tools/call", 42, true]) {
+      expect(needsSignIn(body), String(body)).toBe(true);
+    }
+  });
+
+  it("every anonymous tool is a tool the server actually registers", async () => {
+    const server = createServer({ apiKey: "", baseUrl: "https://www.socialcrawl.dev" }, { legacyTools: true });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    const client = new Client({ name: "anon-coverage", version: "0.0.0" });
+    await client.connect(clientTransport);
+    const names = new Set((await client.listTools()).tools.map((t) => t.name));
+    for (const name of ANONYMOUS_TOOLS) expect(names.has(name), name).toBe(true);
+    await client.close();
   });
 });
 
@@ -234,6 +299,31 @@ describe("createJwtVerifier", () => {
       .setExpirationTime("5m")
       .sign(other.privateKey);
     await expect(verifier.verifyAccessToken(forged)).rejects.toBeInstanceOf(InvalidTokenError);
+  });
+
+  it("SECURITY: rejects a JWT that is not an access token (typ other than at+jwt)", async () => {
+    // Better Auth's jwt plugin signs session JWTs (GET /api/auth/token) with
+    // the same key. They must never pass as MCP access tokens.
+    const { verifier } = await setup();
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const jwk: JWK = { ...(await exportJWK(publicKey)), kid: "k2", alg: "RS256", use: "sig" };
+    const v = createJwtVerifier({ issuer: ISSUER, audience: AUDIENCE, jwks: createLocalJWKSet({ keys: [jwk] }) });
+    for (const header of [{ alg: "RS256", kid: "k2" }, { alg: "RS256", kid: "k2", typ: "JWT" }]) {
+      const token = await new SignJWT({ scope: "socialcrawl:spend", sc_api_key_ref: "ref_1" })
+        .setProtectedHeader(header)
+        .setIssuer(ISSUER)
+        .setAudience(AUDIENCE)
+        .setExpirationTime("5m")
+        .sign(privateKey);
+      await expect(v.verifyAccessToken(token), JSON.stringify(header)).rejects.toBeInstanceOf(InvalidTokenError);
+    }
+    expect(verifier).toBeDefined();
+  });
+
+  it("SECURITY: rejects a sender-constrained (DPoP) token, since proofs are not verified here", async () => {
+    const { verifier, mint } = await setup();
+    const token = await mint({ cnf: { jkt: "0ZcOCORZNYy-DWpqq30jZyJGHTN0d2HglBV3uiguA4I" } });
+    await expect(verifier.verifyAccessToken(token)).rejects.toBeInstanceOf(InvalidTokenError);
   });
 
   it("SECURITY: rejects an unsigned (alg none) token", async () => {
