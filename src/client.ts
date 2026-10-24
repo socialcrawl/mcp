@@ -1,7 +1,15 @@
-import { TIMEOUT_MS, CHARACTER_LIMIT } from "./constants.js";
+import { TIMEOUT_MS, CHARACTER_LIMIT, SERVER_NAME, SERVER_VERSION } from "./constants.js";
 import type { ApiContext } from "./context.js";
 import { assembleSse, describeChunk, readSse } from "./sse.js";
 import type { SseEvent } from "./sse.js";
+
+/**
+ * Sent on every call so the API can tell MCP traffic from other clients in its
+ * usage analytics (it is otherwise counted as plain `node`).
+ */
+function clientHeaders(): Record<string, string> {
+  return { "User-Agent": `${SERVER_NAME}/${SERVER_VERSION}` };
+}
 
 /** One streamed chunk landed: `progress` counts chunks so far (the total is unknown). */
 export interface ProgressTick {
@@ -135,7 +143,7 @@ export async function makeRequest(ctx: ApiContext, options: RequestOptions): Pro
   const timeoutId = setTimeout(() => controller.abort(), options.timeoutMs ?? TIMEOUT_MS);
   const state: CallState = { events: [] };
 
-  const headers: Record<string, string> = { "x-api-key": ctx.apiKey };
+  const headers: Record<string, string> = { ...clientHeaders(), "x-api-key": ctx.apiKey };
   if (options.stream) headers.Accept = "text/event-stream";
   if (options.idempotencyKey) {
     headers["Idempotency-Key"] = options.idempotencyKey;
@@ -225,7 +233,7 @@ export async function apiRequest(ctx: ApiContext, options: ApiRequestOptions): P
 
   const state: CallState = { events: [] };
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = clientHeaders();
   if (ctx.apiKey) headers["x-api-key"] = ctx.apiKey;
   if (options.stream) headers.Accept = "text/event-stream";
   if (options.idempotencyKey) {

@@ -11,12 +11,12 @@ describe("npm package contents", () => {
     expect(pkg.files).toContain("!dist/__tests__");
   });
 
-  it("is version 2.0.2, the same everywhere it is stated", async () => {
-    expect(pkg.version).toBe("2.0.2");
+  it("is version 2.1.0, the same everywhere it is stated", async () => {
+    expect(pkg.version).toBe("2.1.0");
     const server = JSON.parse(readFileSync(new URL("../../server.json", import.meta.url), "utf8")) as { version: string; packages: Array<{ version: string }> };
-    expect(server.version).toBe("2.0.2");
-    expect(server.packages.map((p) => p.version)).toEqual(["2.0.2"]);
+    expect(server.version).toBe("2.1.0");
+    expect(server.packages.map((p) => p.version)).toEqual(["2.1.0"]);
     const { SERVER_VERSION } = await import("../constants.js");
-    expect(SERVER_VERSION).toBe("2.0.2");
+    expect(SERVER_VERSION).toBe("2.1.0");
   });
 });

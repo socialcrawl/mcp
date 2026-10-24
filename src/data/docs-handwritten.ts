@@ -463,7 +463,8 @@ The two are deliberately separate and never aliased: 600/min is a *rate*, 50-at-
 
 - Each request runs under a **request-scoped deadline**. If it is about to expire, the API returns a JSON 504 with the credit refunded rather than being killed mid-flight by the platform.
 - Upstream calls have a per-attempt timeout with retries on transient 5xx and network failures, bounded by a per-endpoint total budget. Slow upstreams (retail providers in particular) carry tighter budgets so a hung call still leaves room to refund.
-- This MCP client aborts a request after 30 seconds and reports the timeout.
+- The API's own clocks are a 48s deadline, a 54s fallback that answers 504 (refunded) and a 60s hard kill; it recommends a 60s client timeout.
+- This MCP client waits for each endpoint's recommended timeout plus 5s of headroom, never less than 60s and never more than 120s. A client-side abort does not stop the server call: it can still complete and bill, so the timeout message says where to check what was charged before retrying.
 
 ## Circuit breaker
 
@@ -757,28 +758,48 @@ Monitors are **not** registry endpoints — they live at \`/v1/monitors/*\` and 
 
 | Action | HTTP | What it does |
 |--------|------|--------------|
-| \`create\` | \`POST /v1/monitors\` | Create a monitor. Validates the recipe, enforces a plan slot cap, backfills one run, returns the monitor + \`estimated_cost_per_run\`/\`estimated_monthly_cost\` and (once) the webhook signing secret. |
+| \`create\` | \`POST /v1/monitors\` | Create a monitor. Validates the recipe and its params (the same checks \`/v1\` runs, so a value the endpoint would refuse is a free 400), enforces the plan's active-monitor cap, returns the monitor + \`estimated_cost_per_run\`/\`estimated_monthly_cost\`/\`next_run_at\` and (once) the webhook signing secret. |
 | \`list\` | \`GET /v1/monitors\` | Owner-scoped, cursor-paginated list. Filter with \`status\` = active \| paused \| all. |
 | \`get\` | \`GET /v1/monitors/:id\` | A single monitor (404 if not owned — never leaks existence or the secret). |
-| \`runs\` | \`GET /v1/monitors/:id/runs\` | Reverse-chron run history, each with its \`legs[]\` envelope + \`alerts_fired\`. \`include=result\` adds the full stored result. |
-| \`timeseries\` | \`GET /v1/monitors/:id/timeseries\` | The headline read — each stored run's stable computed keys projected into a \`{ t, metrics }\` series (reads snapshots, no live API calls). |
-| \`pause\` / \`resume\` | \`PATCH /v1/monitors/:id\` | Pause or resume scheduling. |
+| \`runs\` | \`GET /v1/monitors/:id/runs\` | Reverse-chron run history, each with its \`legs[]\` + \`alerts_fired\` + \`skip_reason\`. \`include=result\` adds the stored result (legacy monitors), \`include=numbers\` a track run's numbers and deltas, \`include=result,numbers\` both. |
+| \`timeseries\` | \`GET /v1/monitors/:id/timeseries\` | The headline read — each stored run's metrics as a \`{ t, metrics }\` series (reads snapshots, no live API calls). Track monitors add a per-row \`series\`; \`row\` (comma-separated row ids) narrows it. |
+| \`export\` | \`GET /v1/monitors/:id/export\` | A monitor's stored numbers as \`format\` = \`csv\` (default) or \`ndjson\`, optional \`from\`/\`to\`. Free; reads at most the newest 1,000 runs in the window. |
+| \`pause\` / \`resume\` | \`PATCH /v1/monitors/:id\` | Pause or resume scheduling. A paused monitor is not run, billed, or counted against the cap. |
 | \`delete\` | \`DELETE /v1/monitors/:id\` | Unschedule + cascade-delete runs and the webhook. |
+
+\`dry_run: true\` on \`create\` sends \`?dry_run=1\`: the API runs the real call's checks (including the plan cap) and answers \`{ valid, normalized_body, estimate }\` without writing, scheduling or charging anything. Its \`estimate\` carries \`recipe_cost_per_run\`, \`scheduling_premium\`, \`estimated_cost_per_run\`, \`runs_per_month\`, \`estimated_monthly_cost\` and \`next_run_at\`.
 
 ## Create parameters
 
-- \`recipe\` (required) — any registered endpoint or Prism composite as \`platform/resource\` (e.g. \`prism/brand-mentions\`, \`tiktok/profile\`).
+- \`recipe\` (required) — any registered **GET** endpoint or Prism composite as \`platform/resource\` (e.g. \`prism/brand-mentions\`, \`tiktok/profile/videos\`, or a list composite such as \`prism/profile/comments\`). POST batch endpoints cannot be monitored.
 - \`cadence\` (required) — \`hourly\` \| \`daily\` \| \`weekly\`, or a cron expression.
 - \`webhook_url\` (required unless \`track\` is set) — HTTPS endpoint that receives each run, signed with \`x-socialcrawl-signature\` (HMAC-SHA256, timestamped).
-- \`params\` — parameters passed to the recipe every run.
+- \`params\` — parameters passed to the recipe every run. Frozen at create, with relative tokens resolved at each run: \`now-<N>d\` becomes the date N days back (\`YYYY-MM-DD\`), \`now-<N>h\` the ISO timestamp N hours back (e.g. \`since: "now-3h"\` on an hourly \`prism/profile/comments\` monitor).
 - \`alert_rules\` — \`[{ metric, op, value, window? }]\`. Ops: \`gt\`, \`lt\`, \`gte\`, \`lte\`, \`abs_change_gt\`, \`pct_change_gt\`, \`pct_change_lt\` (the change ops compare a run to the previous comparable run; \`window\` is \`1d\` \| \`1w\`). To alert on new items, use the \`rows_new\` metric (rows not seen in the previous run; ops \`gt\` / \`gte\`): \`{"metric":"rows_new","op":"gt","value":0}\`. \`rows_new\` requires \`track\` (below): without it the create is refused with "rows_new needs track".
 - \`track\` — makes a tracking monitor that keeps numbers per row between runs: \`{ metrics, row_key?, max_rows? }\`. \`metrics\` is 1-20 paths to numbers: \`items[].<numeric path>\` reads one per row of a list recipe (e.g. \`items[].post.engagement.views\`; the part after \`items[].\` is relative to the row), and a plain dot path reads one off the page (e.g. \`author.followers\`). \`row_key\` is the dot path of a stable id inside a row (default: the row's own id, e.g. \`post.id\`; required when the rows have none); \`max_rows\` is 1-200 (default 100). With \`track\`, \`webhook_url\` is optional (a download-only monitor). New-items alert, whole: \`track: { metrics: ["items[].post.engagement.views"] }\`, \`alert_rules: [{"metric":"rows_new","op":"gt","value":0}]\`, \`suppress_webhook_unless_alert: true\`; keep \`track\` and \`alert_rules\` together.
+- \`webhook_format\` — \`full\` (default: the run's payload, plus \`numbers\`/\`deltas\` on a track monitor) or \`rows\` (one flat, spreadsheet-ready line per row and metric; needs \`track\`). Needs \`webhook_url\`.
+- \`webhook_rows\` — \`all\` (default) or \`new\`: only the rows new since the previous run. Needs \`track\` with an \`items[].\` metric and a \`webhook_url\`; the first run is a \`baseline: true\` run with no rows.
 - \`suppress_webhook_unless_alert\` — only deliver the webhook when a rule trips.
-- \`name\`, \`output_schema\`, \`webhook_secret\` — optional.
+- \`name\`, \`output_schema\`, \`webhook_secret\` (8-200 chars) — optional.
+
+## Track monitors (numbers only)
+
+\`\`\`json
+{ "recipe": "tiktok/profile/videos", "params": { "handle": "khaby.lame" }, "cadence": "daily",
+  "track": { "metrics": ["items[].post.engagement.views", "items[].post.engagement.likes"] } }
+\`\`\`
+
+- Each path is checked against the recipe's page at create: a typo or a non-numeric field is a free 400 with a "Did you mean" hint. Prism recipes with no fixed response shape are created with a warning to check the first run.
+- On a track monitor an alert rule must name one of \`track.metrics\`, or \`rows_new\`.
+- Each run stores only those numbers per row plus the change against the previous run, not the page. Read them with \`export\`, \`timeseries\` (\`row\` narrows the per-row series), or \`runs\` with \`include=numbers\`.
+
+## Plan caps
+
+Active monitors per account follow the highest credit pack it has bought: **Free 3, Starter 10, Growth 25, Pro 100, Enterprise 500**. Paused monitors do not count. Creating one past the cap is \`403 MONITOR_LIMIT_REACHED\`; pause or delete one to free a slot.
 
 ## Billing
 
-Managing monitors (create/list/get/runs/timeseries/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Runs skipped for insufficient balance are never charged, and a run whose recipe fails is fully refunded. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`) to budget, and \`socialcrawl_estimate\` with the recipe's \`id\` to price it first. The webhook auto-pauses after 10 consecutive delivery failures.`,
+Managing monitors (create/list/get/runs/timeseries/export/pause/delete) costs **0 credits**. Each *scheduled run* bills the underlying recipe's normal cost (priced with the frozen params) **plus a 1-credit scheduling premium** — so a daily \`prism/reputation\` monitor costs 30 + 1 = 31 credits per run. Creating a monitor holds and charges nothing; the first run is at \`next_run_at\`. Runs skipped for insufficient balance are never charged. A run whose recipe fails is fully refunded, and so is a run that records nothing: a track run where none of the tracked metrics has a value, or whose page comes back empty, is marked \`failed\` with a \`skip_reason\`, fires no alert, sends no webhook, and is never the comparison point for the next run. Use \`estimated_cost_per_run\` / \`estimated_monthly_cost\` (returned by \`create\`, or a create \`dry_run\`) to budget, and \`socialcrawl_estimate\` with the recipe's \`id\` to price it first. The webhook auto-pauses after 10 consecutive delivery failures.`,
 
   cohorts: `# SocialCrawl API — Cohorts
 
@@ -818,6 +839,8 @@ Anything else is rejected at upload (400 \`COHORT_IDENTITY_PLATFORM_UNSUPPORTED\
 
 Writes (\`create\`, \`add_members\`, \`query\`) require an \`Idempotency-Key\` UUID. The tool generates one when you omit it and echoes it back in the response header — **reuse that key to retry**, or a repeated call creates a second cohort or reserves a second query. Replaying a key with a *different* body returns 422 \`IDEMPOTENCY_KEY_PAYLOAD_MISMATCH\`.
 
+**Dry run.** \`dry_run: true\` on \`create\`, \`add_members\` and \`query\` sends \`?dry_run=1\`: the API runs that route's own checks (Idempotency-Key, body schema, the cohort existing) and answers \`{ valid, normalized_params, estimate }\` at 0 credits. Nothing is created, written or reserved, and the Idempotency-Key is not claimed, so the same key can go with the real call. A \`query\` dry run echoes the normalized body and the cohort's \`member_count\`, and caps \`expected_max\` at your \`max_credits\`; the exact ceiling is what \`estimate_cost\` computes.
+
 ## Limits
 
 | Limit | Value |
@@ -843,6 +866,27 @@ Re-sending an \`external_id\` you have already uploaded **updates** its identity
 
 No stemming, fuzzy matching, semantic expansion, sentiment scoring, or brand-alias inference. Want "Acme" to also catch "AcmeCo"? Pass both. Only content the source attributes to the identity you supplied is eligible — profile lookups resolve the account and its cursor and never become results.
 
+## Opt-in topic matching (newly added, subject to availability)
+
+> **Newly added.** The API contract accepts these fields, but topic matching may not yet be live on every deployment. A keyword-only query (no \`match\`, no \`topics\`) works exactly as described above either way.
+
+A query may also send \`topics\` — 1-10 objects of \`{ id, description }\` (\`id\` 1-64 of letters, digits, \`_\`, \`-\`, unique; \`description\` one plain sentence of 1-300 characters) — with \`match\`:
+
+| \`match\` | Which items are checked | Which items are returned |
+|---------|-------------------------|--------------------------|
+| absent or \`keywords\` | none | keyword hits, exactly as before, with no new field |
+| \`topics\` | keyword hits only | keyword hits that are about a topic, plus hits that could not be checked |
+| \`both\` | every authored item | every keyword hit, plus items about a topic that never say the keyword |
+
+\`keywords\` stays required in every mode. \`topics\` without \`match: "topics"\`/\`"both"\` is a 400 (\`COHORT_TOPICS_REQUIRE_MATCH\`), those modes without \`topics\` are a 400 (\`COHORT_MATCH_REQUIRES_TOPICS\`), and a bad or duplicate topic is \`COHORT_TOPIC_INVALID\`; \`socialcrawl_manage\` checks all three locally first.
+
+Each item of a topic query carries:
+
+- \`matched_topics\` — \`[{ id, p }]\`, the topics the item is about at \`p >= 0.7\`, strongest first. \`[]\` = checked and about none; \`null\` = could not be checked (the keyword match stands alone).
+- \`mention_type\` — \`first_hand_use_or_purchase\`, \`opinion_or_review\`, \`sponsored_or_promotional\`, \`news_or_share\`, \`incidental\`, \`other\`, or \`uncertain\` when no option clearly won; \`null\` when not checked or no topic matched.
+
+\`matched_keywords\` can be empty only in \`both\` mode, for an item a topic matched and no keyword did. If a topic check fails or times out, that batch falls back to the keyword match exactly, so coverage, \`window_complete\` and credits are the same as the keyword path. Topic matching is **not billed**: the reservation ceiling and settlement are the keyword query's.
+
 ## Coverage is the important field
 
 \`query_results\` returns \`items\` **and** \`coverage\`, one coverage record per member whether or not it matched. This is what stops a partial crawl from reading as "nobody talked about you".
@@ -854,22 +898,22 @@ No stemming, fuzzy matching, semantic expansion, sentiment scoring, or brand-ali
 
 Coverage is paginated exactly like \`items\`, so a 10,000-member panel takes at least 20 pages at \`limit=500\` even when nothing matched, and later pages can carry coverage with an empty \`items\` array. Accumulate both streams until \`next_cursor\` is null. Pages are also bounded to a 1 MB body, so a short page is not necessarily the last one.
 
-On the single-page platforms (Twitter/X, Bluesky, Threads, Twitch) the source serves one fixed page per identity, so raising \`max_pages_per_identity\` cannot deepen the crawl there — \`window_complete: false\` simply means the window is beyond what the source exposes.
+On the single-page platforms (LinkedIn, Bluesky, Threads, Twitch) the source serves one fixed page per identity, so raising \`max_pages_per_identity\` cannot deepen the crawl there — \`window_complete: false\` simply means the window is beyond what the source exposes. Twitter/X does page, so its depth follows the budget.
 
 ## Credits
 
 Every lifecycle call is **0 credits**. A query reserves its worst-case ceiling at submission:
 
 \`\`\`text
-ceiling = SUM(members x route page cap x credits per page)
+ceiling = SUM over members and their routes (credits per page x (route has a cursor ? max_pages_per_identity : 1))
 \`\`\`
 
 | Platform | Credits per successful page |
 |----------|------------------------------|
-| LinkedIn | 5 |
-| Instagram, YouTube | 2 per page-round (two routes per member) |
-| Twitter/X, Bluesky, Threads, Twitch | 1, and the page cap is always 1 |
-| Everything else | 1 |
+| LinkedIn | 5, one fixed page (the page cap is always 1) |
+| Instagram, YouTube | 2 per page-round (two cursor-paged routes per member) |
+| Bluesky, Threads, Twitch | 1, one fixed page (the page cap is always 1) |
+| Twitter/X, TikTok, Kwai, Truth Social | 1 per page, scales with \`max_pages_per_identity\` |
 
 Run \`socialcrawl_manage\` with \`area: "cohorts", action: "estimate_cost"\` (plus \`members\` or \`platform_counts\` and your \`max_pages_per_identity\`) to compute that number locally, for free, before you commit.
 
@@ -886,6 +930,8 @@ You are charged **only for pages that actually succeeded**. Failed, timed-out, c
 | \`COHORT_QUERY_NOT_READY\` | 409 | The query has not succeeded — running, cancelled, and expired queries do not serve results |
 | \`COHORT_QUERY_NOT_CANCELLABLE\` | 409 | The query is already terminal |
 | \`COHORT_RESULT_TOO_LARGE\` | 413 | A single stored result cannot fit under the 1 MB page ceiling |
+| \`COHORT_MAX_CREDITS_BELOW_ESTIMATE\` | 400 | \`max_credits\` is below the computed ceiling; raise it to at least \`estimated_credits\` (nothing is held) |
+| \`COHORT_TOPICS_REQUIRE_MATCH\` / \`COHORT_MATCH_REQUIRES_TOPICS\` / \`COHORT_TOPIC_INVALID\` | 400 | Topic matching sent without its partner field, or a bad or duplicate topic (reported in \`error.details.issues\`) |
 | \`INSUFFICIENT_CREDITS\` | 402 | The reservation ceiling exceeds your available balance |
 
 A cohort or query that is not yours returns **404, never 403** — a cross-tenant probe is indistinguishable from a resource that does not exist.

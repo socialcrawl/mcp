@@ -10,6 +10,7 @@ import {
   hydrationSlotCount,
   hydrationTokens,
   laneCeilingCredits,
+  joinsCeiling,
   laneMaxCredits,
   quoteHydration,
 } from "../hydration.js";
@@ -132,8 +133,9 @@ describe("the quote matches the backend's pricer", () => {
     // strictly above their joins, so they are asserted as a bound.
     for (const e of ENDPOINTS_WITH_JOINS) {
       if (e.pricing.maxCost === undefined) continue;
-      const fromLanes =
-        e.pricing.cost + e.hydration!.reduce((sum, l) => sum + laneMaxCredits(l), 0);
+      // A lane whose fills a wider requested lane already writes rides free on
+      // it (instagram/search/reels: creator + country is priced as creator).
+      const fromLanes = e.pricing.cost + joinsCeiling(e);
       expect(
         e.pricing.maxCost,
         `${e.platform}/${e.resource}: band ceiling ${e.pricing.maxCost} is below what its lanes can hold (${fromLanes})`,
@@ -144,7 +146,8 @@ describe("the quote matches the backend's pricer", () => {
   it("reconciles exactly on a lane that is the whole meter", () => {
     // Pinterest search is a clean case: 1cr page, one lane, 1cr x 25 rows.
     const e = findEndpoint("pinterest", "search")!;
-    expect(formatCost(e.pricing)).toBe("1-26cr (metered)");
+    // The band also carries the judgment layer now (relevant_to / paid labels).
+    expect(formatCost(e.pricing)).toBe("1-34cr (metered)");
     expect(quoteHydration(e, "engagement").held).toBe(26);
     expect(quoteHydration(e, "engagement", 5).held).toBe(6);
     expect(quoteHydration(e, undefined).held).toBe(1);
@@ -308,6 +311,14 @@ describe("the joins reconcile with the rest of the data layer", () => {
         `${e.platform}/${e.resource} offers a row join but is still priced as ${e.pricing.model}`,
       ).toBe("metered");
     }
+  });
+
+  it("prices creator,country on reels search as creator alone", () => {
+    const e = findEndpoint("instagram", "search/reels")!;
+    const both = quoteHydration(e, "creator,country");
+    expect(both.held).toBe(quoteHydration(e, "creator").held);
+    expect(both.held).toBe(61);
+    expect(both.covered).toEqual([{ token: "country", by: "creator" }]);
   });
 
   it("leaves every other endpoint's price untouched by hydration", () => {

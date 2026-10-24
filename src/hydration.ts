@@ -63,6 +63,35 @@ export function csvHas(value: string | undefined, token: string): boolean {
 }
 
 /**
+ * Drop a requested lane whose fills are all written by another requested lane:
+ * the wider lookup already answers it, and the endpoint prices the pair as the
+ * wider lane alone (`instagram/search/reels`: `include=creator,country` holds
+ * what `include=creator` holds, because the creator card carries the country).
+ */
+function withoutSubsumed(lanes: HydrationLane[]): {
+  kept: HydrationLane[];
+  covered: { lane: HydrationLane; by: HydrationLane }[];
+} {
+  const covered: { lane: HydrationLane; by: HydrationLane }[] = [];
+  const kept = lanes.filter((lane) => {
+    const by = lanes.find(
+      (other) =>
+        other !== lane &&
+        other.fills.length > lane.fills.length &&
+        lane.fills.every((f) => other.fills.includes(f)),
+    );
+    if (by) covered.push({ lane, by });
+    return !by;
+  });
+  return { kept, covered };
+}
+
+/** The most every join together can hold on one page (overlapping lanes counted once). */
+export function joinsCeiling(e: Endpoint): number {
+  return withoutSubsumed(e.hydration ?? []).kept.reduce((sum, l) => sum + laneMaxCredits(l), 0);
+}
+
+/**
  * Credits for `slots` rows at the lane's rate. A batch sibling answers `size`
  * keys in one lookup and never keeps more than `creditCap` for it, so the
  * charge is the cheaper of per-row and per-chunk — the join can never cost
@@ -116,6 +145,8 @@ export interface HydrationQuote {
   lanes: { lane: HydrationLane; rows: number; held: number }[];
   /** Tokens in `include` that this endpoint does not offer. */
   unknownTokens: string[];
+  /** Requested tokens answered free by a wider requested lane. */
+  covered: { token: string; by: string }[];
   /** Total held up front: the base page plus every requested lane's ceiling. */
   held: number;
   /** The floor: what the call settles to if every row is cached or unfillable. */
@@ -139,12 +170,12 @@ export function quoteHydration(
   rowLimit?: number,
 ): HydrationQuote {
   const base = e.pricing.cost;
-  const lanes: HydrationQuote["lanes"] = [];
-  for (const lane of e.hydration ?? []) {
-    if (!csvHas(include, lane.token)) continue;
+  const requested = (e.hydration ?? []).filter((lane) => csvHas(include, lane.token));
+  const { kept, covered } = withoutSubsumed(requested);
+  const lanes: HydrationQuote["lanes"] = kept.map((lane) => {
     const rows = hydrationSlotCount(lane, rowLimit);
-    lanes.push({ lane, rows, held: creditsForSlots(rows, lane) });
-  }
+    return { lane, rows, held: creditsForSlots(rows, lane) };
+  });
   const offered = new Set(hydrationTokens(e).map((t) => t.toLowerCase()));
   const unknownTokens = (include ?? "")
     .split(",")
@@ -155,6 +186,7 @@ export function quoteHydration(
     base,
     lanes,
     unknownTokens,
+    covered: covered.map((c) => ({ token: c.lane.token, by: c.by.token })),
     held: base + lanes.reduce((sum, l) => sum + l.held, 0),
     floor: base,
   };
@@ -205,7 +237,12 @@ export function explainHydration(e: Endpoint): string[] {
     }
   }
 
-  const total = lanes.reduce((sum, l) => sum + laneMaxCredits(l), 0);
+  const total = joinsCeiling(e);
+  for (const c of withoutSubsumed(lanes).covered) {
+    lines.push(
+      `- Sending both \`${c.lane.token}\` and \`${c.by.token}\` is priced as \`${c.by.token}\` alone — its lookup already fills ${c.lane.fills.map((f) => `\`${f}\``).join(", ")}.`,
+    );
+  }
   lines.push(
     `**What you are actually charged:** the ceiling (${e.pricing.cost}cr base + ${total}cr for every join = ${e.pricing.cost + total}cr) is held up front, then ` +
       `${lanes[0].creditsPerItem}cr is KEPT per row a fresh sibling lookup filled and every other slot is refunded. ` +

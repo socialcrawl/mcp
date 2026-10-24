@@ -10,6 +10,17 @@ describe("API client", () => {
     vi.restoreAllMocks();
   });
 
+  it("identifies itself with a versioned User-Agent on both request paths", async () => {
+    const seen: Record<string, string>[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      seen.push(init.headers as Record<string, string>);
+      return new Response(JSON.stringify({ success: true, data: {} }), { status: 200 });
+    });
+    await makeRequest(ctx, { platform: "tiktok", resource: "profile", params: { handle: "x" } });
+    await apiRequest(ctx, { method: "GET", path: "/v1/monitors" });
+    for (const h of seen) expect(h["User-Agent"]).toMatch(/^socialcrawl-mcp\/\d+\.\d+\.\d+$/);
+  });
+
   it("returns the no-key error for an anonymous context", async () => {
     const result = await makeRequest(anonCtx, { platform: "tiktok", resource: "profile", params: { handle: "test" } });
     expect(result).toContain("No API key configured");

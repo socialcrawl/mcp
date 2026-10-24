@@ -230,7 +230,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Account and Service Status",
       description:
-        "Free checks: balance (with this session's spend), transactions (itemised ledger; the receipts for one request_id), status (platform health; read it before retrying a 502/503) and freshness (whether this server's bundled catalogue is behind the API).",
+        "Free: balance (default; with this session's spend), transactions (ledger; receipts per request_id), usage (credits per key per day; from/to YYYY-MM-DD, at most 92 days), status (platform health; read before retrying a 502/503), freshness (bundled catalogue vs live API).",
       inputSchema: withNormalizedArgs(AccountInputSchema, "account"),
       outputSchema: AccountOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -241,6 +241,10 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
         limit: params.limit,
         cursor: params.cursor,
         request_id: params.request_id,
+        from: params.from,
+        to: params.to,
+        group_by: params.group_by,
+        api_key_id: params.api_key_id,
       });
       return toResult(output.text, output.structured);
     },
@@ -249,9 +253,9 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
   server.registerTool(
     "socialcrawl_manage",
     {
-      title: "Manage Monitors, Cohorts, Web and Jobs",
+      title: "Manage Stateful and Background Work",
       description:
-        "Stateful work by area + action: monitors (scheduled recipes, webhooks, alerts), cohorts (mention search over your own panel of accounts), web (scrape, search, crawl and agent jobs, change monitors, browser sessions) and jobs (Prism background jobs). A wrong field is refused free with the rules. Managing is free; scrapes, jobs, queries and monitor runs bill credits.\ndry_run: true validates and quotes a create/update and never creates it. rows_new alerts need track (id=monitors).",
+        "By area + action: monitors, cohorts (mentions by your own panel), web (scrape, crawl, agents, page monitors, browser sessions), jobs (Prism batch jobs), discover (prism/discover runs, schedules, follow), review_history, events (feed, webhooks). Wrong fields are refused free. Managing is free; scrapes, jobs, queries, run_more, monitor runs bill.\ndry_run: true quotes a create/update, creating nothing. rows_new alerts need track. Guide: socialcrawl_endpoint id=<area> (discover-runs).",
       inputSchema: withNormalizedArgs(ManageInputSchema, "manage"),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },

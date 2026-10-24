@@ -154,28 +154,31 @@ export const EstimateInputSchema = z.object({
 
 export const AccountInputSchema = z.object({
   view: z
-    .enum(["balance", "transactions", "status", "freshness"])
-    .optional()
-    .describe("balance (default, with this session's spend), transactions (ledger), status (platform health), freshness (catalogue vs live API)."),
+    .enum(["balance", "transactions", "usage", "status", "freshness"])
+    .optional(),
   limit: z.number().int().min(1).max(100).optional().describe("transactions: page size."),
   cursor: z.string().optional().describe("transactions: next_cursor from the last page."),
   request_id: z.string().optional().describe("transactions: receipts for one request."),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  group_by: z.enum(["api_key", "day", "api_key,day"]).optional(),
+  api_key_id: z.string().optional(),
 }).strict();
 
 export const ManageInputSchema = z.object({
-  area: z.enum(["monitors", "cohorts", "web", "jobs"]).describe("What to manage."),
+  area: z.enum(["monitors", "cohorts", "web", "jobs", "discover", "review_history", "events"]),
   action: z
     .string()
     .min(1)
     .describe(
-      "monitors: create|list|get|runs|timeseries|pause|resume|delete. cohorts: create|add_members|estimate_cost|query|query_status|query_results|query_cancel|get|delete. web: scrape|search|map|extract|crawl|batch_scrape|agent|crawl_preview|job_get|job_list|job_cancel|job_errors|monitor_*|session_*. jobs: submit|list|get.",
+      "monitors: create|list|get|runs|timeseries|export|pause|resume|delete. cohorts: create|add_members|estimate_cost|query|query_*|get|delete. web: scrape|search|map|extract|crawl|batch_scrape|agent|crawl_preview|job_*|monitor_*|session_*. jobs: submit|list|get. discover: run_(list|get|export|legs|cancel|resume|more)|schedule_*|follow. review_history: get. events: feed|ack|endpoint_*.",
     ),
-  id: z.string().optional().describe("Monitor, cohort, query, web job/monitor/session or prism job id."),
+  id: z.string().optional().describe("Resource id (events feed/ack: consumer name)."),
   input: z
     .record(z.unknown())
     .optional()
-    .describe("The action's fields, e.g. { recipe, cadence }, { url }, { keywords }, or the job body (max_credits, confirm allowed). Monitor alert rules, incl. rows_new: socialcrawl_endpoint id=monitors."),
-  idempotencyKey: z.string().min(16).optional().describe("For web crawl/batch, cohort writes and job submit."),
+    .describe("The action's fields (a job body may add max_credits, confirm). rows_new alert rules: socialcrawl_endpoint id=monitors."),
+  idempotencyKey: z.string().min(16).optional().describe("Makes a write retry-safe."),
   dry_run: z.boolean().optional(),
 }).strict();
 
@@ -205,9 +208,9 @@ export const CheckBalanceInputSchema = z.object({
 
 export const MonitorsInputSchema = z.object({
   action: z
-    .enum(["create", "list", "get", "runs", "timeseries", "pause", "resume", "delete"])
+    .enum(["create", "list", "get", "runs", "timeseries", "export", "pause", "resume", "delete"])
     .describe(
-      "Monitor operation: 'create' a scheduled monitor, 'list' your monitors, 'get' one, 'runs' for its run history, 'timeseries' for its metric series, 'pause'/'resume' it, or 'delete' it.",
+      "Monitor operation: 'create' a scheduled monitor, 'list' your monitors, 'get' one, 'runs' for its run history, 'timeseries' for its metric series, 'export' its stored numbers as CSV or NDJSON, 'pause'/'resume' it, or 'delete' it.",
     ),
   id: z
     .string()
@@ -216,12 +219,12 @@ export const MonitorsInputSchema = z.object({
       "Monitor id must be 1-64 characters of letters, digits, '_' or '-'",
     )
     .optional()
-    .describe("Monitor id. Required for get/runs/timeseries/pause/resume/delete."),
+    .describe("Monitor id. Required for get/runs/timeseries/export/pause/resume/delete."),
   recipe: z
     .string()
     .optional()
     .describe(
-      "create: the recipe to run each cadence — any registered endpoint or Prism composite as 'platform/resource' (e.g., 'prism/brand-mentions', 'tiktok/profile').",
+      "create: the recipe to run each cadence — any registered GET endpoint or Prism composite as 'platform/resource' (e.g., 'prism/brand-mentions', 'tiktok/profile'). Params may use relative tokens now-<N>d / now-<N>h, resolved at each run.",
     ),
   params: z
     .record(z.unknown())
@@ -280,6 +283,14 @@ export const MonitorsInputSchema = z.object({
     .describe(
       "create: a tracking monitor: the numbers to keep per row, e.g. { metrics: ['items[].post.engagement.views'] }. Needed for the rows_new alert; webhook_url becomes optional.",
     ),
+  webhook_format: z
+    .enum(["full", "rows"])
+    .optional()
+    .describe("create: 'full' (default) or 'rows' (one flat line per row and metric; needs track). Needs webhook_url."),
+  webhook_rows: z
+    .enum(["all", "new"])
+    .optional()
+    .describe("create: 'all' (default) or 'new' (only rows new since the previous run; needs track with an items[] metric and webhook_url)."),
   status: z
     .string()
     .optional()
@@ -288,16 +299,19 @@ export const MonitorsInputSchema = z.object({
     ),
   cursor: z.string().optional().describe("list/runs: pagination cursor."),
   limit: z.number().int().min(1).max(100).optional().describe("list/runs: page size (1-100, default 20)."),
-  from: z.string().optional().describe("runs/timeseries: ISO start of the time window."),
-  to: z.string().optional().describe("runs/timeseries: ISO end of the time window."),
+  from: z.string().optional().describe("runs/timeseries/export: ISO start of the time window."),
+  to: z.string().optional().describe("runs/timeseries/export: ISO end of the time window."),
   include: z
-    .enum(["result"])
+    .string()
+    .regex(/^\s*(result|numbers)\s*(,\s*(result|numbers)\s*)?$/, "include is 'result', 'numbers' or 'result,numbers'")
     .optional()
-    .describe("runs: set to 'result' to include each run's full stored result envelope."),
+    .describe("runs: 'result' (each run's stored result), 'numbers' (a track run's numbers and deltas) or 'result,numbers'."),
   metric: z
     .string()
     .optional()
     .describe("timeseries: comma-separated metric keys to project (defaults to all stable computed keys)."),
+  row: z.string().optional().describe("timeseries (track monitors): comma-separated row ids to keep in the per-row series."),
+  format: z.enum(["csv", "ndjson"]).optional().describe("export: 'csv' (default) or 'ndjson'."),
 }).strict();
 
 export const WebInputSchema = z.object({
@@ -369,7 +383,7 @@ export const GetDocsInputSchema = z.object({
     .optional()
     .default("overview")
     .describe(
-      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'errors', 'idempotency', 'pagination', 'caching', 'hydration' (opt-in `include=` row joins), 'judgments' (free default labels/relevance and the metered presets), 'batch-jobs' (batches and background jobs), 'response-schema', 'limits', 'monitors', 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
+      "Documentation topic: 'overview', 'full', 'authentication', 'credits', 'pricing' (per-endpoint costs), 'pricing-rules' (every metered endpoint's exact charging rule), 'errors', 'idempotency', 'pagination', 'caching', 'hydration' (opt-in `include=` row joins), 'judgments' (free default labels/relevance and the metered presets), 'batch-jobs' (batches and background jobs), 'response-schema', 'limits', 'monitors', 'cohorts', 'discover-runs' (discover runs, schedules, review history), 'events' (event feed, webhook endpoints), 'discovery', or a platform slug (e.g., 'tiktok', or 'web' for the scraping/browser surface).",
     ),
 }).strict();
 
@@ -649,6 +663,30 @@ export const CohortsInputSchema = z.object({
     )
     .optional()
     .describe("query: restrict the run to a subset of the platforms present in the cohort. Omit to query them all."),
+  match: z
+    .enum(["keywords", "topics", "both"])
+    .optional()
+    .describe(
+      "query (opt-in topic matching, newly added and subject to availability): 'keywords' (default, literal matching only), 'topics' (keyword hits that are about a topic) or 'both' (keyword hits plus items about a topic that never say the keyword). 'topics'/'both' need `topics`. Not billed: the ceiling is the keyword query's.",
+    ),
+  topics: z
+    .array(
+      z
+        .object({
+          id: z
+            .string()
+            .min(1)
+            .max(64)
+            .regex(/^[A-Za-z0-9_-]+$/, "a topic id is 1-64 letters, digits, '_' or '-'")
+            .describe("Your own id, unique in the query; echoed back in matched_topics."),
+          description: z.string().min(1).max(300).describe("One plain sentence of what to look for, 1-300 characters."),
+        })
+        .strict(),
+    )
+    .min(1)
+    .max(10)
+    .optional()
+    .describe("query: 1-10 topics of { id, description }, with match 'topics' or 'both'."),
   limit: z
     .number()
     .int()

@@ -6,7 +6,7 @@ A step-by-step guide to using the SocialCrawl MCP server with your AI agent.
 
 ## What You Get
 
-Once installed, your AI agent gains 7 tools that let it interact with 67 platforms and 633 endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, on-page SEO audits, web research, full web scraping & browser automation, prediction markets, Google News/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
+Once installed, your AI agent gains 7 tools that let it interact with 69 platforms and 675 endpoints — social media, commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores, places, travel & local (Tripadvisor, Yelp, Google Business), business & software reputation (Trustpilot, G2), jobs & salaries, markets & finance, US congressional trading disclosures, on-page SEO audits, web research, full web scraping & browser automation, prediction markets, Google News/Trends, Korean search, cross-platform Prism composites, and a universal meta-search:
 
 - **Find** the right endpoint for a task in plain words (`socialcrawl_find`), and read what it needs and what it returns before calling (`socialcrawl_endpoint`)
 - **Fetch** profiles, posts, comments, search results, trending content, products, reviews, apps, places, analytics, and Prism composites
@@ -143,7 +143,7 @@ The agent calls `socialcrawl_request` with `platform: "instagram"`, `resource: "
 
 > "What social media platforms can you access?"
 
-The agent calls `socialcrawl_find` with no task and shows all 67 platforms, grouped by category, with endpoint counts and credit ranges.
+The agent calls `socialcrawl_find` with no task and shows all 69 platforms, grouped by category, with endpoint counts and credit ranges.
 
 > "Show me all the TikTok endpoints"
 
@@ -182,7 +182,7 @@ Version 2.0.0 has seven tools. The usual path is find → endpoint → estimate 
 - `platform` (optional) — only that platform's endpoints. With no `task`, lists that platform's endpoints.
 - `limit` (optional) — how many endpoints to return (1-10, default 3).
 
-With no arguments it lists the 67 platforms.
+With no arguments it lists the 69 platforms.
 
 **Output:** The best endpoints, each with `params_filled` (taken from the task), `params_missing`, `credits` (`min`, `max`, and the `hold` for the filled params; `estimate` when the API quoted it) and `call`, the exact `socialcrawl_request` (or `socialcrawl_manage`) call to make once nothing is missing.
 
@@ -327,7 +327,7 @@ The arguments are checked against each area's rules before anything is sent, so 
 
 Every API request costs credits, billed one of three ways.
 
-**Ladder** — the tier rate, charged per request. This covers 431 of the 631 endpoints.
+**Ladder** — the tier rate, charged per request. This covers 438 of the 675 endpoints.
 
 | Tier | Cost | What it covers |
 |------|------|----------------|
@@ -335,9 +335,9 @@ Every API request costs credits, billed one of three ways.
 | Advanced | 5 credits | Trending feeds, audience demographics, ad libraries, retail & app-store data |
 | Premium | 10 credits | AI transcripts, LinkedIn people/job search, app-listings databases |
 
-**Flat** — a per-endpoint override (70 endpoints, 22 of them free). `GET /v1/search/everywhere` is a flat 20cr; the six `utility/*` discovery endpoints and all job/monitor/session management are 0cr.
+**Flat** — a per-endpoint override (81 endpoints, 29 of them free). `GET /v1/search/everywhere` is a flat 20cr; every `utility/*` endpoint except `ai-detection` (1cr) and all job/monitor/session management are 0cr.
 
-**Metered** — the charge depends on the request (130 endpoints). An upfront ceiling is deducted and automatically refunded down to the work actually done, so the endpoint's base cost is *not* what you pay: `/v1/search/news` shows a 1cr base but really charges 2-62cr — 1 credit per Google country leg that returns articles, plus per-article billing if you add the bing engine. Ask `socialcrawl_estimate` for the real band and the rule before you run one.
+**Metered** — the charge depends on the request (156 endpoints). An upfront ceiling is deducted and automatically refunded down to the work actually done, so the endpoint's base cost is *not* what you pay: `/v1/search/news` shows a 1cr base but really charges 2-62cr — 1 credit per Google country leg that returns articles, plus per-article billing if you add the bing engine. Ask `socialcrawl_estimate` for the real band and the rule before you run one.
 
 What is **never** charged:
 

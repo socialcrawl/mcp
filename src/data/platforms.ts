@@ -18,38 +18,38 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "tiktok",
     name: "TikTok",
-    endpointCount: 37,
-    social: true,
-    category: "major",
-    description:
-      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
-  },
-  {
-    slug: "instagram",
-    name: "Instagram",
     endpointCount: 38,
     social: true,
     category: "major",
     description:
-      "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
+      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, mentions of an account (search/mentions), hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+  },
+  {
+    slug: "instagram",
+    name: "Instagram",
+    endpointCount: 43,
+    social: true,
+    category: "major",
+    description:
+      "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, mentions of an account (search/mentions), declared account country by user id (profile/country), exact hashtag size (hashtag), location profiles (location), comment likers, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
   },
   {
     slug: "youtube",
     name: "YouTube",
-    endpointCount: 29,
+    endpointCount: 30,
     social: true,
     category: "major",
     description:
-      "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
+      "Channels, videos, shorts, comments and replies, related ('up next') videos, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
   },
   {
     slug: "twitter",
     name: "Twitter/X",
-    endpointCount: 15,
+    endpointCount: 17,
     social: true,
     category: "major",
     description:
-      "Profiles, tweets and their replies, tweet search and user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
+      "Profiles, tweets and their replies, tweet search, hashtag search and account-mention search, user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   },
   {
     slug: "linkedin",
@@ -63,11 +63,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "facebook",
     name: "Facebook",
-    endpointCount: 29,
+    endpointCount: 31,
     social: true,
     category: "major",
     description:
-      "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+      "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), hashtag and page-mention search, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   },
   {
     slug: "reddit",
@@ -126,11 +126,20 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "telegram",
     name: "Telegram",
-    endpointCount: 3,
+    endpointCount: 4,
     social: true,
     category: "additional",
     description:
-      "Public Telegram channel profiles, channel post feeds, and single post lookups.",
+      "Public Telegram channel profiles, channel post feeds, single post lookups, and keyword channel discovery (`search`, from a public web index — not real time; optional subscriber join).",
+  },
+  {
+    slug: "gab",
+    name: "Gab",
+    endpointCount: 5,
+    social: true,
+    category: "additional",
+    description:
+      "Gab, the free-speech social network, from public data with no login — profiles, a user's full timeline (original posts, replies and reposts, cursor-paged back years), single posts (reposts and quotes carry the original), post comment threads with nested replies in one list (`parent_id` on every row), and keyword post search, newest first. Every lane is 1 credit and a missing handle or post is a free 404. Useful for monitoring alternative-platform narratives next to X, Truth Social and Telegram.",
   },
   {
     slug: "kick",
@@ -171,11 +180,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "google",
     name: "Google",
-    endpointCount: 11,
+    endpointCount: 12,
     social: true,
     category: "utility",
     description:
-      "Google web search, Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
+      "Google web search, Google Maps business search (up to 100 places for a keyword in a location), Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
   },
   {
     slug: "amazon",
@@ -383,11 +392,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "utility",
     name: "Utility",
-    endpointCount: 12,
+    endpointCount: 13,
     social: true,
     category: "utility",
     description:
-      "Free, zero-credit API self-discovery — list and search every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), the cross-cutting parameters that work across endpoints with their prices (`capabilities`), a priced call plan for a goal in plain words (`plan`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, 0 credits.",
+      "API self-discovery and planning, all free except one lane — list and search every endpoint (`endpoints`, with a surface `fingerprint`), get exact usage for any one of them (`endpoint`), the cross-cutting parameters that work across endpoints with their prices (`capabilities`), the best endpoint for a task (`find`) or a priced call plan for a goal in plain words (`plan`), identification of any URL, handle or id (`resolve`), an exact credit quote before a call (`estimate`), an explanation of a failed response (`explain-error`), docs search, task recipes, a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). The one paid lane is `ai-detection` (1 credit): the probability a text was written by AI.",
   },
   {
     slug: "linktree",
@@ -490,11 +499,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "naver",
     name: "Naver",
-    endpointCount: 14,
+    endpointCount: 20,
     social: true,
     category: "utility",
     description:
-      "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, and Naver Data Lab search-trend + shopping-insight time series.",
+      "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, Naver Data Lab search-trend + shopping-insight time series, and Korean local marketing: Naver Map place rank for keywords from a point, place search, place cards, the newest visitor reviews with free sentiment labels, Naver blog cards with the public daily visitor counter, and a blog's full post list.",
   },
   {
     slug: "rumble",
@@ -539,15 +548,15 @@ export const PLATFORMS: Platform[] = [
     social: false,
     category: "utility",
     description:
-      "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+      "Meta-search lanes: `everywhere` fuses 16 platforms (up to 19 sources incl. hashtag lanes; Naver joins on Hangul queries) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   },
   {
     slug: "prism",
     name: "Prism",
-    endpointCount: 46,
+    endpointCount: 50,
     social: false,
     description:
-      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
+      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Multi-platform discovery runs (`discover`: keywords or a plain-language description, inline or as a background run or schedule, never spending past `max_credits`), universal URL lookup, full comment harvesting and new-comment polling on a whole profile (profile/comments), brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
   },
   {
     slug: "content_analysis",

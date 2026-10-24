@@ -90,7 +90,7 @@ const CASES: Case[] = [
   {
     tool: "socialcrawl_account",
     schema: S.AccountInputSchema,
-    sentinels: { view: "transactions", limit: 7, cursor: "cur", request_id: "req-1" },
+    sentinels: { view: "transactions", limit: 7, cursor: "cur", request_id: "req-1", from: "2026-10-01", to: "2026-10-20", group_by: "day", api_key_id: "key_1" },
     seen: asObject,
   },
   {

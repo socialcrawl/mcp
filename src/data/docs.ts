@@ -2,6 +2,7 @@ import { PLATFORMS } from "./platforms.js";
 import { ENDPOINTS, getEndpointsByPlatform } from "./endpoints.js";
 import { CREDIT_LADDER } from "./registry-meta.js";
 import { HANDWRITTEN } from "./docs-handwritten.js";
+import { DISCOVER_RUNS_DOC, EVENTS_DOC } from "./docs-async.js";
 import {
   endpointLabel,
   formatCost,
@@ -298,11 +299,26 @@ function buildPricingDoc(): string {
   // dozens of rules (~20k characters at 130 metered endpoints). Each repeated
   // clause is printed once and referenced by its marker, so the rules stay
   // exact without the doc spilling onto a fourth page.
-  const rules = metered.map((e) => meteredRule(e.pricing));
-  const shared = sharedClauses(rules);
   lines.push(
     "",
-    `## Metered rules in full (${metered.length})`,
+    `The exact authored rule for each of the ${metered.length} metered endpoints is in the \`pricing-rules\` topic (kept apart so this reference stays a short read). For one endpoint's price, rule, price-driving parameters, row joins and worst case — or an exact quote for the params you intend to send — use the \`socialcrawl_estimate\` tool.`,
+  );
+
+  return lines.join("\n");
+}
+
+/**
+ * The `pricing-rules` topic: every metered endpoint's authored rule in full,
+ * with repeated clauses printed once. It grew past what the pricing reference
+ * could carry inside its page budget, so it is its own topic.
+ */
+function buildPricingRulesDoc(): string {
+  const metered = ENDPOINTS.filter((e) => e.pricing.model === "metered");
+  const rules = metered.map((e) => meteredRule(e.pricing));
+  const shared = sharedClauses(rules);
+  const lines: string[] = [];
+  lines.push(
+    `# SocialCrawl API — Metered pricing rules in full (${metered.length})`,
     "",
     "The exact authored rule for every metered endpoint. `socialcrawl_estimate` with an `id` returns one of these on its own (with the shared clauses expanded), plus the worst case and an exact quote for the `params` you intend to send.",
     "",
@@ -666,6 +682,7 @@ export const FIXED_TOPICS = [
   "authentication",
   "credits",
   "pricing",
+  "pricing-rules",
   "errors",
   "idempotency",
   "pagination",
@@ -677,6 +694,8 @@ export const FIXED_TOPICS = [
   "limits",
   "monitors",
   "cohorts",
+  "discover-runs",
+  "events",
   "discovery",
 ] as const;
 
@@ -698,9 +717,12 @@ export const DOCS: Record<string, string> = (() => {
     discovery: HANDWRITTEN.discovery,
     monitors: HANDWRITTEN.monitors,
     cohorts: HANDWRITTEN.cohorts,
+    "discover-runs": DISCOVER_RUNS_DOC,
+    events: EVENTS_DOC,
     "batch-jobs": HANDWRITTEN["batch-jobs"],
     judgments: buildJudgmentsDoc(),
     pricing: buildPricingDoc(),
+    "pricing-rules": buildPricingRulesDoc(),
     hydration: buildHydrationDoc(),
     full: buildFullDoc(),
   };

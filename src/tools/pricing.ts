@@ -5,6 +5,7 @@ import {
   describeLane,
   hydratingEndpoints,
   laneCeilingCredits,
+  joinsCeiling,
   laneMaxCredits,
   quoteHydration,
 } from "../hydration.js";
@@ -362,7 +363,7 @@ function callQuote(endpoint: Endpoint, params: PricingParams): string[] {
   const pageFloor = bestCaseCost(endpoint.pricing);
   const explained =
     endpoint.pricing.cost +
-    (endpoint.hydration ?? []).reduce((n, l) => n + laneMaxCredits(l), 0) +
+    joinsCeiling(endpoint) +
     (endpoint.judgments?.labels &&
     (endpoint.judgments.labels.metered.length > 0 || endpoint.judgments.labels.free.includes("intent"))
       ? judgmentHoldMax(endpoint)

@@ -18,6 +18,11 @@ import type { ApiContext } from "../context.js";
  * Billing: every lifecycle call is 0 credits. Only the query is metered — it
  * reserves a worst-case ceiling at submission and refunds down to the pages
  * that actually succeeded.
+ *
+ * Opt-in topic matching (`match` + `topics`) is newly added and subject to
+ * availability: the backend contract accepts it, but it may not be deployed
+ * on every environment yet. It is not billed: the ceiling and settlement are
+ * the keyword path's, so `estimate_cost` is unchanged by it.
  */
 
 export type CohortAction =
@@ -30,6 +35,13 @@ export type CohortAction =
   | "query_results"
   | "query_cancel"
   | "estimate_cost";
+
+export interface CohortTopicInput {
+  /** Your own id, 1-64 of [A-Za-z0-9_-]; echoed back in `matched_topics`. */
+  id: string;
+  /** A plain-language description of what to look for, 1-300 characters. */
+  description: string;
+}
 
 export interface CohortMemberInput {
   external_id: string;
@@ -57,6 +69,9 @@ export interface CohortsParams {
   max_items_per_identity?: number;
   max_credits?: number;
   platforms?: string[];
+  /** Opt-in topic matching (newly added, subject to availability). */
+  match?: "keywords" | "topics" | "both";
+  topics?: CohortTopicInput[];
   // query_results
   limit?: number;
   cursor?: string;
@@ -122,6 +137,9 @@ export const COHORT_LIMITS = {
   maxItemsPerIdentity: 1_000,
   maxCredits: 1_000_000,
   resultsLimit: 500,
+  topics: 10,
+  topicIdMax: 64,
+  topicDescriptionMax: 300,
   retentionDaysMin: 7,
   retentionDaysMax: 90,
 } as const;
@@ -133,6 +151,9 @@ export const COHORT_LIMITS = {
  * resource. Mirrors the zod schema so non-MCP callers get the same guarantee.
  */
 const COHORT_ID_RE = /^[0-9A-Za-z]{21}$|^[0-9a-fA-F-]{36}$/;
+
+/** contract.ts TOPIC_ID_PATTERN. */
+const TOPIC_ID_RE = /^[A-Za-z0-9_-]+$/;
 
 function pruneQuery(q: Record<string, string | undefined>): Record<string, string> {
   const out: Record<string, string> = {};
@@ -192,6 +213,44 @@ function countByPlatform(input: CohortsParams): Record<string, number> | string 
     return counts;
   }
   return "Error: `estimate_cost` needs either `members` (the panel you are about to upload) or `platform_counts` (e.g. { instagram: 4000, youtube: 1000 }) to size the reservation.";
+}
+
+/**
+ * Mirrors createQueryInputSchema's topic rules (contract.ts): `topics` needs
+ * `match` "topics" or "both", those modes need `topics`, 1-10 topics with
+ * unique ids, and each description is 1-300 characters after NFKC + trim.
+ */
+function validateTopics(input: CohortsParams): string | null {
+  const judged = input.match === "topics" || input.match === "both";
+  if (input.match !== undefined && !["keywords", "topics", "both"].includes(input.match)) {
+    return "Error: `match` is 'keywords' (default), 'topics' or 'both'.";
+  }
+  if (input.topics !== undefined && !judged) {
+    return 'Error: `topics` needs `match: "topics"` or `match: "both"` (COHORT_TOPICS_REQUIRE_MATCH).';
+  }
+  if (judged && (input.topics === undefined || input.topics.length === 0)) {
+    return `Error: \`match: "${input.match}"\` needs \`topics\`: 1-${COHORT_LIMITS.topics} objects of { id, description } (COHORT_MATCH_REQUIRES_TOPICS).`;
+  }
+  if (input.topics === undefined) return null;
+  if (input.topics.length > COHORT_LIMITS.topics) {
+    return `Error: ${input.topics.length} topics exceeds the limit of ${COHORT_LIMITS.topics}.`;
+  }
+  const seen = new Set<string>();
+  for (const [i, topic] of input.topics.entries()) {
+    const id = topic?.id ?? "";
+    const description = (topic?.description ?? "").normalize("NFKC").trim();
+    if (id.length < 1 || id.length > COHORT_LIMITS.topicIdMax || !TOPIC_ID_RE.test(id)) {
+      return `Error: topics[${i}].id must be 1-${COHORT_LIMITS.topicIdMax} characters of letters, digits, '_' or '-' (COHORT_TOPIC_INVALID).`;
+    }
+    if (description.length < 1 || description.length > COHORT_LIMITS.topicDescriptionMax) {
+      return `Error: topics[${i}].description must be 1-${COHORT_LIMITS.topicDescriptionMax} characters, a sentence describing what to look for (COHORT_TOPIC_INVALID).`;
+    }
+    if (seen.has(id)) {
+      return `Error: topic id "${id}" appears twice; topic ids must be unique (COHORT_TOPIC_INVALID).`;
+    }
+    seen.add(id);
+  }
+  return null;
 }
 
 /** Reject unsupported platforms up front rather than paying for a 400. */
@@ -391,6 +450,8 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams, opts: { dry
       if (input.date_to && Date.parse(input.date_to) < Date.parse(input.date_from!)) {
         return "Error: `date_to` is earlier than `date_from`.";
       }
+      const topicError = validateTopics(input);
+      if (topicError) return topicError;
       const body: Record<string, unknown> = {
         keywords: input.keywords,
         date_from: input.date_from,
@@ -400,6 +461,10 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams, opts: { dry
       };
       if (input.date_to) body.date_to = input.date_to;
       if (input.platforms && input.platforms.length > 0) body.platforms = input.platforms;
+      // Sent only when set: a keyword-only body must stay identical to what it
+      // was before these fields existed (it feeds the idempotency fingerprint).
+      if (input.match !== undefined) body.match = input.match;
+      if (input.topics !== undefined) body.topics = input.topics;
 
       response = await send({
         method: "POST",
@@ -411,6 +476,10 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams, opts: { dry
       label = `POST /v1/cohorts/${input.cohort_id}/queries`;
       costNote =
         "metered — reserves the worst-case ceiling now, charges only for pages that succeed, refunds the rest once terminal";
+      if (input.match === "topics" || input.match === "both") {
+        costNote +=
+          ". Topic matching (newly added, subject to availability) is not billed: the ceiling is the keyword query's";
+      }
       break;
     }
 
@@ -475,6 +544,7 @@ export async function cohorts(ctx: ApiContext, input: CohortsParams, opts: { dry
   if (action === "query_results") {
     headerLines.push(
       "**Read `coverage`, not just `items`:** it carries one record per member, including the ones that matched nothing, and `window_complete: false` means there may be posts you did not see. Page with `next_cursor` until it is null — later pages can carry coverage with an empty `items` array.",
+      "On a topic query each item also carries `matched_topics` (`[{ id, p }]` at p >= 0.7; `[]` = checked and about none; `null` = could not be checked, the keyword match stands) and `mention_type` (`uncertain` when no option clearly won; `null` when not checked or no topic matched).",
     );
   }
   const header = `${headerLines.join("\n")}\n\n`;

@@ -1,5 +1,5 @@
 import { ENDPOINTS } from "./data/endpoints.js";
-import { explainHydration, laneMaxCredits } from "./hydration.js";
+import { explainHydration, joinsCeiling } from "./hydration.js";
 import {
   explainAutomaticJoins,
   explainJudgments,
@@ -223,5 +223,5 @@ export function hydratingEndpointsByCost(): Endpoint[] {
 
 /** Total credits every join on this endpoint can hold on one page. */
 export function hydrationCeiling(e: Endpoint): number {
-  return (e.hydration ?? []).reduce((sum, l) => sum + laneMaxCredits(l), 0);
+  return joinsCeiling(e);
 }

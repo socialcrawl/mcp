@@ -1,3 +1,5 @@
+import { findEndpoint } from "../data/endpoints.js";
+import { timeoutSecondsFor } from "../timeouts.js";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -148,27 +150,33 @@ describe("per-endpoint timeouts", () => {
     return state;
   }
 
-  it("a plain endpoint still times out at 30s", async () => {
+  it("a plain endpoint waits the 60s floor, not less", async () => {
     vi.useFakeTimers();
     hang();
-    // youtube/video carries no latency budget in the registry, so it keeps the default.
-    const p = request(ctx, { platform: "youtube", resource: "video", params: { url: "https://youtu.be/x" } });
+    let settled = false;
+    const p = request(ctx, { platform: "youtube", resource: "video", params: { url: "https://youtu.be/x" } }).then((r) => {
+      settled = true;
+      return r;
+    });
     await vi.advanceTimersByTimeAsync(30_001);
-    expect(await p).toContain("timed out after 30 seconds");
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await p).toContain("timed out after 60 seconds");
   });
 
-  it("a streaming endpoint is allowed 120s", async () => {
+  it("a streaming endpoint waits its measured recommendation plus headroom", async () => {
     vi.useFakeTimers();
     hang();
+    const expected = timeoutSecondsFor(findEndpoint("prism", "answers"));
     let settled = false;
     const p = request(ctx, { platform: "prism", resource: "answers", params: { query: "q" } }).then((r) => {
       settled = true;
       return r;
     });
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(expected * 1000 - 1_000);
     expect(settled).toBe(false);
-    await vi.advanceTimersByTimeAsync(60_001);
-    expect(await p).toContain("timed out after 120 seconds");
+    await vi.advanceTimersByTimeAsync(1_001);
+    expect(await p).toContain(`timed out after ${expected} seconds`);
   });
 
   it("search/everywhere succeeds at 45s", async () => {
@@ -279,7 +287,7 @@ describe("timeout text", () => {
       new Promise((_r, rej) => init.signal?.addEventListener("abort", () => rej(new DOMException("a", "AbortError")))),
     );
     const p = request(ctx, { platform: "tiktok", resource: "profile", params: { handle: "x" } });
-    await vi.advanceTimersByTimeAsync(30_001);
+    await vi.advanceTimersByTimeAsync(60_001);
     const text = await p;
     expect(text).toMatch(/may still complete/i);
     expect(text).toMatch(/bill/i);
@@ -311,8 +319,8 @@ describe("timeout text", () => {
       new Promise((_r, rej) => init.signal?.addEventListener("abort", () => rej(new DOMException("a", "AbortError")))),
     );
     const p = web(ctx, { action: "scrape", input: { url: "https://example.com" } });
-    // web/scrape's registry budget (28s) plus the 5s margin.
-    await vi.advanceTimersByTimeAsync(33_001);
+    // web/scrape's registry budget is below the 60s floor, so the floor applies.
+    await vi.advanceTimersByTimeAsync(60_001);
     const text = await p;
     expect(text).toMatch(/may still complete/i);
     expect(text).toContain("view=transactions");

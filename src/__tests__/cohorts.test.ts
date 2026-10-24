@@ -376,3 +376,99 @@ describe("the cohorts docs topic", () => {
     }
   });
 });
+
+describe("opt-in topic matching (match + topics)", () => {
+  const base = {
+    action: "query" as const,
+    cohort_id: COHORT_ID,
+    keywords: ["apple"],
+    date_from: "2026-08-01T00:00:00.000Z",
+    max_pages_per_identity: 2,
+    max_items_per_identity: 50,
+    max_credits: 100,
+  };
+  const topics = [
+    { id: "apple_inc", description: "Apple the consumer electronics company, its iPhone, Mac or services" },
+    { id: "iphone-17", description: "The iPhone 17 handset" },
+  ];
+
+  it("sends match and topics in the query body", async () => {
+    const cap = stubFetch(202, { query_id: QUERY_ID, status: "queued" });
+    const out = await cohorts(ctx, { ...base, match: "both", topics });
+    expect(cap().method).toBe("POST");
+    expect(cap().url).toBe(`https://www.socialcrawl.dev/v1/cohorts/${COHORT_ID}/queries`);
+    const body = JSON.parse(cap().body!);
+    expect(body.match).toBe("both");
+    expect(body.topics).toEqual(topics);
+    expect(body.keywords).toEqual(["apple"]);
+    expect(out).toContain("not billed");
+  });
+
+  it("leaves a keyword-only body exactly as it was", async () => {
+    const cap = stubFetch(202, { query_id: QUERY_ID });
+    await cohorts(ctx, base);
+    const body = JSON.parse(cap().body!);
+    expect(body).not.toHaveProperty("match");
+    expect(body).not.toHaveProperty("topics");
+  });
+
+  it("enforces the contract's topic rules locally", async () => {
+    const spy = forbidFetch();
+    expect(await cohorts(ctx, { ...base, topics })).toContain("COHORT_TOPICS_REQUIRE_MATCH");
+    expect(await cohorts(ctx, { ...base, match: "keywords", topics })).toContain(
+      "COHORT_TOPICS_REQUIRE_MATCH",
+    );
+    expect(await cohorts(ctx, { ...base, match: "topics" })).toContain("COHORT_MATCH_REQUIRES_TOPICS");
+    expect(
+      await cohorts(ctx, {
+        ...base,
+        match: "topics",
+        topics: Array.from({ length: 11 }, (_, i) => ({ id: `t${i}`, description: "x" })),
+      }),
+    ).toContain("limit of 10");
+    expect(
+      await cohorts(ctx, { ...base, match: "topics", topics: [{ id: "bad id", description: "x" }] }),
+    ).toContain("topics[0].id");
+    expect(
+      await cohorts(ctx, { ...base, match: "topics", topics: [{ id: "a", description: "   " }] }),
+    ).toContain("topics[0].description");
+    expect(
+      await cohorts(ctx, { ...base, match: "topics", topics: [{ id: "a", description: "y".repeat(301) }] }),
+    ).toContain("1-300 characters");
+    expect(
+      await cohorts(ctx, {
+        ...base,
+        match: "both",
+        topics: [
+          { id: "a", description: "one" },
+          { id: "a", description: "two" },
+        ],
+      }),
+    ).toContain("appears twice");
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("does not change the reservation ceiling (topic matching is not billed)", () => {
+    expect(creditCeiling({ instagram: 10 }, 2).total).toBe(40);
+  });
+
+  it("explains matched_topics and mention_type on the results page", async () => {
+    stubFetch(200, { items: [], coverage: [], next_cursor: null });
+    const out = await cohorts(ctx, { action: "query_results", query_id: QUERY_ID });
+    expect(out).toContain("matched_topics");
+    expect(out).toContain("mention_type");
+  });
+});
+
+describe("the cohorts docs topic: topics, dry_run and lanes", () => {
+  it("documents topic matching as newly added and dry_run", () => {
+    const doc = getDoc("cohorts")!;
+    expect(doc).toContain("newly added, subject to availability");
+    expect(doc).toContain("matched_topics");
+    expect(doc).toContain("mention_type");
+    expect(doc).toContain("dry_run");
+    // Twitter pages; LinkedIn is the fixed-window lane.
+    expect(doc).toContain("Twitter/X, TikTok, Kwai, Truth Social | 1 per page");
+    expect(doc).not.toContain("single-page platforms (Twitter/X");
+  });
+});

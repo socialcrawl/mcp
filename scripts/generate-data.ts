@@ -208,17 +208,17 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   web:
     "Full web scraping, search, and browser automation. Sync scrape (markdown/HTML/screenshot/links), web search with content, site URL mapping, and LLM structured extraction; async crawl, batch-scrape, and autonomous agent jobs with a unified poll/cancel jobs surface; stateful web monitors (change detection on a cadence, delivered to a webhook); interactive browser sessions (open a page, execute code, close); and document parsing. The stateful surface (jobs, monitors, sessions, crawl/batch/agent) is managed through `socialcrawl_manage` with area web, which also serves the sync scrape/search/map/extract endpoints.",
   tiktok:
-    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+    "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, mentions of an account (search/mentions), hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
   instagram:
-    "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
+    "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, mentions of an account (search/mentions), declared account country by user id (profile/country), exact hashtag size (hashtag), location profiles (location), comment likers, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
   youtube:
-    "Channels, videos, shorts, comments and replies, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
+    "Channels, videos, shorts, comments and replies, related ('up next') videos, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
   twitter:
-    "Profiles, tweets and their replies, tweet search and user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
+    "Profiles, tweets and their replies, tweet search, hashtag search and account-mention search, user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   linkedin:
     "Personal profiles (single sub-resources, or one-call bundles: profile/all, profile/complete, profile/with-posts) and company pages (incl. lookup by website domain, also-viewed pages, employee counts by location), posts and post-with-comments, reposts, reactions, group and company posts, post comments and replies, Pulse articles with their comments and reactions, people search (keyword or a search-results URL), company and hashtag search, similar members, structured profile sub-resources (experiences, educations, skills, position skills, top position, honors, certifications, publications, volunteers, recommendations, followed companies/groups/schools/newsletters/Top Voices, images, videos, last activity), jobs (job search, company jobs, jobs a member posted, a job's hiring team, job details), company insights and job counts, groups, location/school/industry search, the complete post-history archive walk (profile/posts/archive — metered per post), post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
   facebook:
-    "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+    "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), hashtag and page-mention search, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
   reddit:
     "Subreddit posts and details, single post detail, post comments, user profiles with their post and comment history, keyword / comment / media search, subreddit discovery search, the cross-source omni-search composite, and post video transcripts.",
   threads:
@@ -231,7 +231,9 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
     "Public user profiles including subscriber count and bio, plus comments on Spotlight posts.",
   truthsocial: "Profiles, user posts, and post details.",
   telegram:
-    "Public Telegram channel profiles, channel post feeds, and single post lookups.",
+    "Public Telegram channel profiles, channel post feeds, single post lookups, and keyword channel discovery (`search`, from a public web index — not real time; optional subscriber join).",
+  gab:
+    "Gab, the free-speech social network, from public data with no login — profiles, a user's full timeline (original posts, replies and reposts, cursor-paged back years), single posts (reposts and quotes carry the original), post comment threads with nested replies in one list (`parent_id` on every row), and keyword post search, newest first. Every lane is 1 credit and a missing handle or post is a free 404. Useful for monitoring alternative-platform narratives next to X, Truth Social and Telegram.",
   kick: "Clip details including view count, duration, and category.",
   kwai:
     "Profiles, user posts, and post details from Kwai (Kuaishou's international short-video app).",
@@ -240,7 +242,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   perplexity:
     "Web research via Perplexity Sonar — returns a grounded answer with cited source URLs.",
   google:
-    "Google web search, Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
+    "Google web search, Google Maps business search (up to 100 places for a keyword in a location), Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
   amazon:
     "Product search, full ASIN product details, on-page reviews, buy-box sellers and offers, Amazon shop/storefront pages, Best Sellers charts by category, current deals, and seller profiles — across ~13 Amazon marketplaces via the country parameter.",
   google_shopping:
@@ -290,7 +292,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   yelp:
     "Yelp business profiles by encid, business reviews, business search (compact and full-card variants), and search suggestions.",
   utility:
-    "Free, zero-credit API self-discovery — list and search every endpoint (`endpoints`), get exact usage for any one of them (`endpoint`), the cross-cutting parameters that work across endpoints with their prices (`capabilities`), a priced call plan for a goal in plain words (`plan`), a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). Served in-process from the endpoint registry: no network call, 0 credits.",
+    "API self-discovery and planning, all free except one lane — list and search every endpoint (`endpoints`, with a surface `fingerprint`), get exact usage for any one of them (`endpoint`), the cross-cutting parameters that work across endpoints with their prices (`capabilities`), the best endpoint for a task (`find`) or a priced call plan for a goal in plain words (`plan`), identification of any URL, handle or id (`resolve`), an exact credit quote before a call (`estimate`), an explanation of a failed response (`explain-error`), docs search, task recipes, a one-call quickstart (`quickstart`), and an AI-agent context payload (`llms`). The one paid lane is `ai-detection` (1 credit): the probability a text was written by AI.",
   linktree:
     "Linktree link-in-bio pages including display name, bio, avatar, and link list.",
   linkbio:
@@ -314,7 +316,7 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   tavily:
     "Web search with optional LLM-synthesised answer, content extraction from URLs, lightweight sitemap discovery, and full multi-page crawl.",
   naver:
-    "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, and Naver Data Lab search-trend + shopping-insight time series.",
+    "Korea's #1 search portal — search corpora (blog, news, encyclopedia, cafe article, Q&A/KiN, local places, image, web), the Korean-language errata and adult-term classifiers, Naver Data Lab search-trend + shopping-insight time series, and Korean local marketing: Naver Map place rank for keywords from a point, place search, place cards, the newest visitor reviews with free sentiment labels, Naver blog cards with the public daily visitor counter, and a blog's full post list.",
   xiaohongshu:
     "Xiaohongshu (RED / Little Red Book) — note search, the hot-search trending board, creator profiles and their note lists, full note detail, and top-level note comments. Metered at 5 credits per returned row, so cap `limit` before you call.",
   producthunt:
@@ -328,9 +330,9 @@ const PLATFORM_DESCRIPTIONS: Record<string, string> = {
   apple_music:
     "Apple Music catalog search, artist, album, and track details, and the per-country Apple Music charts (top songs, albums, music videos, playlists).",
   search:
-    "Meta-search lanes: `everywhere` fuses 14 platforms (up to 17 sources in hashtag mode) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+    "Meta-search lanes: `everywhere` fuses 16 platforms (up to 19 sources incl. hashtag lanes; Naver joins on Hangul queries) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   prism:
-    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Universal URL lookup, full comment harvesting, brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
+    "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Multi-platform discovery runs (`discover`: keywords or a plain-language description, inline or as a background run or schedule, never spending past `max_credits`), universal URL lookup, full comment harvesting and new-comment polling on a whole profile (profile/comments), brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
   content_analysis:
     "Cross-web brand-mention search and 6-axis sentiment intelligence over news, blogs, ecommerce, and message boards — paginated mention feeds, sentiment/summary aggregates, rating distributions, phrase and category trends, plus languages/locations/categories/filters reference data.",
   on_page:
@@ -835,12 +837,18 @@ const GENERATED_NOTE = "Generated by scripts/generate-data.ts (T28) - do not han
 // Recipes (data, with computed cost): packages/social-api/scripts/export-recipes.ts.
 const exportRecipes = resolve(socialApi, "scripts/export-recipes.ts");
 if (existsSync(exportRecipes)) {
-  const out = execFileSync(resolve(root, "node_modules/.bin/tsx"), ["scripts/export-recipes.ts"], {
+  // Run tsx's CLI through node: `node_modules/.bin/tsx` is a shell shim that
+  // Windows cannot execute directly (spawnSync ENOENT).
+  const out = execFileSync(process.execPath, [resolve(root, "node_modules/tsx/dist/cli.mjs"), "scripts/export-recipes.ts"], {
     cwd: socialApi,
     env: { ...process.env, SKIP_ENV_VALIDATION: "1" },
     maxBuffer: 64 * 1024 * 1024,
   }).toString();
-  const { recipes } = JSON.parse(out) as { recipes: unknown[] };
+  // Backend modules may log a startup notice to stdout before the JSON (e.g.
+  // the REDIS_URL warning); parse from the line the JSON document starts on.
+  const jsonStart = out.search(/^\{/m);
+  if (jsonStart === -1) throw new Error(`export-recipes printed no JSON:\n${out.slice(0, 500)}`);
+  const { recipes } = JSON.parse(out.slice(jsonStart)) as { recipes: unknown[] };
   writeFileSync(
     resolve(root, "src/data/recipes.ts"),
     `import type { RecipeData } from "../resources/recipe-types.js";\n\n/** Task recipes with computed cost lines. ${GENERATED_NOTE} */\nexport const RECIPES_DATA: RecipeData[] = ${JSON.stringify(recipes)};\n`,

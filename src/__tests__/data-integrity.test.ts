@@ -480,6 +480,15 @@ describe("Pricing documentation", () => {
     }
   });
 
+  it("keeps every metered endpoint's authored rule reachable in the pricing-rules topic", () => {
+    const rules = getDoc("pricing-rules")!;
+    expect(getDoc("pricing")!).toContain("`pricing-rules`");
+    for (const e of ENDPOINTS.filter((x) => x.pricing.model === "metered")) {
+      const label = `/v1/${e.platform}/${e.resource}`;
+      expect(rules, `pricing-rules missing ${e.method} ${label}`).toContain(label);
+    }
+  });
+
   it("documents the flat 20-credit override for search/everywhere", () => {
     expect(getDoc("pricing")!).toContain("| `/v1/search/everywhere` | 20cr |");
   });

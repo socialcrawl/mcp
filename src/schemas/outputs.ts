@@ -187,7 +187,7 @@ export const EstimateOutputShape = {
 
 export const AccountOutputShape = {
   ...BalanceOutputShape,
-  view: z.enum(["balance", "transactions", "status", "freshness"]).optional(),
+  view: z.enum(["balance", "transactions", "usage", "status", "freshness"]).optional(),
 };
 
 export type RequestOutput = z.infer<typeof RequestOutputSchema>;

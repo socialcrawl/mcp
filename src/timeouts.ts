@@ -1,6 +1,13 @@
 import type { Endpoint } from "./types.js";
 
-export const DEFAULT_TIMEOUT_S = 30;
+/**
+ * The floor for every call. The API's own clocks are a 48s deadline, a 54s
+ * fallback that answers 504 (refunded) and a 60s hard kill, and it recommends a
+ * 60s client timeout. A client-side abort does not stop the server call: it
+ * still runs, bills and caches, so giving up before the server does only pays
+ * for an answer the agent never sees.
+ */
+export const DEFAULT_TIMEOUT_S = 60;
 export const MAX_TIMEOUT_S = 120;
 /** Headroom added to a server-side latency budget so the client does not give up first. */
 const BUDGET_MARGIN_S = 5;
@@ -11,19 +18,19 @@ const positive = (n: unknown): n is number => typeof n === "number" && Number.is
 
 /**
  * Client timeout for one endpoint, in seconds, read from the registry data in
- * priority order: `recommended_timeout_s`, then `budget_ms` plus a margin, then
- * the execution-mode default (a streaming endpoint may run for minutes; an
- * async submit returns at once), else 30. Never above 120.
+ * priority order: `recommended_timeout_s` plus a margin, then `budget_ms` plus a
+ * margin, then the execution-mode default (a streaming endpoint with no
+ * measured latency may run for minutes). Never below the 60s floor the API
+ * recommends (a measured p99 is not a deadline), never above 120.
  */
 export function timeoutSecondsFor(endpoint: TimeoutFields | undefined): number {
   let s = DEFAULT_TIMEOUT_S;
   if (endpoint) {
-    if (positive(endpoint.recommended_timeout_s)) s = endpoint.recommended_timeout_s;
+    if (positive(endpoint.recommended_timeout_s)) s = Math.ceil(endpoint.recommended_timeout_s) + BUDGET_MARGIN_S;
     else if (positive(endpoint.budget_ms)) s = Math.ceil(endpoint.budget_ms / 1000) + BUDGET_MARGIN_S;
     else if (endpoint.streaming) s = MAX_TIMEOUT_S;
-    else if (endpoint.execution === "async") s = DEFAULT_TIMEOUT_S;
   }
-  return Math.min(MAX_TIMEOUT_S, s);
+  return Math.min(MAX_TIMEOUT_S, Math.max(DEFAULT_TIMEOUT_S, s));
 }
 
 /**

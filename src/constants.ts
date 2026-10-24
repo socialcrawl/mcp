@@ -4,7 +4,7 @@ export const CHARACTER_LIMIT = 25_000;
  * boundaries to fit; the full body stays behind a `socialcrawl://results/` link.
  */
 export const RESULT_CHAR_BUDGET = CHARACTER_LIMIT;
-export const TIMEOUT_MS = 30_000;
+export const TIMEOUT_MS = 60_000;
 /** A result this small comes back whole (text and structuredContent); larger ones sit behind a result_id. */
 export const INLINE_MAX_ROWS = 200;
 export const INLINE_MAX_BYTES = 60_000;
@@ -15,7 +15,7 @@ export const INLINE_MAX_BYTES = 60_000;
 // stale copy behind. Import it from there.
 
 export const SERVER_NAME = "socialcrawl-mcp";
-export const SERVER_VERSION = "2.0.2";
+export const SERVER_VERSION = "2.1.0";
 
 /**
  * Inside a normalised `socialcrawl_request` params object: the names of the

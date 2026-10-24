@@ -4,9 +4,49 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0] - 2026-10-24
+
+Re-synced with the committed backend registry: 68/646 → **69 platforms / 675 endpoints**. This release also adds the background-work and account surfaces the MCP could not reach, and puts a floor under client timeouts.
+
+### Added
+
+- **29 endpoints and the Gab platform.**
+  - **Gab:** profiles, timelines, posts, comment threads, search.
+  - **Instagram:** `profile/country`, `hashtag`, `location`, `comment/likers`, `search/mentions`.
+  - **Naver local marketing:** `place/rank`, `place/search`, `place`, `place/reviews`, `blog`, `blog/posts`.
+  - **Prism:** `discover` (GET and POST, capped by `max_credits`), `discover/inputs`, `profile/comments`.
+  - **Mention and hashtag search** on X, Facebook and TikTok.
+  - **Single endpoints:** `telegram/search`, `youtube/video/related`, `google/business/search`, `utility/ai-detection` (1 credit).
+  - **Platform blurbs** updated for every platform that grew.
+- **`socialcrawl_manage` area `discover`.** Discover runs (`run_list`, `run_get` with long-poll, `run_export`, `run_legs`, `run_cancel`, `run_resume`, `run_more`), schedules (`schedule_list`, `schedule_get`, `schedule_pause`, `schedule_resume`, `schedule_delete`), and a guarded `follow` for `data.next.*` links (configured base URL and free reads only).
+- **`socialcrawl_manage` area `review_history`.** Polls an async review-history job (Trustpilot, Tripadvisor).
+- **`socialcrawl_manage` area `events`.**
+  - The account event feed: `feed` with long-poll, and consumer `ack`.
+  - Webhook endpoints: `endpoint_create` (the secret is shown once), `endpoint_list`, `endpoint_get`, `endpoint_update`, `endpoint_delete`, `endpoint_rotate_secret`, `endpoint_test`, `endpoint_attempts`.
+- **`socialcrawl_account` view `usage`.** Credits and requests per API key per day (`GET /v1/credits/usage`, up to 92 days).
+- **Monitors:**
+  - An `export` action (CSV/NDJSON).
+  - `track` checks, `webhook_format` (full|rows), `webhook_rows` (all|new), and the `rows_new` alert rules.
+  - `include=result|numbers` on runs, and a `row` filter on the timeseries.
+- **Cohorts:** optional topic matching (`match`, `topics`). Newly added on the backend and subject to availability.
+- **New docs topics:** `pricing-rules`, `discover-runs`, `events`.
+- **Requests send `User-Agent: socialcrawl-mcp/<version>`**, so the API's usage analytics can tell MCP traffic apart.
 
 ### Changed
+
+- **Client timeouts have a 60s floor.** The rule is `max(60s, recommended_timeout_s + 5s)`, capped at 120s.
+  - Before, the default was 30s, and an endpoint's measured p99 was used as the deadline itself: `tiktok/profile` got 21s and the streaming `prism/answers` got 38s.
+  - The API hard-kills at 60s and still bills a call the client abandoned, so giving up earlier only paid for an unseen answer.
+- **The full metered rules moved from the `pricing` topic to `pricing-rules`.** The pricing reference stays within its page budget (2 pages each).
+- **Overlapping row joins are quoted once.** `instagram/search/reels` `include=creator,country` is priced as `creator` alone (61, not 91), matching the backend: the creator card already carries the country.
+
+### Fixed
+
+- **`npm run generate:data` on Windows.** The recipe export spawned the `node_modules/.bin/tsx` shell shim (ENOENT), and a backend startup notice printed on stdout broke the JSON parse.
+- **GETTING-STARTED and HOW-IT-WORKS** were still on the 67/631 counts and the 30s timeout.
+- **The cohorts docs had Twitter's paging backwards:** Twitter pages; LinkedIn, Bluesky, Threads and Twitch are one fixed page.
+
+### Changed (OAuth preview, unreleased since 2.0.2)
 
 - **OAuth preview: lazy sign-in.** With `SOCIALCRAWL_OAUTH=1`, an anonymous caller keeps `initialize`, `tools/list` and the free discovery tools (`find`, `endpoint`, `estimate`); only a `tools/call` that needs an account (`account`, `request`, `collect`, `manage`, an unknown tool, or a body that is not parsed JSON) gets the HTTP 401 challenge. Before, every anonymous request got the 401, so the free tools stopped working the moment OAuth was on. The 401 is sent before the SDK runs because clients such as Claude start sign-in only on an HTTP 401, never on a tool error inside a 200, which is why a keyless paid call used to end at "No API key configured" with no way to sign in. Allow-list: `ANONYMOUS_TOOLS` in `src/oauth/scopes.ts`.
 - **OAuth preview: stricter access tokens.** A JWT must carry header `typ: at+jwt` (RFC 9068), so another JWT the authorization server signs with the same key (a Better Auth session JWT) is refused, and a DPoP-bound token (`cnf` claim) is refused because proofs are not checked.

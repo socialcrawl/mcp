@@ -4,8 +4,13 @@ import type { ApiContext } from "../context.js";
 import { errorFromText, isErrorText } from "../result.js";
 import type { ToolOutput } from "../result.js";
 import { CohortsInputSchema, MonitorsInputSchema, WebInputSchema } from "../schemas/tools.js";
+import { DiscoverInputSchema, EventsInputSchema, ReviewHistoryInputSchema } from "../schemas/async.js";
 import { cohorts } from "./cohorts.js";
 import type { CohortsParams } from "./cohorts.js";
+import { discoverRuns, reviewHistory } from "./discover-runs.js";
+import type { DiscoverParams, ReviewHistoryParams } from "./discover-runs.js";
+import { events } from "./events.js";
+import type { EventsParams } from "./events.js";
 import { monitors } from "./monitors.js";
 import type { MonitorsParams } from "./monitors.js";
 import { requestStructured } from "./request.js";
@@ -16,12 +21,14 @@ import type { WebParams } from "./web.js";
  * `socialcrawl_manage` (MCP-04): one action-dispatched tool for everything
  * that persists or runs in the background: monitors, cohorts, the web surface
  * (scrape/search/map/extract, crawl/batch/agent jobs, change monitors,
- * browser sessions) and Prism background jobs. The arguments are rebuilt into
+ * browser sessions), Prism background jobs, discover runs and schedules,
+ * review-history polls and the account events feed with its webhook
+ * endpoints. The arguments are rebuilt into
  * each area's own strict schema and validated before anything is sent, so a
  * wrong field is a free, local error that states the rules.
  */
 
-export type ManageArea = "monitors" | "cohorts" | "web" | "jobs";
+export type ManageArea = "monitors" | "cohorts" | "web" | "jobs" | "discover" | "review_history" | "events";
 
 export interface ManageParams {
   area: ManageArea;
@@ -39,6 +46,11 @@ export const DRY_RUN_ACTIONS: Record<ManageArea, string[]> = {
   web: ["monitor_create", "monitor_update"],
   cohorts: ["create", "add_members", "query"],
   jobs: [],
+  // No discover-run, schedule, review-history, events or webhook-endpoint
+  // route reads dry_run (run resume/more refuse any query parameter).
+  discover: [],
+  review_history: [],
+  events: [],
 };
 
 /**
@@ -138,7 +150,19 @@ export const MANAGE_ACTIONS: Record<ManageArea, string[]> = {
   cohorts: optionsOf(CohortsInputSchema),
   web: optionsOf(WebInputSchema),
   jobs: JOB_ACTION_RESOURCES.map((a) => a.action),
+  discover: optionsOf(DiscoverInputSchema),
+  review_history: optionsOf(ReviewHistoryInputSchema),
+  events: optionsOf(EventsInputSchema),
 };
+
+/** Where `id` goes for the background-work areas: the field each action names its resource by. */
+function asyncIdKey(area: "discover" | "review_history" | "events", action: string): string {
+  if (area === "review_history") return "job_id";
+  if (area === "events") return action.startsWith("endpoint_") ? "endpoint_id" : "consumer";
+  if (action === "follow") return "url";
+  // run_list takes a schedule id: it lists that schedule's runs.
+  return action.startsWith("schedule_") || action === "run_list" ? "schedule_id" : "run_id";
+}
 
 function done(text: string, structured?: Record<string, unknown>): ToolOutput {
   return { text, structured: isErrorText(text) ? errorFromText(text) : (structured ?? { ok: true }) };
@@ -212,6 +236,29 @@ async function dispatch(ctx: ApiContext, p: ManageParams, input: Record<string, 
     });
     if (!parsed.success) return invalid(p.area, parsed.error);
     return done(await cohorts(ctx, parsed.data as CohortsParams, { dryRun: sendDry }));
+  }
+
+  if (p.area === "discover" || p.area === "review_history" || p.area === "events") {
+    const parsedInput = {
+      ...input,
+      action: p.action,
+      ...(p.id ? { [asyncIdKey(p.area, p.action)]: p.id } : {}),
+      // Only events writes take a key; on the other areas the strict schema refuses it.
+      ...(p.idempotencyKey ? { idempotencyKey: p.idempotencyKey } : {}),
+    };
+    if (p.area === "discover") {
+      const parsed = DiscoverInputSchema.safeParse(parsedInput);
+      if (!parsed.success) return invalid(p.area, parsed.error);
+      return done(await discoverRuns(ctx, parsed.data as DiscoverParams));
+    }
+    if (p.area === "review_history") {
+      const parsed = ReviewHistoryInputSchema.safeParse(parsedInput);
+      if (!parsed.success) return invalid(p.area, parsed.error);
+      return done(await reviewHistory(ctx, parsed.data as ReviewHistoryParams));
+    }
+    const parsed = EventsInputSchema.safeParse(parsedInput);
+    if (!parsed.success) return invalid(p.area, parsed.error);
+    return done(await events(ctx, parsed.data as EventsParams));
   }
 
   // Prism background jobs: submit (POST prism/jobs), list, get one.

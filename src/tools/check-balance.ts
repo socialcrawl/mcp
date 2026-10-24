@@ -5,14 +5,25 @@ import { errorFromText, structureEnvelope, summaryLine } from "../result.js";
 import type { ToolOutput } from "../result.js";
 
 export interface CheckBalanceParams {
-  /** `balance` (default) or `transactions` for the dispute-grade credit ledger. */
-  view?: "balance" | "transactions";
+  /**
+   * `balance` (default), `transactions` for the dispute-grade credit ledger, or
+   * `usage` for spend per API key per day.
+   */
+  view?: "balance" | "transactions" | "usage";
   /** transactions: page size, default 50, hard-capped at 100. */
   limit?: number;
   /** transactions: opaque keyset cursor from a previous `next_cursor`. */
   cursor?: string;
   /** transactions: fetch the receipt(s) for one `req-…` request id. */
   requestId?: string;
+  /** usage: first UTC day (YYYY-MM-DD), default 30 days ago. */
+  from?: string;
+  /** usage: last UTC day (YYYY-MM-DD), default today. A range covers at most 92 days. */
+  to?: string;
+  /** usage: `api_key`, `day`, or `api_key,day` (default). */
+  groupBy?: "api_key" | "day" | "api_key,day";
+  /** usage: scope to one API key id. */
+  apiKeyId?: string;
 }
 
 /**
@@ -25,6 +36,9 @@ export interface CheckBalanceParams {
  *   `request_id` — so any charge can be reconciled against the exact request
  *   that produced it. This is how you verify what a metered endpoint actually
  *   charged after its upfront hold was refunded down.
+ * - `GET /v1/credits/usage` — credits spent and requests made per API key per
+ *   UTC day, across all the account's keys (`from`/`to` inclusive, at most
+ *   92 days; `group_by` api_key | day | api_key,day; optional `api_key_id`).
  */
 export async function checkBalance(
   ctx: ApiContext,
@@ -39,6 +53,29 @@ export async function checkBalanceStructured(
   params: CheckBalanceParams = {},
 ): Promise<ToolOutput> {
   const view = params.view ?? "balance";
+
+  if (view === "usage") {
+    const query: Record<string, string> = {};
+    if (params.from) query.from = params.from;
+    if (params.to) query.to = params.to;
+    if (params.groupBy) query.group_by = params.groupBy;
+    if (params.apiKeyId) query.api_key_id = params.apiKeyId;
+
+    const response = await makeRequest(ctx, {
+      platform: "meta",
+      resource: "credits/usage",
+      params: Object.keys(query).length > 0 ? query : undefined,
+    });
+
+    const header = [
+      "## SocialCrawl Credit Usage",
+      "**Endpoint:** `GET /v1/credits/usage`",
+      "**Credit cost:** 0 credits (meta endpoint)",
+      "Credits spent and requests made, per API key per UTC day, across all this account's keys (default: the last 30 days; a range covers at most 92). Use it to see which key or day drove spend, then `view: \"transactions\"` for the itemised receipts.",
+      "",
+    ].join("\n");
+    return format(header, response, view, ctx);
+  }
 
   if (view === "transactions") {
     const query: Record<string, string> = {};
@@ -77,7 +114,7 @@ export async function checkBalanceStructured(
   return format(header, response, view, ctx);
 }
 
-function format(header: string, response: string, view: "balance" | "transactions", ctx: ApiContext): ToolOutput {
+function format(header: string, response: string, view: "balance" | "transactions" | "usage", ctx: ApiContext): ToolOutput {
   if (/^Error(?::| \(\d+\):)/.test(response)) {
     const text = `${header}${response}`;
     return { text, structured: errorFromText(text) };

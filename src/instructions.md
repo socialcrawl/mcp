@@ -6,7 +6,7 @@ Workflow
 3. Quote before you spend: socialcrawl_estimate with the exact params. Metered calls hold the maximum up front and refund down.
 4. Call socialcrawl_request. structuredContent carries ok, credits.used / credits.remaining / credits.cached, paging.has_more / paging.next_cursor, rows, warnings. Read credits.used after every call; it is the settled charge.
 5. Page with paging.next_cursor and stop when paging.has_more is false; each page is billed. For N rows use socialcrawl_collect.
-Monitors, cohorts, web scraping and background jobs: socialcrawl_manage. Balance, ledger, status: socialcrawl_account (free).
+Monitors, cohorts, web scraping, background jobs, discover runs and schedules, review history, the events feed and webhooks: socialcrawl_manage. Balance, ledger, usage, status: socialcrawl_account (free).
 
 Errors (isError true, structuredContent {ok:false, code, retryable, reason, fix, did_you_mean}):
 - Never retry 402 (out of credits or key limit); tell the user.

@@ -32,14 +32,14 @@ function forbidFetch(): void {
 }
 
 describe("the utility endpoints are registered and free", () => {
-  it("registers all twelve", () => {
+  it("registers all thirteen", () => {
     const resources = getEndpointsByPlatform("utility").map((e) => e.resource).sort();
-    expect(resources).toEqual(["capabilities", "docs-search", "endpoint", "endpoints", "estimate", "explain-error", "find", "llms", "plan", "quickstart", "recipes", "resolve"]);
+    expect(resources).toEqual(["ai-detection", "capabilities", "docs-search", "endpoint", "endpoints", "estimate", "explain-error", "find", "llms", "plan", "quickstart", "recipes", "resolve"]);
   });
 
-  it("charges nothing for any of them", () => {
+  it("charges nothing for any of them except AI-text detection (1 credit)", () => {
     for (const e of getEndpointsByPlatform("utility")) {
-      expect(e.pricing.cost, `${e.resource} is not free`).toBe(0);
+      expect(e.pricing.cost, `${e.resource} price`).toBe(e.resource === "ai-detection" ? 1 : 0);
     }
   });
 

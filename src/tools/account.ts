@@ -6,23 +6,38 @@ import { discover } from "./discover.js";
 
 /**
  * `socialcrawl_account` (MCP-04): the account and the service, all free.
- * `balance` (default; carries this session's spend) and `transactions` (the
- * ledger, the receipts for one request) read `/v1/credits/*`; `status` reads
+ * `balance` (default; carries this session's spend), `transactions` (the
+ * ledger, the receipts for one request) and `usage` (spend per key per day)
+ * read `/v1/credits/*`; `status` reads
  * the public `/v1/status`; `freshness` compares the live catalogue with the
  * one bundled in this server.
  */
 
 export interface AccountParams {
-  view?: "balance" | "transactions" | "status" | "freshness";
+  view?: "balance" | "transactions" | "usage" | "status" | "freshness";
   limit?: number;
   cursor?: string;
   request_id?: string;
+  /** usage: first and last UTC day (YYYY-MM-DD), at most 92 days apart. */
+  from?: string;
+  to?: string;
+  group_by?: "api_key" | "day" | "api_key,day";
+  api_key_id?: string;
 }
 
 export async function accountStructured(ctx: ApiContext, params: AccountParams): Promise<ToolOutput> {
   const view = params.view ?? "balance";
   if (view === "balance" || view === "transactions") {
     return checkBalanceStructured(ctx, { view, limit: params.limit, cursor: params.cursor, requestId: params.request_id });
+  }
+  if (view === "usage") {
+    return checkBalanceStructured(ctx, {
+      view,
+      from: params.from,
+      to: params.to,
+      groupBy: params.group_by,
+      apiKeyId: params.api_key_id,
+    });
   }
   const text = await discover(ctx, { action: view });
   return { text, structured: isErrorText(text) ? errorFromText(text) : { ok: true, view } };
