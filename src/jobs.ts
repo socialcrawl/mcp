@@ -51,9 +51,16 @@ export function requestJobHandle(platform: string, envelope: unknown, retryAfter
     id: job.id,
     ...(job.status ? { status: job.status } : {}),
     // socialcrawl_request, not manage: a spend-scoped OAuth token can always call it.
+    // A bj_ id is a Prism batch job whichever platform's GET submitted it
+    // (`?async=true` on twitter/ai-search answers one).
     poll: {
       tool: "socialcrawl_request",
-      arguments: { platform, resource: "jobs/{job_id}", method: "GET", params: { job_id: job.id } },
+      arguments: {
+        platform: job.id.startsWith("bj_") ? "prism" : platform,
+        resource: "jobs/{job_id}",
+        method: "GET",
+        params: { job_id: job.id },
+      },
       after_s: retryAfterS ?? DEFAULT_POLL_AFTER_S,
     },
   };

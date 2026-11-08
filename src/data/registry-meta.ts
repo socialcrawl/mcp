@@ -11,22 +11,22 @@
  * same fingerprint accept exactly the same calls; the freshness check compares
  * it with the live API's.
  */
-export const REGISTRY_FINGERPRINT = "1e09ca1013553f6cda46fd44a0d7db6d893f63915ea4d23c6a397d54906c1476";
+export const REGISTRY_FINGERPRINT = "e1eecd2aeb103cf5b19dfe45db80fa3e26fe61dc44240813d0e1e5051abd7c62";
 
 /** Live platform / endpoint / tier counts from the backend registry. */
 export const REGISTRY_STATS = {
-  "totalEndpoints": 675,
-  "totalPlatforms": 69,
-  "socialPlatforms": 33,
-  "universalSearchPlatforms": 16,
-  "universalSearchSources": 19,
-  "standardEndpoints": 384,
-  "advancedEndpoints": 245,
+  "totalEndpoints": 733,
+  "totalPlatforms": 75,
+  "socialPlatforms": 34,
+  "universalSearchPlatforms": 18,
+  "universalSearchSources": 23,
+  "standardEndpoints": 418,
+  "advancedEndpoints": 269,
   "premiumEndpoints": 46,
-  "standardLadder": 250,
-  "advancedLadder": 163,
+  "standardLadder": 267,
+  "advancedLadder": 182,
   "premiumLadder": 25,
-  "customCount": 237
+  "customCount": 259
 } as const;
 
 /** The credit-tier ladder. Endpoints may override it flat or meter per query. */

@@ -726,7 +726,8 @@ describe("item 6: a live contract that lags the bundled field list does not hide
     fakeApi(liveContract({ archetype: "Analytics", rows_at: "data", source: "unknown", fields: [], never_filled: [], page_level: [] }));
     const r = await call(KEYED, "socialcrawl_endpoint", { id: "prism/post-stats" });
     expect(text(r)).not.toContain("Fields not published");
-    expect(text(r)).toContain("summary.credits_charged");
+    // A field from the bundled contract, inside the 25-field display cap.
+    expect(text(r)).toContain("legs.credits_used");
   });
 });
 

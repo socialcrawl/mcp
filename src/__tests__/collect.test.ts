@@ -443,3 +443,44 @@ describe("cost guard: confirmation above the threshold", () => {
     await client.close();
   });
 });
+
+// UPGRADE-LOG API-050: list answers carry `pagination.next_page_credits` (the
+// next page priced by the pricer that charges) and `typical_page_size`. The
+// walk budgets the next page at that price when the API gives one, rather
+// than at the local per-page ceiling.
+describe("socialcrawl_collect reads next_page_credits", () => {
+  function pricedApi(nextPageCredits: number[]) {
+    const seen: string[] = [];
+    let i = 0;
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (url.includes("/v1/utility/estimate")) {
+        return new Response(JSON.stringify({ success: false, error: { type: "ENDPOINT_NOT_FOUND", message: "x" } }), { status: 404 });
+      }
+      seen.push(url);
+      const n = nextPageCredits[Math.min(i, nextPageCredits.length - 1)];
+      i++;
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: { items: [{ id: `a${i}` }, { id: `b${i}` }, { id: `c${i}` }] },
+          pagination: { has_more: true, next_cursor: String(i * 10), next_page_credits: n, typical_page_size: 3 },
+          credits_used: 1,
+          credits_remaining: 90,
+        }),
+        { status: 200 },
+      );
+    });
+    return seen;
+  }
+
+  it("stops before a page the API prices above what is left of max_credits", async () => {
+    const seen = pricedApi([1, 7]);
+    const { client } = await connect();
+    const r = await client.callTool({ name: "socialcrawl_collect", arguments: { id: COMMENTS, params: PAGED, items: 50, max_credits: 5 } });
+    expect(seen).toHaveLength(2);
+    const s = structured(r);
+    expect(s.stop_reason).toBe("budget");
+    expect(JSON.stringify(s.warnings)).toContain("7");
+    await client.close();
+  });
+});

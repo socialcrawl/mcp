@@ -230,7 +230,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Account and Service Status",
       description:
-        "Free: balance (default; with this session's spend), transactions (ledger; receipts per request_id), usage (credits per key per day; from/to YYYY-MM-DD, at most 92 days), status (platform health; read before retrying a 502/503), freshness (bundled catalogue vs live API).",
+        "Free: balance (default, with this session's spend), transactions (ledger), usage (per key per day; from/to YYYY-MM-DD, ≤92 days), status (health; check before retrying a 502/503), freshness (vs live catalogue), notifications (inbox).",
       inputSchema: withNormalizedArgs(AccountInputSchema, "account"),
       outputSchema: AccountOutputShape,
       annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
@@ -245,6 +245,8 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
         to: params.to,
         group_by: params.group_by,
         api_key_id: params.api_key_id,
+        unread: params.unread,
+        kind: params.kind,
       });
       return toResult(output.text, output.structured);
     },
@@ -255,7 +257,7 @@ export function createServer(baseCtx: ApiContext, options: ServerOptions = {}): 
     {
       title: "Manage Stateful and Background Work",
       description:
-        "By area + action: monitors, cohorts (mentions by your own panel), web (scrape, crawl, agents, page monitors, browser sessions), jobs (Prism batch jobs), discover (prism/discover runs, schedules, follow), review_history, events (feed, webhooks). Wrong fields are refused free. Managing is free; scrapes, jobs, queries, run_more, monitor runs bill.\ndry_run: true quotes a create/update, creating nothing. rows_new alerts need track. Guide: socialcrawl_endpoint id=<area> (discover-runs).",
+        "By area + action: monitors, cohorts, web (scrape, crawl, agents, page monitors, sessions), jobs, discover, search_runs (search lists, watches), creator_runs, review_history, events (feed, webhooks). Wrong fields refused free. Managing is free; scrapes, jobs, queries, run_more/include, monitor runs bill.\ndry_run: true quotes, creating nothing. rows_new alerts need track. Docs: discover-runs, search-runs.",
       inputSchema: withNormalizedArgs(ManageInputSchema, "manage"),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
     },

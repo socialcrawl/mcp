@@ -1,7 +1,7 @@
 {
   "name": "socialcrawl-mcp",
-  "version": "2.1.0",
-  "description": "One unified API for social and web data — social media (incl. Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, Product Hunt), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & local (Tripadvisor, Yelp, Google Business/Hotels), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web research (Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search — with exact per-endpoint credit pricing (ladder, flat, and metered bands), free default row judgments with metered label/relevance quotes, and itemised per-call and per-job cost quotes for every one.",
+  "version": "2.2.0",
+  "description": "One unified API for social and web data — social media (incl. Weibo, Douyin, Xiaohongshu, Telegram, Quora, Bluesky, Apple Music, Product Hunt), commerce, marketplaces & product reviews, retail (Amazon, Walmart, Target, Home Depot, eBay, Klarna, AliExpress, Etsy, Sephora, H&M, Kohl's, Wayfair, Gumtree, Google Shopping), app stores (Google Play, App Store), places, travel & stays (Airbnb, Booking.com, Tripadvisor, Yelp, Google Business/Hotels), books (Goodreads), business & software reputation (Trustpilot, G2), jobs & salaries (LinkedIn, Indeed, Bing, Xing), markets & finance, US congressional trading disclosures, on-page SEO audits, web search & research (Bing, DuckDuckGo, Tavily, Perplexity), full web scraping & browser automation (scrape, crawl, agent, monitors, sessions), audience-filtered mention search over a panel you supply (cohorts), Korean search (Naver + Data Lab), content/sentiment analysis, Google News/Trends, GitHub, Hacker News, Polymarket, AI X-search via Grok, cross-platform Prism composites, and a universal /search/everywhere meta-search with background lists and scheduled watches — with exact per-endpoint credit pricing (ladder, flat, and metered bands), free default row judgments with metered label/relevance quotes, and itemised per-call and per-job cost quotes for every one.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -14,12 +14,12 @@
     "!dist/__tests__"
   ],
   "scripts": {
-    "build": "tsc && cp src/instructions.md dist/instructions.md",
+    "build": "tsc && node -e \"require('fs').copyFileSync('src/instructions.md','dist/instructions.md')\"",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "start:http": "node dist/http.js",
     "dev:http": "tsx watch src/http.ts",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "generate:data": "tsx scripts/generate-data.ts",
     "test": "vitest run",
     "test:watch": "vitest",

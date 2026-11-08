@@ -7,7 +7,9 @@ import {
   laneCeilingCredits,
   joinsCeiling,
   laneMaxCredits,
+  isPublicSibling,
   quoteHydration,
+  siblingRef,
 } from "../hydration.js";
 import {
   bestCaseCost,
@@ -32,6 +34,7 @@ import {
   LEVERS,
 } from "../judgments.js";
 import type { Endpoint } from "../types.js";
+import { bandExplained, unaskedJoinCredits } from "../cost-guard.js";
 import { errorFromText, isErrorText } from "../result.js";
 import type { ToolOutput } from "../result.js";
 
@@ -285,7 +288,7 @@ function buildEndpointDetail(params: PricingParams): string {
         `| the page itself | — | ${quote.base}cr |`,
         ...quote.lanes.map(
           (l) =>
-            `| \`${l.lane.param}=${l.lane.token}\` → \`${l.lane.sibling}\` | ${l.rows} | ${l.held}cr |`,
+            `| \`${l.lane.param}=${l.lane.token}\` → ${isPublicSibling(l.lane) ? "`" + l.lane.sibling + "`" : "internal lookup"} | ${l.rows} | ${l.held}cr |`,
         ),
       );
       if (quote.lanes.length > 0) {
@@ -361,20 +364,21 @@ function callQuote(endpoint: Endpoint, params: PricingParams): string[] {
   // (`limit`-per-row, page walks the rule describes) is budgeted at the
   // band's ceiling, because the authored rule is the only exact statement.
   const pageFloor = bestCaseCost(endpoint.pricing);
-  const explained =
-    endpoint.pricing.cost +
-    joinsCeiling(endpoint) +
-    (endpoint.judgments?.labels &&
-    (endpoint.judgments.labels.metered.length > 0 || endpoint.judgments.labels.free.includes("intent"))
-      ? judgmentHoldMax(endpoint)
-      : 0) +
-    (endpoint.judgments?.relevance ? judgmentHoldMax(endpoint) : 0);
-  const exact =
-    endpoint.pricing.model !== "metered" || worstCaseCost(endpoint.pricing) <= explained;
+  const exact = bandExplained(endpoint);
   let pageHold: number;
   if (!exact) {
-    pageHold = worstCaseCost(endpoint.pricing);
-    rows.push(`| the page (metered band ${formatCost(endpoint.pricing)}, every opt-in included) | up to ${pageHold}cr |`);
+    // The band's ceiling includes every join; a join the call does not turn
+    // on is not held, so it comes off (tiktok/search: 62 − 20 for an unasked
+    // `exact_counts` = 42).
+    const asked = new Set((hydration?.lanes ?? []).map((l) => l.lane.token.toLowerCase()));
+    const unasked = (endpoint.hydration ?? []).filter((l) => !asked.has(l.token.toLowerCase()));
+    const offBand = unaskedJoinCredits(endpoint, q.include);
+    pageHold = Math.max(bestCaseCost(endpoint.pricing), worstCaseCost(endpoint.pricing) - offBand);
+    rows.push(
+      unasked.length > 0
+        ? `| the page (metered band ${formatCost(endpoint.pricing)}, less ${offBand}cr for \`include=${unasked.map((l) => l.token).join(",")}\` not sent) | up to ${pageHold}cr |`
+        : `| the page (metered band ${formatCost(endpoint.pricing)}, every opt-in included) | up to ${pageHold}cr |`,
+    );
     notes.push("This endpoint meters on more than joins and judgments (see the rule above), so the band's ceiling is the budget; the settled charge follows the rule.");
   } else if (hydration) {
     pageHold = hydration.held;
@@ -614,12 +618,8 @@ function buildHydrationCatalogue(params: PricingParams): string {
       const rate = lane.batch
         ? `${lane.creditsPerItem}cr (cap ${lane.batch.creditCap} per ${lane.batch.size})`
         : `${lane.creditsPerItem}cr`;
-      const siblingPrefix =
-        lane.siblingMethod && lane.siblingMethod !== "GET"
-          ? `${lane.siblingMethod} `
-          : "";
       lines.push(
-        `| \`${endpointPath(e)}\` | \`${lane.token}\` | \`${siblingPrefix}/v1/${lane.sibling}\` | ${rate} | ${lane.maxItems}${lane.defaultRowLimit !== undefined ? ` (${lane.defaultRowLimit} by default)` : ""} | ${e.pricing.cost}cr | ${e.pricing.cost + hydrationCeiling(e)}cr |`,
+        `| \`${endpointPath(e)}\` | \`${lane.token}\` | ${siblingRef(lane)} | ${rate} | ${lane.maxItems}${lane.defaultRowLimit !== undefined ? ` (${lane.defaultRowLimit} by default)` : ""} | ${e.pricing.cost}cr | ${e.pricing.cost + hydrationCeiling(e)}cr |`,
       );
     }
   }

@@ -200,3 +200,28 @@ describe("socialcrawl_manage monitors and cohorts, new fields", () => {
     expect(seen.calls).toHaveLength(1);
   });
 });
+
+// UPGRADE-LOG API-072: the account notifications inbox (GET /v1/notifications,
+// 0 credits; backend notifications/{router,dto}.ts). Read-only here: marking
+// items read is a dashboard action this read-only tool does not take.
+describe("socialcrawl_account notifications", () => {
+  it("reads /v1/notifications with unread, kind, limit and cursor, free", async () => {
+    const seen = stub(200, { success: true, data: { items: [], next_cursor: null, unread_count: 3 }, credits_used: 0 });
+    const out = await accountStructured(KEYED, { view: "notifications", unread: true, kind: "job.failed,credits.low", limit: 20, cursor: "c1" });
+    const url = new URL(seen.calls[0].url);
+    expect(url.pathname).toBe("/v1/notifications");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ unread: "true", kind: "job.failed,credits.low", limit: "20", cursor: "c1" });
+    expect(seen.calls[0].method).toBe("GET");
+    expect(out.structured).toMatchObject({ ok: true, view: "notifications" });
+    expect(out.text).toContain("0 credits");
+    expect(out.text).toContain("next_step");
+  });
+
+  it("refuses an unknown kind locally, free", async () => {
+    const spy = vi.fn();
+    vi.stubGlobal("fetch", spy);
+    const out = await accountStructured(KEYED, { view: "notifications", kind: "job.exploded" });
+    expect(spy).not.toHaveBeenCalled();
+    expect(out.structured.ok).toBe(false);
+  });
+});

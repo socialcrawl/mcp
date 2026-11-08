@@ -171,6 +171,134 @@ export const DiscoverInputSchema = z
   })
   .strict();
 
+/**
+ * A search watch id. Watches are built on discover schedules; the routes look
+ * an id up by owner and 404 otherwise, so the guard is the web proxy's shape
+ * (packages/api/src/modules/search/runs.router.ts): no slash, dot or query.
+ */
+export const WATCH_ID_RE = /^[A-Za-z0-9_-]{1,80}$/;
+
+export const SEARCH_RUN_ACTIONS = [
+  "run_list",
+  "run_get",
+  "run_export",
+  "run_legs",
+  "run_cancel",
+  "run_resume",
+  "run_more",
+  "run_include",
+  "watch_list",
+  "watch_get",
+  "watch_pause",
+  "watch_resume",
+  "watch_delete",
+  "follow",
+] as const;
+
+export const CREATOR_RUN_ACTIONS = [
+  "run_list",
+  "run_get",
+  "run_export",
+  "run_legs",
+  "run_cancel",
+  "run_resume",
+  "run_more",
+  "run_save",
+  "follow",
+] as const;
+
+const runIdField = z
+  .string()
+  .regex(RUN_ID_RE, "run_id is run_ followed by letters and digits (data.run.run_id)")
+  .optional()
+  .describe("Run id (run_…). manage's `id` on the run_* actions except run_list.");
+
+/** Fields shared by the search and creator run reads (stored-runs.ts / accounts-read.ts). */
+const runReadFields = {
+  cursor: z.string().max(4096).optional().describe("pagination.next_cursor. On run_get/run_export send the SAME filters with it."),
+  page_size: z.number().int().min(1).max(100).optional().describe("run_list: 1-100 (default 20). run_get: 1-100 (default 50)."),
+  status: z
+    .string()
+    .optional()
+    .describe("run_list: comma list of queued, running, paused, partial, completed, failed, cancelled. watch_list: active, paused, stopped."),
+  created_after: z.string().optional().describe("run_list: runs created after this date (YYYY-MM-DD) or ISO time with its zone."),
+  wait_s: z.number().int().min(0).max(25).optional().describe("run_get: long-poll up to this many seconds while the run is queued or running. Free."),
+  format: z.enum(["evidence", "compact", "text"]).optional().describe("run_get/run_export: evidence (default), compact or text rows."),
+  fields: z.string().max(2000).optional().describe("run_get/run_export: comma list of row paths to keep."),
+  platform: z.string().max(64).optional().describe("run_get/run_export: only rows of this platform."),
+  group: z.string().max(200).optional().describe("run_get/run_export: only rows of this group (a list's group id)."),
+  state: z.enum(["kept", "dropped", "all"]).optional().describe("run_get/run_export: kept (default), dropped or all."),
+  changes_since: z
+    .number()
+    .int()
+    .min(0)
+    .max(2_000_000_000)
+    .optional()
+    .describe("run_get/run_export: only rows whose version is above this one (after run_more / run_include, or a watch fire)."),
+  max_credits: z
+    .number()
+    .int()
+    .min(1)
+    .max(10_000_000)
+    .optional()
+    .describe("run_resume: the run's new cap (a run paused at its cap needs a higher one). run_more / run_include: the cap for this step."),
+  retry_failed: z.boolean().optional().describe("run_resume: true fetches the failed searches again."),
+  url: z.string().max(4096).optional().describe("follow (required): a data.next.* read URL from a previous answer."),
+};
+
+export const SearchRunsInputSchema = z
+  .object({
+    action: z
+      .enum(SEARCH_RUN_ACTIONS)
+      .describe(
+        "UNIVERSAL SEARCH RUNS (started by POST search/everywhere with `queries` or `groups`, or a GET search/everywhere answer stored as a run): 'run_list', 'run_get' (rows + status; wait_s long-polls), 'run_export' (JSONL), 'run_legs', 'run_cancel' (a list only), 'run_resume' (a paused list), 'run_more' (the next page of every search, 20 credits per search; dry_run quotes it), 'run_include' (comments, authors or body for chosen rows; dry_run quotes it). WATCHES (POST search/everywhere with `schedule`): 'watch_list', 'watch_get', 'watch_pause', 'watch_resume', 'watch_delete'. 'follow' GETs a data.next.* read URL.",
+      ),
+    run_id: runIdField,
+    watch_id: z
+      .string()
+      .regex(WATCH_ID_RE, "watch_id is letters, digits, '_' or '-' (data.watch.watch_id)")
+      .optional()
+      .describe("Watch id (data.watch.watch_id). manage's `id` on the watch_* actions; on run_list it lists that watch's fires."),
+    ...runReadFields,
+    sort: z.enum(["relevance", "recent", "engagement"]).optional().describe("run_get/run_export: row order."),
+    max_per_platform: z.number().int().min(1).max(100).optional().describe("run_get/run_export: at most this many rows per platform."),
+    include: z
+      .union([z.array(z.enum(["comments", "authors", "body"])).min(1).max(3), z.string().regex(/^(comments|authors|body)(,(comments|authors|body))*$/)])
+      .optional()
+      .describe("run_include (required): comments, authors and/or body."),
+    ids: z.array(z.string().min(1).max(200)).min(1).max(200).optional().describe("run_include: the row ids to follow up (1-200); default the run's top rows."),
+    "comments.per_post": z.number().int().min(5).max(50).optional().describe("run_include: comments per post, 5-50 (default 15)."),
+    "comments.replies": z.boolean().optional().describe("run_include: also fetch replies."),
+    "authors.top": z.number().int().min(1).max(100).optional().describe("run_include: authors to profile, 1-100 (default 10)."),
+    max_credits_per_run: z.number().int().min(1).optional().describe("watch_resume: a new per-fire cap."),
+    max_credits_per_month: z.number().int().min(1).nullable().optional().describe("watch_resume: a new month cap; null clears it."),
+  })
+  .strict();
+
+export const CreatorRunsInputSchema = z
+  .object({
+    action: z
+      .enum(CREATOR_RUN_ACTIONS)
+      .describe(
+        "CREATOR SEARCH RUNS (started by prism/creators via socialcrawl_request): 'run_list', 'run_get' (creators + status; wait_s long-polls), 'run_export' (JSONL), 'run_legs', 'run_cancel', 'run_resume', 'run_more', 'run_save' (stores the creators as author lists, free, and returns data.next.follow — a POST prism/discover schedule body that watches them for new posts). 'follow' GETs a data.next.* read URL.",
+      ),
+    run_id: runIdField,
+    ...runReadFields,
+    sort: z.string().max(64).optional().describe("run_get/run_export: any sort the creator search accepts."),
+    order: z.enum(["arrival", "rank"]).optional().describe("run_get/run_export: arrival or rank."),
+    country: z.string().max(64).optional().describe("run_get/run_export: only creators from this country."),
+    account_kind: z.string().max(64).optional().describe("run_get/run_export: only accounts of this kind."),
+    new_searches: z.boolean().optional().describe("run_more: plan new searches over the run's niche."),
+    pages: z.number().int().min(1).max(10).optional().describe("run_more: further pages per search, 1-10."),
+    keys: z
+      .array(z.string().min(1).max(100))
+      .min(1)
+      .max(10_000)
+      .optional()
+      .describe("run_save: creator keys (<platform>:<id>) to save; omit to save every delivered creator."),
+  })
+  .strict();
+
 export const REVIEW_HISTORY_ACTIONS = ["get"] as const;
 
 export const ReviewHistoryInputSchema = z

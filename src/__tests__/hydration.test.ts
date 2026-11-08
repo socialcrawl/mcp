@@ -9,6 +9,7 @@ import {
   hydratingEndpoints,
   hydrationSlotCount,
   hydrationTokens,
+  isPublicSibling,
   laneCeilingCredits,
   joinsCeiling,
   laneMaxCredits,
@@ -58,16 +59,29 @@ describe("the hydration lanes are present and well-formed", () => {
     }
   });
 
-  it("points every lane at a sibling that exists in this build", () => {
+  it("points every lane at a sibling this build carries, or at an internal lookup no surface names as a route", () => {
+    const surfaces = [
+      getDoc("hydration")!,
+      getDoc("pricing")!,
+      getDoc("pricing-rules") ?? "",
+      pricing({ action: "hydration" }),
+    ].join("\n");
     for (const e of ENDPOINTS_WITH_JOINS) {
       for (const lane of e.hydration!) {
         const slash = lane.sibling.indexOf("/");
         const platform = lane.sibling.slice(0, slash);
         const resource = lane.sibling.slice(slash + 1);
-        expect(
-          findEndpoint(platform, resource, lane.siblingMethod),
-          `${e.platform}/${e.resource} joins to ${lane.sibling}, which this build does not carry`,
-        ).toBeDefined();
+        // tiktok/profile include=account joins tiktok/profile/account, a
+        // lookup the API runs internally but does not serve as a route.
+        if (!findEndpoint(platform, resource, lane.siblingMethod)) {
+          expect(
+            surfaces,
+            `${e.platform}/${e.resource} joins internal ${lane.sibling}; no surface may send an agent to it`,
+          ).not.toContain(`/v1/${lane.sibling}\``);
+          expect(isPublicSibling(lane)).toBe(false);
+        } else {
+          expect(isPublicSibling(lane)).toBe(true);
+        }
         // A join is priced at the sibling's work, so it only makes sense on
         // the same platform — a cross-platform join would be a different
         // product (that is what Prism is for).
@@ -80,6 +94,12 @@ describe("the hydration lanes are present and well-formed", () => {
     for (const e of ENDPOINTS_WITH_JOINS) {
       const spec = e.optionalParams.find((p) => p.name === "include");
       expect(spec, `${e.platform}/${e.resource} hydrates but declares no \`include\` param`).toBeDefined();
+      // A free-form string `include` (TikTok's `exact_counts` lists) takes any
+      // token; only a declared value list can leave a lane unsendable.
+      if (!spec!.enumValues && !e.csvConstraints?.include?.enumValues) {
+        expect(spec!.description ?? "", `${e.platform}/${e.resource}: free-form include must name \`${hydrationTokens(e).join(",")}\``).toContain(hydrationTokens(e)[0]);
+        continue;
+      }
       const allowed = new Set(
         [...(spec!.enumValues ?? []), ...(e.csvConstraints?.include?.enumValues ?? [])].map((v) =>
           v.toLowerCase(),

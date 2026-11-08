@@ -1,4 +1,5 @@
 import { ENDPOINTS, findEndpoint } from "./data/endpoints.js";
+import { FEED_PATH_ALIASES, PLATFORM_ALIASES } from "./param-aliases.js";
 import type { Endpoint } from "./types.js";
 
 /**
@@ -7,6 +8,30 @@ import type { Endpoint } from "./types.js";
  * (`jobs/job_abc123`). Returns the path-param values a concrete path carried.
  */
 export function resolveEndpoint(
+  platform: string,
+  resource: string,
+  method: string | undefined,
+): { endpoint: Endpoint; pathValues: Record<string, string>; aliasOf?: string } | undefined {
+  const sent = `${platform}/${resource}`;
+  const plain = resolveDirect(platform, resource, method);
+  if (plain) return plain;
+  // The API's own aliases (API-051): `x` is `twitter`, and a guessed feed path
+  // such as tiktok/profile/posts is served as that platform's posts feed.
+  const canonicalPlatform = PLATFORM_ALIASES[platform] ?? platform;
+  const target = FEED_PATH_ALIASES[`${canonicalPlatform}/${resource}`];
+  if (target) {
+    const slash = target.indexOf("/");
+    const hit = resolveDirect(target.slice(0, slash), target.slice(slash + 1), method);
+    if (hit) return { ...hit, aliasOf: sent };
+  }
+  if (canonicalPlatform !== platform) {
+    const hit = resolveDirect(canonicalPlatform, resource, method);
+    if (hit) return { ...hit, aliasOf: sent };
+  }
+  return undefined;
+}
+
+function resolveDirect(
   platform: string,
   resource: string,
   method: string | undefined,

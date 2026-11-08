@@ -6,7 +6,7 @@ import { timeoutSecondsFor, wantsStream } from "../timeouts.js";
 import { pollLine, requestJobHandle } from "../jobs.js";
 import { formatCost, worstCaseCost } from "../pricing.js";
 import type { ApiContext } from "../context.js";
-import { quoteHydration } from "../hydration.js";
+import { quoteHydration, siblingRef } from "../hydration.js";
 import { quoteJudgments } from "../judgments.js";
 import type { Endpoint } from "../types.js";
 import { errorFromText, shortCursor, structureEnvelope, summaryLine } from "../result.js";
@@ -20,6 +20,7 @@ import { checkGuard, quoteCall } from "../cost-guard.js";
 import { recordSpend } from "../session-spend.js";
 import { suggestEndpoints, suggestPlatforms } from "../search/catalog.js";
 import { resolveEndpoint } from "../endpoint-resolve.js";
+import { planParamAliases } from "../param-aliases.js";
 
 interface RequestParams {
   platform: string;
@@ -187,6 +188,23 @@ function validateValues(
 }
 
 /** Params the endpoint does not declare. Not fatal — the API ignores them. */
+/**
+ * A GET the router can run as a background job (`?async=true` →
+ * 202 + `data.job_id`, read free at prism/jobs/{job_id}): not an async or
+ * always-streaming endpoint, and not one that declares `async` itself
+ * (prism/discover). Mirrors `asyncJobEligible` in the backend's
+ * platforms/prism/jobs/async-get.ts.
+ */
+export function asyncJobEligible(endpoint: Endpoint): boolean {
+  return (
+    endpoint.method === "GET" &&
+    endpoint.execution !== "async" &&
+    endpoint.streaming !== "always" &&
+    !endpoint.optionalParams.some((p) => p.name === "async") &&
+    !endpoint.params.some((p) => p.name === "async")
+  );
+}
+
 function unknownParams(
   endpoint: Endpoint,
   provided: Record<string, unknown>,
@@ -197,6 +215,8 @@ function unknownParams(
     // Universal aliases the router accepts on every endpoint.
     "cursor",
     "limit",
+    // API-071: any eligible GET runs as a job with async=true.
+    ...(asyncJobEligible(endpoint) ? ["async"] : []),
   ]);
   return Object.keys(provided).filter((name) => !known.has(name));
 }
@@ -256,6 +276,16 @@ async function runRequest(
   captured: Captured,
   opts: PageOptions,
 ): Promise<string> {
+  // API-051: `x/…` and guessed feed paths (tiktok/profile/posts) are the
+  // API's own aliases; call the real endpoint and say which it was.
+  let aliasNote: string | undefined;
+  {
+    const alias = resolveEndpoint(input.platform, input.resource, input.method);
+    if (alias?.aliasOf) {
+      aliasNote = `**Note:** \`${alias.aliasOf}\` is served as \`${alias.endpoint.platform}/${alias.endpoint.resource}\`, this platform's name for it — call that path directly next time.`;
+      input = { ...input, platform: alias.endpoint.platform, resource: alias.endpoint.resource };
+    }
+  }
   const platform = findPlatform(input.platform);
   if (!platform) {
     const near = suggestPlatforms(input.platform);
@@ -358,6 +388,15 @@ async function runRequest(
   }
 
   const valueErrors = validateValues(endpoint, merged);
+  if (
+    asyncJobEligible(endpoint) &&
+    merged.async !== undefined &&
+    !["1", "true", "0", "false"].includes(String(merged.async).toLowerCase())
+  ) {
+    valueErrors.push(
+      "async takes 1 or true (run this GET in the background and answer 202 with a job to poll free at prism/jobs/{job_id}), or 0 / false for a normal call.",
+    );
+  }
   if (valueErrors.length > 0) {
     return [
       "Error: Invalid parameter value(s) — the API would reject this with a 400 before billing:",
@@ -467,6 +506,7 @@ async function runRequest(
         ? ` — up to ${worstCaseCost(endpoint.pricing)}cr held, refunded to the actual charge. Read \`credits_used\` below for what you really paid.`
         : ""
     }`,
+    ...(aliasNote ? [aliasNote] : []),
   ];
   if (endpoint.pricing.model === "metered" && endpoint.pricing.description) {
     headerLines.push(`**Metered rule:** ${endpoint.pricing.description}`);
@@ -502,7 +542,7 @@ async function runRequest(
         `**Row join available:** this endpoint can fill its own rows in the same call. Add \`include=${endpoint.hydration
           .map((l) => l.token)
           .join(",")}\` to join each row to ${endpoint.hydration
-          .map((l) => `\`/v1/${l.sibling}\``)
+          .map((l) => siblingRef(l))
           .join(" and ")} — ${endpoint.hydration
           .map((l) => `${l.creditsPerItem}cr per row filled, at most ${l.maxItems} rows`)
           .join("; ")}. Cached and unfillable rows are free.`,
@@ -537,7 +577,15 @@ async function runRequest(
     for (const note of jq.notes) headerLines.push(`**Note:** ${note}`);
   }
 
-  const unknown = unknownParams(endpoint, merged);
+  // API-051: a common name the API renames is not "dropped".
+  const renamed = planParamAliases(endpoint, merged);
+  for (const { from, to } of renamed) {
+    headerLines.push(
+      `**Note:** \`${from}\` is sent as \`${to}\` — this endpoint's name for it; the API renames it and says so in \`data._warnings\`.`,
+    );
+  }
+  const renamedFrom = new Set(renamed.map((r) => r.from));
+  const unknown = unknownParams(endpoint, merged).filter((u) => !renamedFrom.has(u));
   if (unknown.length > 0) {
     headerLines.push(
       `**Note:** ${unknown.map((u) => `\`${u}\``).join(", ")} ${unknown.length === 1 ? "is" : "are"} not declared on this endpoint and ${unknown.length === 1 ? "was" : "were"} dropped — the API names each dropped param in \`data._warnings\` (with the closest declared name when there is one). Unknown params never bypass the cache.`,
@@ -657,7 +705,9 @@ async function runRequest(
       );
     }
     // A submit that returned a job handle: say how to poll it, structurally.
-    const job = endpoint.execution === "async" && endpoint.method === "POST"
+    // A GET sent with async=true answers a bj_ job the same way (API-071).
+    const ranAsJob = asyncJobEligible(endpoint) && ["1", "true"].includes(String(merged.async ?? "").toLowerCase());
+    const job = (endpoint.execution === "async" && endpoint.method === "POST") || ranAsJob
       ? requestJobHandle(input.platform, parsed, callMeta.retryAfterS)
       : undefined;
     if (job) {

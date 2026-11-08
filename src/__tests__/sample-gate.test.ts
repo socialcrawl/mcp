@@ -379,7 +379,11 @@ describe("IP addresses (round 4)", () => {
   });
   it("no bundled sample holds an IPv4 address or a real ip key", () => {
     for (const [k, v] of Object.entries({ ...EXAMPLES, ...ARCHETYPE_EXAMPLES })) {
-      for (const m of v.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g) ?? []) expect(m, k).toMatch(/^(192\.0\.2|198\.51\.100|203\.0\.113)\./);
+      // Valid octets only, not part of a longer dotted run: a CDN crop spec
+      // such as `crop.0.0.640.640.640` is not an address.
+      const octet = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+      const ipv4 = new RegExp(`(?<![\\d.])${octet}(?:\\.${octet}){3}(?![\\d]|\\.\\d)`, "g");
+      for (const m of v.match(ipv4) ?? []) expect(m, k).toMatch(/^(192\.0\.2|198\.51\.100|203\.0\.113)\./);
       expect(v, k).not.toMatch(/"(IPAddress|ip|ip_address|ipAddress)":"(?!192\.0\.2\.)[^"]+"/);
     }
   });
@@ -477,7 +481,14 @@ describe.runIf(existsSync(CORPUS))("usefulness (round 5)", () => {
       return ph / total;
     };
     const bundle = Object.values(EXAMPLES).map((v) => (JSON.parse(v) as { data: unknown }).data);
-    const corpus = readdirSync(CORPUS).filter((f) => f.endsWith(".json")).map((f) => load(f).data);
+    // The same documents the generator shipped: redacted captures whose key
+    // made the bundle (a sample the gate flags is left out with
+    // --exclude-flagged, and must not skew the comparison either way).
+    const corpus = readdirSync(CORPUS)
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => load(f))
+      .filter((j) => j.redacted === true && typeof j.endpoint === "string" && (j.endpoint as string).replace(/^\/v1\//, "") in EXAMPLES)
+      .map((j) => j.data);
     expect(Math.abs(share(bundle) - share(corpus))).toBeLessThanOrEqual(0.005);
   });
 });

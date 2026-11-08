@@ -1,4 +1,5 @@
 import { ENDPOINTS } from "./data/endpoints.js";
+import { siblingRef } from "./hydration.js";
 import type { Endpoint, HydrationLane, OptionalParam } from "./types.js";
 
 /**
@@ -309,7 +310,7 @@ export function explainAutomaticJoins(e: Endpoint): string[] {
   const lanes: HydrationLane[] = e.automaticJoins ?? [];
   return lanes.map(
     (l) =>
-      `**Automatic join (free):** every call fills ${l.fills.map((f) => `\`${f}\``).join(", ")} from \`${l.siblingMethod ?? "GET"} /v1/${l.sibling}\` at ${l.creditsPerItem === 0 ? "no extra credit" : `${l.creditsPerItem}cr per row`}${l.defaultOn ? `; send \`${l.defaultOn.unlessParam}=${l.defaultOn.unlessValue}\` to skip it (faster, but the leaf stays approximate)` : ""}. \`_warnings\` carries \`${l.warnings.partial}\` / \`${l.warnings.unavailable}\` when it could not fill every row.`,
+      `**Automatic join (free):** every call fills ${l.fills.map((f) => `\`${f}\``).join(", ")} from ${siblingRef(l, { alwaysMethod: true })} at ${l.creditsPerItem === 0 ? "no extra credit" : `${l.creditsPerItem}cr per row`}${l.defaultOn ? `; send \`${l.defaultOn.unlessParam}=${l.defaultOn.unlessValue}\` to skip it (faster, but the leaf stays approximate)` : ""}. \`_warnings\` carries \`${l.warnings.partial}\` / \`${l.warnings.unavailable}\` when it could not fill every row.`,
   );
 }
 

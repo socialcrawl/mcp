@@ -4,6 +4,70 @@ All notable changes to `socialcrawl-mcp` are documented here. The format
 loosely follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-08
+
+Re-synced with the backend registry: 69/675 → **75 platforms / 733 endpoints** (UPGRADE-LOG API-048 to API-105). The universal-search runs, creator runs, async GET jobs and the notifications inbox sit outside the registry, so they were written by hand from the route code.
+
+### Added
+
+- **58 endpoints and six platforms.**
+  - **New platforms:** Weibo (8), Goodreads (10), Airbnb (4), Booking.com (3), Bing (4), DuckDuckGo (7).
+  - **Product Hunt:** leaderboards back to 2013, product, launch comments, topic.
+  - **LinkedIn:** skill endorsers, seven profile sections (languages, projects, patents, organizations, courses, test scores, featured), and `company/bulk` (up to 25 companies).
+  - **Other new endpoints:** `twitter/profile/about`, `instagram/trending/searches`, Facebook and Google Ad Library advertiser profiles, `polymarket/search`, `POST prism/post-comments` (up to 25 post URLs), `GET`/`POST prism/creators`, and `POST search/everywhere` for lists and watches.
+- **New and changed params.**
+  - The row-walk params `max_items`, `max_pages` and `max_credits` now appear on about 200 lists.
+  - `include=exact_counts` on `tiktok/post` and 11 TikTok lists, `include=account` on `tiktok/profile`, and `include=availability` on `youtube/video`.
+  - Universal search gains its whole URel0–URel4 parameter set: date windows, platforms, languages, country, `depth`, `label`, and comment and author follow-ups.
+  - Ad Library filters on Facebook and TikTok, `linkedin/search/posts` mention filters, and `reddit/search` `limit` up to 1,000.
+- **`socialcrawl_manage` area `search_runs`.**
+  - Universal-search runs: `run_list`, `run_get` (long-poll), `run_export`, `run_legs`, `run_cancel`, `run_resume`, and `run_more` (20 credits per search; `dry_run` quotes it).
+  - `run_include` fetches comments, authors or body for chosen rows; `dry_run` quotes it.
+  - Watches: `watch_list`, `watch_get`, `watch_pause`, `watch_resume`, `watch_delete`.
+  - `follow` for `data.next.*` links.
+- **`socialcrawl_manage` area `creator_runs`.** The same run actions for `prism/creators`, plus `run_save`, which stores the creators as author lists (free) and returns a ready `data.next.follow` schedule.
+- **Any GET as a background job (API-071).**
+  - `params: { async: "true" }` returns a `bj_` job, and the poll hint points at the free `prism/jobs/{job_id}`.
+  - Before, a job from a non-prism GET was told to poll `<platform>/jobs/{id}`, a route that does not exist.
+  - Any other `async` value is refused locally, free.
+- **`socialcrawl_account` view `notifications`.** The account inbox (`unread`, `kind`, `limit`, `cursor`), 0 credits.
+- **New docs topic `search-runs`.**
+  - `batch-jobs` now covers async GETs.
+  - `pagination` covers `next_page_credits` and `typical_page_size`.
+  - `errors` covers renamed common params, feed-path aliases and the free 400 on single-source lanes.
+  - `response-schema` covers `format=raw` without the source's billing fields.
+
+### Changed
+
+- **Common param names are reported truthfully (API-051).**
+  - The API now renames `sort`, `country`, `limit` and a dated `since`/`until`, plus their sibling spellings, onto the endpoint's own name.
+  - The request note now says "`sort` is sent as `sort_by`" where it used to say "dropped". The backend's alias tables are ported in `src/param-aliases.ts`.
+- **Feed-path aliases resolve.** `tiktok/profile/posts` (and 13 more) and `x/…` call the real endpoint and say which one.
+- **`socialcrawl_collect` budgets the next page at the API's own `pagination.next_page_credits`** when the API sends it, so a walk stops before a page it cannot afford, not after.
+- **Unasked joins no longer inflate a quote.**
+  - When an endpoint's charge depends on more than its joins and judgments, the band's ceiling now drops the joins the call does not send (`tiktok/search` at `limit=120`: 42, not 62).
+  - When the band is nothing but joins and judgments, the quote is exact: `tiktok/profile` with only a handle is 1, not 3.
+- **Prices that moved:**
+  - Ladder to metered: `tiktok/profile` 1–3, `tiktok/post` 1–3, `youtube/video` 1–3, `linkedin/company` 5–8, `facebook/post` 1–2, `tiktok/trending` 5–25, and seven TikTok video lists 1–21.
+  - Wider bands: `tiktok/search` 1–62, `tiktok/profile/videos` 1–25, `reddit/search` 1–48, `facebook/search/hashtag` 0–9.
+  - Cheaper: `instagram/search/hashtag` 1–31 (was 5–35).
+- **The hydration docs group identical lanes** (TikTok's eleven `exact_counts` lists) so the topic stays one page.
+
+### Fixed
+
+- **Lanes that join an internal lookup** (`tiktok/profile include=account`, `youtube/video include=availability`) no longer point agents at a `/v1/…` path that does not exist.
+
+### Held, not published
+
+- **API-074 `include=contacts`** (the contact walk with `roles`, `min_confidence` and `max_duration`, on 8 profile endpoints) is in the registry but held: its legal gate is open and it has not been announced. `src/held-surfaces.ts` strips it at generation, and `held-surfaces.test.ts` guards it. Delete the entry to publish it.
+- **API-063 `/v1/listening/streams`** has no MCP surface (owner decision).
+
+### Notes
+
+- 20 sample responses in the codebase corpus fail the sample gate, so they were left out of the bundle (`--exclude-flagged`). Their endpoints still work; they just ship without a sample. The corpus redactor needs fixing for: `booking/hotel/reviews`, `gab/search/posts`, `gab/user/posts`, `goodreads/quotes`, `instagram/comment/likers`, `instagram/reels/trending`, `kwai/post`, `linkedin/company/affiliated-pages`, `linkedin/company/people`, `linkedin/search/people`, `prism/adverse-screen`, `prism/comment-lookup`, `prism/creator-vet`, `prism/crisis-postmortem`, `prism/leads`, `producthunt/product/comments`, `telegram/search`, `tiktok/search/mentions`, `weibo/search/users` and `weibo/search`.
+
+Upgrade-log cursor: API-105 (open: API-027 held, API-063 decide, API-074 held). Registry fingerprint `e1eecd2aeb103cf5b19dfe45db80fa3e26fe61dc44240813d0e1e5051abd7c62`.
+
 ## [2.1.0] - 2026-10-24
 
 Re-synced with the committed backend registry: 68/646 → **69 platforms / 675 endpoints**. This release also adds the background-work and account surfaces the MCP could not reach, and puts a floor under client timeouts.
@@ -50,6 +114,8 @@ Re-synced with the committed backend registry: 68/646 → **69 platforms / 675 e
 
 - **OAuth preview: lazy sign-in.** With `SOCIALCRAWL_OAUTH=1`, an anonymous caller keeps `initialize`, `tools/list` and the free discovery tools (`find`, `endpoint`, `estimate`); only a `tools/call` that needs an account (`account`, `request`, `collect`, `manage`, an unknown tool, or a body that is not parsed JSON) gets the HTTP 401 challenge. Before, every anonymous request got the 401, so the free tools stopped working the moment OAuth was on. The 401 is sent before the SDK runs because clients such as Claude start sign-in only on an HTTP 401, never on a tool error inside a 200, which is why a keyless paid call used to end at "No API key configured" with no way to sign in. Allow-list: `ANONYMOUS_TOOLS` in `src/oauth/scopes.ts`.
 - **OAuth preview: stricter access tokens.** A JWT must carry header `typ: at+jwt` (RFC 9068), so another JWT the authorization server signs with the same key (a Better Auth session JWT) is refused, and a DPoP-bound token (`cnf` claim) is refused because proofs are not checked.
+
+Upgrade-log cursor: API-047 (open: API-027 held, API-044 decide). Registry fingerprint `1e09ca1013553f6cda46fd44a0d7db6d893f63915ea4d23c6a397d54906c1476`.
 
 ## [2.0.2] - 2026-10-07
 

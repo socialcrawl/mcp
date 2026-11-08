@@ -110,6 +110,11 @@ const FOLLOWABLE: RegExp[] = [
   new RegExp(`^/v1/prism/discover/runs/run_${ID}(/legs|/results\\.jsonl)?$`),
   /^\/v1\/prism\/discover\/schedules$/,
   new RegExp(`^/v1/prism/discover/schedules/dsch_${ID}$`),
+  // Universal search runs and watches; creator search runs (outside the registry).
+  /^\/v1\/(search\/everywhere|prism\/creators)\/runs$/,
+  new RegExp(`^/v1/(search/everywhere|prism/creators)/runs/run_${ID}(/legs|/results\\.jsonl)?$`),
+  /^\/v1\/search\/everywhere\/watches$/,
+  /^\/v1\/search\/everywhere\/watches\/[A-Za-z0-9_-]{1,80}$/,
   new RegExp(`^/v1/(trustpilot|tripadvisor)/reviews/history/job_${ID}$`),
   /^\/v1\/events$/,
   /^\/v1\/webhook-endpoints$/,
@@ -124,6 +129,11 @@ const REFUSED: [RegExp, string][] = [
   ],
   [/^\/v1\/prism\/discover\/runs\/[^/]+\/resume$/, 'This is a resume_url (a POST). Use area "discover" action "run_resume" with the run id.'],
   [/^\/v1\/prism\/discover\/runs\/[^/]+\/more$/, 'This is a more_url (a POST that bills new searches). Use area "discover" action "run_more" with the run id.'],
+  [/^\/v1\/search\/everywhere\/runs\/[^/]+\/more$/, 'This is a more_url (a POST that bills 20 credits per search). Use area "search_runs" action "run_more" with the run id (dry_run quotes it).'],
+  [/^\/v1\/search\/everywhere\/runs\/[^/]+\/include$/, 'This is an include_url (a POST that bills per read). Use area "search_runs" action "run_include" with the run id (dry_run quotes it).'],
+  [/^\/v1\/search\/everywhere\/runs\/[^/]+\/resume$/, 'This is a resume_url (a POST). Use area "search_runs" action "run_resume" with the run id.'],
+  [/^\/v1\/prism\/creators\/runs\/[^/]+\/save$/, 'This is a save URL (a POST). Use area "creator_runs" action "run_save" with the run id.'],
+  [/^\/v1\/prism\/creators\/runs\/[^/]+\/(more|resume)$/, 'This is a POST. Use area "creator_runs" action "run_more" or "run_resume" with the run id.'],
   [/^\/v1\/events\/consumers\/[^/]+\/ack$/, 'This is an ack_url (a POST). Use area "events" action "ack".'],
   [
     /^\/v1\/webhook-endpoints\/[^/]+\/(rotate-secret|test)$/,
@@ -155,10 +165,10 @@ export function resolveFollowUrl(ctx: ApiContext, raw: string): { path: string; 
   }
   if (!FOLLOWABLE.some((re) => re.test(path))) {
     return {
-      error: `Error: Refusing to follow "${raw}": ${path} is not one of the free read routes follow takes (batch jobs, discover runs and schedules, review history, the events feed, webhook endpoints). Nothing was sent.`,
+      error: `Error: Refusing to follow "${raw}": ${path} is not one of the free read routes follow takes (batch jobs, discover runs and schedules, search runs and watches, creator runs, review history, the events feed, webhook endpoints). Nothing was sent.`,
     };
   }
   const wait = Number(url.searchParams.get("wait_s") ?? "0");
-  const longRead = path.startsWith("/v1/prism/discover/") || path === "/v1/events" || (Number.isFinite(wait) && wait > 0);
+  const longRead = path.startsWith("/v1/prism/discover/") || path.startsWith("/v1/search/everywhere/") || path.startsWith("/v1/prism/creators/") || path === "/v1/events" || (Number.isFinite(wait) && wait > 0);
   return { path: `${path}${url.search}`, longRead };
 }

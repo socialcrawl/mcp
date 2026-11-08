@@ -1,4 +1,4 @@
-import { ENDPOINTS } from "./data/endpoints.js";
+import { ENDPOINTS, findEndpoint } from "./data/endpoints.js";
 import type { Endpoint, HydrationLane } from "./types.js";
 
 /**
@@ -193,9 +193,27 @@ export function quoteHydration(
 }
 
 /** `instagram/post/stats` → `GET /v1/instagram/post/stats`, honouring method. */
-function siblingPath(lane: HydrationLane): string {
+/**
+ * Whether a lane's sibling is a route this build carries. Some lanes join a
+ * lookup the API runs internally and does not serve (tiktok/profile
+ * `include=account` → tiktok/profile/account; youtube/video
+ * `include=availability`): no surface may send an agent to that path.
+ */
+export function isPublicSibling(lane: HydrationLane): boolean {
+  const slash = lane.sibling.indexOf("/");
+  return findEndpoint(lane.sibling.slice(0, slash), lane.sibling.slice(slash + 1), lane.siblingMethod) !== undefined;
+}
+
+/**
+ * The sibling as a reader sees it: the route in backticks when it is public
+ * (method-prefixed when not a GET, or always with `alwaysMethod`), else the
+ * plain words "an internal lookup".
+ */
+export function siblingRef(lane: HydrationLane, opts: { alwaysMethod?: boolean } = {}): string {
+  if (!isPublicSibling(lane)) return "an internal lookup";
   const method = lane.siblingMethod ?? "GET";
-  return `${method} /v1/${lane.sibling}`;
+  const prefix = opts.alwaysMethod || method !== "GET" ? `${method} ` : "";
+  return "`" + `${prefix}/v1/${lane.sibling}` + "`";
 }
 
 /** One lane, as a compact line for a table or a list. */
@@ -210,7 +228,7 @@ export function describeLane(lane: HydrationLane): string {
   const rate = lane.batch
     ? `${lane.creditsPerItem}cr per row filled, never more than ${lane.batch.creditCap} per ${lane.batch.size} rows`
     : `${lane.creditsPerItem}cr per row filled`;
-  return `\`${lane.param}=${lane.token}\` → joins each row to \`${siblingPath(lane)}\` — ${rate}, ${cap}. Ceiling ${laneMaxCredits(lane)}cr.`;
+  return `\`${lane.param}=${lane.token}\` → joins each row to ${siblingRef(lane, { alwaysMethod: true })} — ${rate}, ${cap}. Ceiling ${laneMaxCredits(lane)}cr.`;
 }
 
 /** Multi-line explanation of every join an endpoint offers. */

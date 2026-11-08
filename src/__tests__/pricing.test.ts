@@ -11,7 +11,7 @@ import {
 
 describe("pricing helpers", () => {
   it("quotes a ladder endpoint at its tier rate", () => {
-    expect(formatCost(findEndpoint("tiktok", "profile")!.pricing)).toBe("1cr (standard)");
+    expect(formatCost(findEndpoint("instagram", "profile")!.pricing)).toBe("1cr (standard)");
   });
 
   it("quotes a flat override without pretending it is the tier rate", () => {
@@ -109,7 +109,7 @@ describe("socialcrawl_pricing endpoint detail", () => {
   });
 
   it("explains a plain ladder endpoint and its free cache window", () => {
-    const out = pricing({ action: "endpoint", platform: "tiktok", resource: "profile" });
+    const out = pricing({ action: "endpoint", platform: "instagram", resource: "profile" });
     expect(out).toContain("ladder rate");
     expect(out).toContain("0 credits");
   });

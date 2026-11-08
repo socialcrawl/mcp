@@ -185,6 +185,7 @@ export async function collectStructured(ctx: ApiContext, raw: CollectParams): Pr
   let cursor: string | null = null;
   let hasMore = false;
   let reason: StopReason = "exhausted";
+  let nextPageCredits: number | undefined;
   const warnings: string[] = [];
 
   for (;;) {
@@ -196,11 +197,14 @@ export async function collectStructured(ctx: ApiContext, raw: CollectParams): Pr
       reason = "page_limit";
       break;
     }
-    if (used + quote.hold > budget) {
+    // The API prices the next page itself (pagination.next_page_credits,
+    // API-050) with the pricer that charges; fall back to the local quote.
+    const nextHold = nextPageCredits ?? quote.hold;
+    if (used + nextHold > budget) {
       reason = "budget";
       warnings.push(
         input.max_credits !== undefined
-          ? `Stopped at max_credits (${budget}): another page could hold ${quote.hold} more. Pass a larger max_credits to continue.`
+          ? `Stopped at max_credits (${budget}): the next page ${nextPageCredits !== undefined ? `costs ${nextHold} credits (the API's next_page_credits)` : `could hold ${nextHold} more`}. Pass a larger max_credits to continue.`
           : `Stopped at the projected budget of ${budget} credits (pages returned fewer rows than the page size). Pass max_credits, or confirm a larger amount, to continue.`,
       );
       break;
@@ -259,6 +263,9 @@ export async function collectStructured(ctx: ApiContext, raw: CollectParams): Pr
     const paging = env.paging as { has_more: boolean; next_cursor: string | null } | undefined;
     hasMore = paging?.has_more === true;
     cursor = paging?.next_cursor ?? null;
+    const rawPaging = (call.envelope as { pagination?: { next_page_credits?: unknown } } | undefined)?.pagination;
+    nextPageCredits =
+      typeof rawPaging?.next_page_credits === "number" && Number.isFinite(rawPaging.next_page_credits) ? rawPaging.next_page_credits : undefined;
 
     if (rows.length >= input.items) {
       reason = "items";

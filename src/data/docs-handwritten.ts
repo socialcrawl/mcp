@@ -228,6 +228,13 @@ All errors follow the same envelope — every \`/v1\` exit is JSON, never a bare
 
 A request that hits the request-scoped deadline returns a JSON 504 with the credit refunded before the serverless kill.
 
+**Bad input on a single-source lane is a free 400.** On lanes served by one source (\`weibo/profile\`, \`goodreads/quotes\`, \`airbnb/search\`, \`airbnb/listing/availability\` and the like), input the source cannot use is \`INVALID_REQUEST\` naming the param, at 0 credits — no longer a refunded, retryable 502. Fix the param; do not retry.
+
+## Names the API accepts for you
+
+- **Common param names are renamed, not dropped.** \`sort\` (or \`sort_by\`, \`order_by\`, …), \`country\` (\`region\`, \`country_code\`, \`gl\`, \`geo\`, \`market\`, …), \`limit\` (\`page_size\`, \`per_page\`, \`count\`, \`num\`, …), and a dated \`since\` / \`until\` (or \`start_date\`, \`from\`, \`date_from\`, …) move onto the endpoint's own name for the same thing; a sort word lands on its synonym (\`newest\` → \`latest\`), and an over-large limit is clamped. Each rename is a line in \`data._warnings\`. A name with no counterpart on the endpoint is still dropped (and named in \`_warnings\` with the closest declared name).
+- **Feed paths.** \`{platform}/profile/posts\` is that platform's posts feed on Bluesky, Gab, Kwai, Rumble, Threads, TikTok, Truth Social, Twitch and X (plus \`tiktok/user/posts\`, \`instagram/user/posts\`, \`facebook/page/posts\`, \`facebook/user/posts\`, \`twitter/users/tweets\`), and \`x/…\` is \`twitter/…\` — one call, one cache slot. \`socialcrawl_request\` calls the real path and tells you which.
+
 ## Auto-refund matrix
 
 Credits are refunded automatically on: 404 \`RESOURCE_NOT_FOUND\` (empty upstream — BIL-01), an empty list result (200 \`{items: []}\`), 502, 503, 500, and 504. Cache hits, 400, 401, 402, 405, 409, 413, 422, and 429 never deduct credits in the first place.
@@ -294,6 +301,8 @@ Every list response carries a top-level:
 \`\`\`json
 "pagination": { "next_cursor": "sc.…", "has_more": true, "page_size": 20 }
 \`\`\`
+
+A list answer also carries **\`next_page_credits\`** — the next page priced by the same pricer that charges (your negotiated rate included; \`null\` with no cursor) — and **\`typical_page_size\`**, the verified page size (\`null\` when unverified). Budget a walk from these rather than the band's ceiling; \`socialcrawl_collect\` stops before a page whose \`next_page_credits\` would overrun \`max_credits\`.
 
 **Stop on \`has_more === false\`**, not on cursor absence. A zero-item page never advances (\`next_cursor\` is dropped), so an empty page is an honest end rather than an infinite loop. The legacy \`data.next_cursor\` is retained for one deprecation cycle.
 
@@ -422,6 +431,10 @@ Every endpoint declaring an archetype is validated against one canonical Zod sch
 Data that does not fit a canonical field lives in a typed, optional \`ext\` sub-object on the post/comment/author/product/review/app objects. Keys are declared per platform — anything undeclared is stripped by the schema gate, so \`ext\` is a contract, not a free-form bag.
 
 One join key worth memorising: the stable cross-endpoint YouTube creator key is \`post.ext.channel_id\` (the bare \`UC…\` id), never \`post.author.username\`, which is the \`@handle\` or \`null\`.
+
+## \`format=raw\`
+
+\`format=raw\` returns the source's own body instead of the canonical schema. The source's billing fields (\`credits_remaining\`, \`credits_charged\`, \`credits_used\`, and a supplier \`cost\`) are removed from it, on a live call and a cache hit alike — read your charge from the envelope's \`credits_used\`, never from inside \`data\`.
 
 ## Computed fields
 
@@ -744,7 +757,13 @@ For 51 to 5,000 items:
 
 **Webhook.** One \`batch.completed\` event (never the rows) signed \`x-socialcrawl-signature: t=<unix>,v1=<hmac>\` with the per-job secret, to a public https URL.
 
-In this server: \`socialcrawl_request\` with platform \`prism\`, resource \`jobs\` and the job in \`body\` to submit; resource \`jobs/{job_id}\` with \`params: { job_id }\` (or resource \`jobs/<id>\`) to poll; resource \`jobs\` with no body to list.`,
+In this server: \`socialcrawl_request\` with platform \`prism\`, resource \`jobs\` and the job in \`body\` to submit; resource \`jobs/{job_id}\` with \`params: { job_id }\` (or resource \`jobs/<id>\`) to poll; resource \`jobs\` with no body to list.
+
+## Any GET as a background job
+
+A GET that can outlast your client's timeout (\`twitter/ai-search\`, a deep walk) runs in the background when you add \`async=true\` (or send \`Prefer: respond-async\`). The answer is a 202 with \`data.job_id\` (\`bj_…\`), a \`Location\` header and \`Retry-After\`; read it free at \`GET /v1/prism/jobs/{job_id}\`, where \`results[0].response\` is exactly what the call returns. Nothing is held at submit: the call is validated now and billed as itself when it runs. \`Idempotency-Key\` returns the same job on a retry. Any other \`async\` value is a free 400. Not offered on async or always-streaming endpoints, or on \`prism/discover\`, which has its own \`async\`.
+
+In this server: add \`async: "true"\` to \`params\` on \`socialcrawl_request\`; the answer carries the poll call to make.`,
 
   monitors: `# SocialCrawl API — Monitors
 

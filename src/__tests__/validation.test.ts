@@ -92,7 +92,7 @@ describe("socialcrawl_request local validation", () => {
   it("lets a valid call through and reports the price", async () => {
     const url = okFetch();
     const out = await request(ctx, {
-      platform: "tiktok",
+      platform: "instagram",
       resource: "profile",
       params: { handle: "charlidamelio" },
     });

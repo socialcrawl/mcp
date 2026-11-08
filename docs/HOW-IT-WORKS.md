@@ -21,7 +21,7 @@ SocialCrawl API (www.socialcrawl.dev)
     |
     | (upstream)
     |
-Data Platforms (69 platforms)
+Data Platforms (75 platforms)
 ```
 
 Since 2.0.0 the MCP server exposes 7 tools. Three of them (find, endpoint, estimate) answer from local bundled data without an API key or network connection; with a key they first ask the free `/v1/utility/*` routes (`find`, `resolve`, `plan`, `endpoint`, `estimate`) and fall back to the bundled answer when a route is not deployed (the router's ENDPOINT_NOT_FOUND for the route itself is remembered for 10 minutes; a 404 for an unknown id is not; each call times out after 5 s). Four (request, collect, account, manage) make API calls and need a key, except account's `status` view, which reads the public `/v1/status` route. `SOCIALCRAWL_LEGACY_TOOLS=1` also registers the nine retired 1.x names (`src/tools/legacy.ts`).
@@ -77,8 +77,8 @@ src/
 │   ├── collect.ts        # Walks a paged endpoint to N rows / a credit budget; stores rows as a result resource
 │   └── request.ts        # Pre-flight validation + API call execution (GET + POST batch), shaping, cost guard
 ├── data/                 # ALL GENERATED — see scripts/generate-data.ts
-│   ├── platforms.ts      # 69 platforms with metadata, social flag, and category
-│   ├── endpoints.ts      # 675 endpoints — params with bounds/couplings/CSV limits, the full
+│   ├── platforms.ts      # 75 platforms with metadata, social flag, and category
+│   ├── endpoints.ts      # 733 endpoints — params with bounds/couplings/CSV limits, the full
 │   │                     #   pricing model, pagination, cache, delivery mode, upstream sources
 │   ├── registry-meta.ts  # REGISTRY_FINGERPRINT, REGISTRY_STATS, CREDIT_LADDER, CACHE_TTLS
 │   ├── docs-handwritten.ts # Cross-cutting contract topics (auth, credits, errors, paging, …)
@@ -106,7 +106,7 @@ Each tool is registered using the MCP SDK's `server.registerTool()` API with:
 
 ### Tool Design Philosophy
 
-The MCP exposes 7 workflow-oriented tools rather than 633 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (The surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, the `cohorts` audience-filtered search and Prism background jobs — share one action-based tool, `socialcrawl_manage`.)
+The MCP exposes 7 workflow-oriented tools rather than 733 endpoint-specific tools. This mirrors SocialCrawl's core value proposition: **one API, every platform.** The agent doesn't need to know hundreds of tool names — it discovers what's available and makes calls through a single, unified interface. (The surfaces that don't fit a stateless GET — the scheduled `monitors` wrapper, the stateful `web` platform, the `cohorts` audience-filtered search, Prism background jobs, discover runs, universal-search runs and watches, creator-search runs, review history and the events feed — share one action-based tool, `socialcrawl_manage`.)
 
 The typical agent workflow is:
 
@@ -114,7 +114,7 @@ The typical agent workflow is:
 2. `socialcrawl_endpoint` — "What do I send and what comes back?" (params, response fields, paging, latency, next steps; also guide topics)
 3. `socialcrawl_estimate` — "What will that cost me?"
 4. `socialcrawl_request` — "Get me this specific data" (or `socialcrawl_collect` for many pages in one call)
-5. `socialcrawl_account` / `socialcrawl_manage` — balance and status / monitors, cohorts, web, jobs
+5. `socialcrawl_account` / `socialcrawl_manage` — balance, usage, status and notifications / monitors, cohorts, web, jobs, discover, search_runs, creator_runs, review_history, events
 
 Smart agents learn the API structure after 1-2 discovery calls and skip straight to `socialcrawl_request` for subsequent queries.
 
@@ -313,7 +313,7 @@ Every successful `socialcrawl_request` call returns the same top-level shape, re
 }
 ```
 
-The envelope is stable across all 675 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
+The envelope is stable across all 733 endpoints — only the shape of `data` varies. The inner `data` payload is typed per **archetype** (`Author`, `Post`, `PostList`, `CommentList`, `SearchResults`, etc.), so an agent that has learned what a `Post` looks like for TikTok can read an Instagram `Post` with the same mental model. The `cached` flag indicates whether the response came from SocialCrawl's upstream cache, and `credits_used` / `credits_remaining` let the agent track the balance after every call without a separate billing lookup.
 
 ### Response Truncation
 
@@ -397,7 +397,7 @@ Around 690 tests across 31 suites (`npm test`). The main ones:
 
 | Suite | Tests | What it verifies |
 |-------|-------|------------------|
-| Data integrity | 63 | All 69 platforms present, 675 endpoints valid, totals match `REGISTRY_STATS`, pricing models coherent (ladder endpoints charge their tier rate; every metered endpoint quotes a band or a rule), integer bounds sane, param couplings and CSV constraints only name declared params, every doc topic exists, no duplicates, counts match |
+| Data integrity | 63 | All 75 platforms present, 733 endpoints valid, totals match `REGISTRY_STATS`, pricing models coherent (ladder endpoints charge their tier rate; every metered endpoint quotes a band or a rule), integer bounds sane, param couplings and CSV constraints only name declared params, every doc topic exists, no duplicates, counts match |
 | Pricing | 24 | Band-not-base quoting, authored rule vs band fallback, price-driving params, the five `socialcrawl_pricing` actions, budget filters judged by the metered ceiling |
 | Local validation + search | 23 | Enum, range, coupling, and CSV rejections without touching the network; cross-platform endpoint search; method/budget filters; full parameter-contract output |
 | Web + method-aware request | 21 | `socialcrawl_web` action routing, path-id validation, GET-query vs POST-body split, `in:query` routing, JSON-array coercion, web→tool redirect, the free `job_errors` / `crawl_preview` actions, metered rule in the header |

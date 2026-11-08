@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { endpointStructured } from "../tools/endpoint.js";
 import { findBanned } from "./fixtures/supplier-tokens.js";
 import { ENDPOINTS } from "../data/endpoints.js";
+import { OUTPUTS } from "../data/outputs.js";
 import type { ApiContext } from "../context.js";
 
 const ANON: ApiContext = { apiKey: "", baseUrl: "https://www.socialcrawl.dev" };
@@ -133,16 +134,26 @@ describe("socialcrawl_endpoint (live overlay)", () => {
 
 describe("socialcrawl_endpoint: unknown and inferred field lists", () => {
   it("says the fields are not published yet and points at the sample (youtube/transcripts)", async () => {
-    const out = await endpointStructured(ANON, { id: "youtube/transcripts", method: "POST" });
-    const c = contractOf(out.structured);
-    expect((c.outputs as unknown as { source: string }).source).toBe("unknown");
-    expect(out.text).toContain("Fields not published yet");
-    expect(out.text).toContain("socialcrawl://example/youtube/transcripts");
-    expect(out.text).toMatch(/call it once with a small limit/);
+    // Every endpoint in the current registry publishes a field list, so the
+    // unpublished state is set up by hand: the path must still read right the
+    // day a new endpoint ships before its contract does.
+    const key = "POST youtube/transcripts";
+    const saved = OUTPUTS[key];
+    OUTPUTS[key] = { ...saved, source: "unknown", fields: [], never_filled: [], page_level: [] };
+    try {
+      const out = await endpointStructured(ANON, { id: "youtube/transcripts", method: "POST" });
+      const c = contractOf(out.structured);
+      expect((c.outputs as unknown as { source: string }).source).toBe("unknown");
+      expect(out.text).toContain("Fields not published yet");
+      expect(out.text).toContain("socialcrawl://example/youtube/transcripts");
+      expect(out.text).toMatch(/call it once with a small limit/);
+    } finally {
+      OUTPUTS[key] = saved;
+    }
   });
 
   it("marks an inferred field list as inferred from a sample", async () => {
-    const out = await endpointStructured(ANON, { id: "web/jobs" });
+    const out = await endpointStructured(ANON, { id: "tiktok/user/audience" });
     expect((contractOf(out.structured).outputs as unknown as { source: string }).source).toBe("inferred_sample");
     expect(out.text).toContain("inferred from a sample");
   });

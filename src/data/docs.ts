@@ -2,7 +2,7 @@ import { PLATFORMS } from "./platforms.js";
 import { ENDPOINTS, getEndpointsByPlatform } from "./endpoints.js";
 import { CREDIT_LADDER } from "./registry-meta.js";
 import { HANDWRITTEN } from "./docs-handwritten.js";
-import { DISCOVER_RUNS_DOC, EVENTS_DOC } from "./docs-async.js";
+import { DISCOVER_RUNS_DOC, EVENTS_DOC, SEARCH_RUNS_DOC } from "./docs-async.js";
 import {
   endpointLabel,
   formatCost,
@@ -16,6 +16,7 @@ import {
   hydratingEndpoints,
   laneCeilingCredits,
   laneMaxCredits,
+  siblingRef,
 } from "../hydration.js";
 import { judgedEndpoints, judgmentHoldMax, labelFamily } from "../judgments.js";
 import type { Endpoint } from "../types.js";
@@ -542,36 +543,44 @@ function buildHydrationDoc(): string {
     "|----------|-------|----------|---------|----------|--------------|-------------------|",
   ];
 
+  // Endpoints that run the SAME lane (TikTok's eleven `exact_counts` lists)
+  // share one row, so the topic stays one page as lanes multiply.
+  const path = (e: Endpoint): string =>
+    "`" + `${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}` + "`";
+  const joinRows = new Map<string, { endpoints: Endpoint[]; cells: string }>();
+  const fillRows = new Map<string, { endpoints: Endpoint[]; lane: NonNullable<Endpoint["hydration"]>[number] }>();
   for (const e of hydrating) {
     for (const lane of e.hydration ?? []) {
       const rate = lane.batch
         ? `${lane.creditsPerItem}cr (cap ${lane.batch.creditCap} per ${lane.batch.size})`
         : `${lane.creditsPerItem}cr`;
-      const prefix =
-        lane.siblingMethod && lane.siblingMethod !== "GET"
-          ? `${lane.siblingMethod} `
-          : "";
-      lines.push(
-        `| \`${e.method === "GET" ? "" : `${e.method} `}/v1/${e.platform}/${e.resource}\` | \`${lane.token}\` | \`${prefix}/v1/${lane.sibling}\` | ${rate} | ${lane.maxItems} | ${e.pricing.cost + laneCeilingCredits(lane)}cr | ${e.pricing.cost + laneMaxCredits(lane)}cr |`,
-      );
+      const cells = `| \`${lane.token}\` | ${siblingRef(lane)} | ${rate} | ${lane.maxItems} | ${e.pricing.cost + laneCeilingCredits(lane)}cr | ${e.pricing.cost + laneMaxCredits(lane)}cr |`;
+      const row = joinRows.get(cells) ?? { endpoints: [], cells };
+      row.endpoints.push(e);
+      joinRows.set(cells, row);
+      const fillKey = `${lane.param}=${lane.token}|${lane.fills.join(",")}|${(lane.replaceApproximate ?? []).join(",")}`;
+      const fill = fillRows.get(fillKey) ?? { endpoints: [], lane };
+      fill.endpoints.push(e);
+      fillRows.set(fillKey, fill);
     }
+  }
+  for (const row of joinRows.values()) {
+    lines.push(`| ${row.endpoints.map(path).join(", ")} ${row.cells}`);
   }
 
   lines.push("", "## What each join fills", "");
-  for (const e of hydrating) {
-    for (const lane of e.hydration ?? []) {
+  for (const { endpoints, lane } of fillRows.values()) {
+    lines.push(
+      `**${endpoints.map(path).join(", ")} + \`${lane.param}=${lane.token}\`**`,
+      "",
+      lane.fills.map((f) => `\`${f}\``).join(", "),
+      "",
+    );
+    if (lane.replaceApproximate && lane.replaceApproximate.length > 0) {
       lines.push(
-        `**\`/v1/${e.platform}/${e.resource}\` + \`${lane.param}=${lane.token}\`**`,
-        "",
-        lane.fills.map((f) => `\`${f}\``).join(", "),
+        `Replaces rather than only fills: ${lane.replaceApproximate.map((f) => `\`${f}\``).join(", ")} — on a row that flags its own value approximate.`,
         "",
       );
-      if (lane.replaceApproximate && lane.replaceApproximate.length > 0) {
-        lines.push(
-          `Replaces rather than only fills: ${lane.replaceApproximate.map((f) => `\`${f}\``).join(", ")} — on a row that flags its own value approximate.`,
-          "",
-        );
-      }
     }
   }
 
@@ -695,6 +704,7 @@ export const FIXED_TOPICS = [
   "monitors",
   "cohorts",
   "discover-runs",
+  "search-runs",
   "events",
   "discovery",
 ] as const;
@@ -718,6 +728,7 @@ export const DOCS: Record<string, string> = (() => {
     monitors: HANDWRITTEN.monitors,
     cohorts: HANDWRITTEN.cohorts,
     "discover-runs": DISCOVER_RUNS_DOC,
+    "search-runs": SEARCH_RUNS_DOC,
     events: EVENTS_DOC,
     "batch-jobs": HANDWRITTEN["batch-jobs"],
     judgments: buildJudgmentsDoc(),

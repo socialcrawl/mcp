@@ -4,7 +4,7 @@ import type { ApiContext } from "../context.js";
 import { errorFromText, isErrorText } from "../result.js";
 import type { ToolOutput } from "../result.js";
 import { CohortsInputSchema, MonitorsInputSchema, WebInputSchema } from "../schemas/tools.js";
-import { DiscoverInputSchema, EventsInputSchema, ReviewHistoryInputSchema } from "../schemas/async.js";
+import { CreatorRunsInputSchema, DiscoverInputSchema, EventsInputSchema, ReviewHistoryInputSchema, SearchRunsInputSchema } from "../schemas/async.js";
 import { cohorts } from "./cohorts.js";
 import type { CohortsParams } from "./cohorts.js";
 import { discoverRuns, reviewHistory } from "./discover-runs.js";
@@ -14,6 +14,8 @@ import type { EventsParams } from "./events.js";
 import { monitors } from "./monitors.js";
 import type { MonitorsParams } from "./monitors.js";
 import { requestStructured } from "./request.js";
+import { creatorRuns, searchRuns } from "./search-runs.js";
+import type { CreatorRunsParams, SearchRunsParams } from "./search-runs.js";
 import { web } from "./web.js";
 import type { WebParams } from "./web.js";
 
@@ -28,7 +30,16 @@ import type { WebParams } from "./web.js";
  * wrong field is a free, local error that states the rules.
  */
 
-export type ManageArea = "monitors" | "cohorts" | "web" | "jobs" | "discover" | "review_history" | "events";
+export type ManageArea =
+  | "monitors"
+  | "cohorts"
+  | "web"
+  | "jobs"
+  | "discover"
+  | "review_history"
+  | "events"
+  | "search_runs"
+  | "creator_runs";
 
 export interface ManageParams {
   area: ManageArea;
@@ -51,6 +62,9 @@ export const DRY_RUN_ACTIONS: Record<ManageArea, string[]> = {
   discover: [],
   review_history: [],
   events: [],
+  // more and include answer a free plan + estimate under `dry_run: true`.
+  search_runs: ["run_more", "run_include"],
+  creator_runs: [],
 };
 
 /**
@@ -153,6 +167,8 @@ export const MANAGE_ACTIONS: Record<ManageArea, string[]> = {
   discover: optionsOf(DiscoverInputSchema),
   review_history: optionsOf(ReviewHistoryInputSchema),
   events: optionsOf(EventsInputSchema),
+  search_runs: optionsOf(SearchRunsInputSchema),
+  creator_runs: optionsOf(CreatorRunsInputSchema),
 };
 
 /** Where `id` goes for the background-work areas: the field each action names its resource by. */
@@ -236,6 +252,21 @@ async function dispatch(ctx: ApiContext, p: ManageParams, input: Record<string, 
     });
     if (!parsed.success) return invalid(p.area, parsed.error);
     return done(await cohorts(ctx, parsed.data as CohortsParams, { dryRun: sendDry }));
+  }
+
+  if (p.area === "search_runs" || p.area === "creator_runs") {
+    const idKey = p.action === "follow" ? "url" : p.action.startsWith("watch_") ? "watch_id" : "run_id";
+    const parsed = (p.area === "search_runs" ? SearchRunsInputSchema : CreatorRunsInputSchema).safeParse({
+      ...input,
+      action: p.action,
+      ...(p.id ? { [idKey]: p.id } : {}),
+    });
+    if (!parsed.success) return invalid(p.area, parsed.error);
+    const key = p.idempotencyKey ? { idempotencyKey: p.idempotencyKey } : {};
+    if (p.area === "search_runs") {
+      return done(await searchRuns(ctx, { ...(parsed.data as SearchRunsParams), ...key, dryRun: sendDry }));
+    }
+    return done(await creatorRuns(ctx, { ...(parsed.data as CreatorRunsParams), ...key }));
   }
 
   if (p.area === "discover" || p.area === "review_history" || p.area === "events") {

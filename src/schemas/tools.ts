@@ -90,7 +90,7 @@ export const RequestInputSchema = z.object({
     .min(16, "Idempotency-Key should be at least 16 characters (UUIDv4 recommended)")
     .optional()
     .describe("Makes a retry safe: a replay returns the original response for 0 credits (24h)."),
-  fields: z.string().optional().describe("Row paths exactly as socialcrawl_endpoint lists them, e.g. 'post.id,post.content.text,post.engagement.*' (or an array). Cuts tokens."),
+  fields: z.string().optional().describe("Row paths as socialcrawl_endpoint lists them, e.g. 'post.id,post.engagement.*' (or an array). Cuts tokens."),
   max_items: z.number().int().min(1).optional().describe("Show at most this many rows; the full page stays behind the result link."),
   format: z.enum(["json", "csv", "summary"]).optional().describe("json (default), csv (canonical columns) or summary."),
   max_credits: MaxCreditsSchema,
@@ -154,11 +154,13 @@ export const EstimateInputSchema = z.object({
 
 export const AccountInputSchema = z.object({
   view: z
-    .enum(["balance", "transactions", "usage", "status", "freshness"])
+    .enum(["balance", "transactions", "usage", "status", "freshness", "notifications"])
     .optional(),
-  limit: z.number().int().min(1).max(100).optional().describe("transactions: page size."),
-  cursor: z.string().optional().describe("transactions: next_cursor from the last page."),
-  request_id: z.string().optional().describe("transactions: receipts for one request."),
+  unread: z.boolean().optional(),
+  kind: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional().describe("Page size."),
+  cursor: z.string().optional().describe("next_cursor of the last page."),
+  request_id: z.string().optional().describe("One request's receipts."),
   from: z.string().optional(),
   to: z.string().optional(),
   group_by: z.enum(["api_key", "day", "api_key,day"]).optional(),
@@ -166,14 +168,14 @@ export const AccountInputSchema = z.object({
 }).strict();
 
 export const ManageInputSchema = z.object({
-  area: z.enum(["monitors", "cohorts", "web", "jobs", "discover", "review_history", "events"]),
+  area: z.enum(["monitors", "cohorts", "web", "jobs", "discover", "review_history", "events", "search_runs", "creator_runs"]),
   action: z
     .string()
     .min(1)
     .describe(
-      "monitors: create|list|get|runs|timeseries|export|pause|resume|delete. cohorts: create|add_members|estimate_cost|query|query_*|get|delete. web: scrape|search|map|extract|crawl|batch_scrape|agent|crawl_preview|job_*|monitor_*|session_*. jobs: submit|list|get. discover: run_(list|get|export|legs|cancel|resume|more)|schedule_*|follow. review_history: get. events: feed|ack|endpoint_*.",
+      "monitors: create|list|get|runs|timeseries|export|pause|resume|delete. cohorts: create|add_members|estimate_cost|query|query_*|get|delete. web: scrape|search|map|extract|crawl|batch_scrape|agent|crawl_preview|job_*|monitor_*|session_*. jobs: submit|list|get. run_* = list|get|export|legs|cancel|resume|more. discover: run_*|schedule_*|follow. search_runs: run_*|run_include|watch_*|follow. creator_runs: run_*|run_save|follow. review_history: get. events: feed|ack|endpoint_*.",
     ),
-  id: z.string().optional().describe("Resource id (events feed/ack: consumer name)."),
+  id: z.string().optional().describe("Resource id (events: consumer name)."),
   input: z
     .record(z.unknown())
     .optional()

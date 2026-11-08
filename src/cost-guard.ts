@@ -2,8 +2,8 @@ import { apiRequest } from "./client.js";
 import { DISCOVERY_TIMEOUT_MS, noteRoute, routeMissing } from "./discovery-routes.js";
 import type { ApiContext } from "./context.js";
 import { priceDrivingParams } from "./pricing.js";
-import { quoteHydration } from "./hydration.js";
-import { quoteJudgments } from "./judgments.js";
+import { joinsCeiling, laneMaxCredits, quoteHydration } from "./hydration.js";
+import { judgmentHoldMax, quoteJudgments } from "./judgments.js";
 import { confirmThreshold } from "./session-spend.js";
 import type { Endpoint } from "./types.js";
 
@@ -50,6 +50,28 @@ export interface GuardStop {
 const present = (v: unknown): boolean => v !== undefined && v !== null && v !== "";
 
 /**
+ * Whether a metered band is fully explained by the page, its `include=` joins
+ * and its metered judgments — then local arithmetic is exact. Any other meter
+ * (per-row `limit`, page walks the rule describes) is not.
+ */
+export function bandExplained(e: Endpoint): boolean {
+  if (e.pricing.model !== "metered" || e.pricing.maxCost === undefined) return true;
+  const labels = e.judgments?.labels;
+  const explained =
+    e.pricing.cost +
+    joinsCeiling(e) +
+    (labels && (labels.metered.length > 0 || labels.free.includes("intent")) ? judgmentHoldMax(e) : 0) +
+    (e.judgments?.relevance ? judgmentHoldMax(e) : 0);
+  return e.pricing.maxCost <= explained;
+}
+
+/** Credits of the band's ceiling that belong to joins this call does not send. */
+export function unaskedJoinCredits(e: Endpoint, include: string | undefined): number {
+  const asked = new Set((include ?? "").split(",").map((t) => t.trim().toLowerCase()).filter(Boolean));
+  return (e.hydration ?? []).filter((l) => !asked.has(l.token.toLowerCase())).reduce((sum, l) => sum + laneMaxCredits(l), 0);
+}
+
+/**
  * What this call can hold, from the registry data shipped with the server: the
  * page, any `include=` joins and metered judgments the params switch on, and
  * the band's ceiling when a param the pricing rule names is present (a
@@ -58,17 +80,19 @@ const present = (v: unknown): boolean => v !== undefined && v !== null && v !== 
 export function localQuote(endpoint: Endpoint, params: Record<string, unknown>): number {
   const p = endpoint.pricing;
   let hold = p.cost;
+  const include = typeof params.include === "string" ? params.include : undefined;
   if ((endpoint.hydration?.length ?? 0) > 0) {
     const limit = Number(params.limit);
-    hold = quoteHydration(
-      endpoint,
-      typeof params.include === "string" ? params.include : undefined,
-      Number.isFinite(limit) ? limit : undefined,
-    ).held;
+    hold = quoteHydration(endpoint, include, Number.isFinite(limit) ? limit : undefined).held;
   }
   if (endpoint.judgments) hold += quoteJudgments(endpoint, params).held;
-  if (p.model === "metered" && p.maxCost !== undefined) {
-    if (priceDrivingParams(endpoint).some((name) => present(params[name]))) hold = Math.max(hold, p.maxCost);
+  // A band that is nothing but the page, its joins and its judgments is
+  // quoted exactly above; only a band that meters on something else is
+  // budgeted at its ceiling — less the joins this call does not turn on.
+  if (p.model === "metered" && p.maxCost !== undefined && !bandExplained(endpoint)) {
+    if (priceDrivingParams(endpoint).some((name) => present(params[name]))) {
+      hold = Math.max(hold, p.maxCost - unaskedJoinCredits(endpoint, include));
+    }
   }
   const pages = Number(params.max_pages);
   if (Number.isFinite(pages) && pages > 1 && endpoint.optionalParams.some((o) => o.name === "max_pages")) {

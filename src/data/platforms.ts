@@ -22,16 +22,16 @@ export const PLATFORMS: Platform[] = [
     social: true,
     category: "major",
     description:
-      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, mentions of an account (search/mentions), hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search).",
+      "Profiles, videos, comments and replies (incl. direct comment lookup), on-screen video text extraction, keyword/hashtag/top/user/music search plus search suggestions, mentions of an account (search/mentions), hashtag details, the trending feed (worldwide or the in-country For You feed), TikTok's own popular-hashtag and Top Videos leaderboards, audience demographics, similar accounts (with an Instagram-graph fallback), followers, following, a user's liked videos, playlists and collections, place-tagged videos, effects and effect feeds, live streams, songs, video transcripts, profile region lookup, and the TikTok Ad Library (ad details, ad search with age, reach and gender targeting filters, top ads with an optional per-ad retention curve). `include=exact_counts` swaps rounded counts for exact ones on a post and on the first rows of 11 video lists; `include=account` adds a profile's creation date and posting region.",
   },
   {
     slug: "instagram",
     name: "Instagram",
-    endpointCount: 43,
+    endpointCount: 44,
     social: true,
     category: "major",
     description:
-      "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, mentions of an account (search/mentions), declared account country by user id (profile/country), exact hashtag size (hashtag), location profiles (location), comment likers, trending reels and music, audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
+      "Profiles, account transparency details (profile/about), posts, reels, comments and comment replies (incl. direct comment lookup), story highlights, stories, tagged posts, location feeds, followers, following, similar accounts, post likers, post-reshare stats, reels/posts feeds with per-item share counts in one call (profile/reels/full, profile/posts/full), account engagement analytics, universal search across accounts/hashtags/places, popular-post search, reels/hashtag/profile/location/music search (reel search with per-creator cards via include=creator), username suggestions, mentions of an account (search/mentions), declared account country by user id (profile/country), exact hashtag size (hashtag), location profiles (location), comment likers, trending reels and music, Instagram's own trending search terms (trending/searches), audio reels, embed HTML, on-screen text (OCR) from any image or video frame, and AI-powered media transcripts.",
   },
   {
     slug: "youtube",
@@ -40,34 +40,34 @@ export const PLATFORMS: Platform[] = [
     social: true,
     category: "major",
     description:
-      "Channels, videos, shorts, comments and replies, related ('up next') videos, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), batch video/channel/transcript lookups, and video transcripts.",
+      "Channels, videos, shorts, comments and replies, related ('up next') videos, video sponsors, playlists and playlist items, community posts, keyword/hashtag/advanced search and autocomplete suggestions, trending videos and shorts, channel live streams, channel contact email and country lookup (channel/about — billed only when an address is returned), downloadable media files (audio, video, subtitles, thumbnails), a video's playback availability by country (`include=availability` on youtube/video), batch video/channel/transcript lookups, and video transcripts.",
   },
   {
     slug: "twitter",
     name: "Twitter/X",
-    endpointCount: 17,
+    endpointCount: 18,
     social: true,
     category: "major",
     description:
-      "Profiles, tweets and their replies, tweet search, hashtag search and account-mention search, user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
+      "Profiles and X's About-this-account details (profile/about: country the account is based in, sign-up source, username changes, verification breakdown), tweets and their replies, tweet search, hashtag search and account-mention search, user search, a user's media tweets, followers, following, retweeters, communities, community tweets, video transcripts, and AI-powered natural-language X search via Grok with citations.",
   },
   {
     slug: "linkedin",
     name: "LinkedIn",
-    endpointCount: 68,
+    endpointCount: 77,
     social: true,
     category: "major",
     description:
-      "Personal profiles (single sub-resources, or one-call bundles: profile/all, profile/complete, profile/with-posts) and company pages (incl. lookup by website domain, also-viewed pages, employee counts by location), posts and post-with-comments, reposts, reactions, group and company posts, post comments and replies, Pulse articles with their comments and reactions, people search (keyword or a search-results URL), company and hashtag search, similar members, structured profile sub-resources (experiences, educations, skills, position skills, top position, honors, certifications, publications, volunteers, recommendations, followed companies/groups/schools/newsletters/Top Voices, images, videos, last activity), jobs (job search, company jobs, jobs a member posted, a job's hiring team, job details), company insights and job counts, groups, location/school/industry search, the complete post-history archive walk (profile/posts/archive — metered per post), post transcripts, and the LinkedIn Ad Library (ad details, ad search).",
+      "Personal profiles (single sub-resources, or one-call bundles: profile/all, profile/complete, profile/with-posts) and company pages (incl. lookup by website domain, also-viewed pages, employee counts by location), posts and post-with-comments, reposts, reactions, group and company posts, post comments and replies, Pulse articles with their comments and reactions, people search (keyword or a search-results URL), company and hashtag search, similar members, structured profile sub-resources (experiences, educations, skills, position skills, top position, honors, certifications, publications, volunteers, recommendations, followed companies/groups/schools/newsletters/Top Voices, images, videos, last activity), jobs (job search, company jobs, jobs a member posted, a job's hiring team, job details), the endorsers of a member's skill, the profile sections languages, projects, patents, organizations, courses, test scores and featured items, up to 25 company pages in one call (company/bulk), company insights and job counts, groups, location/school/industry search, the complete post-history archive walk (profile/posts/archive — metered per post), post transcripts, and the LinkedIn Ad Library (ad details incl. payer and video renditions, ad search). Post lists carry exact publish times, and post search filters by `mentions_company` / `mentions_member`.",
   },
   {
     slug: "facebook",
     name: "Facebook",
-    endpointCount: 31,
+    endpointCount: 32,
     social: true,
     category: "major",
     description:
-      "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), hashtag and page-mention search, and the full Facebook Ad Library (ads, company ads, ad search, company search).",
+      "Pages, groups and group posts, posts, comments and replies, photos, reels (incl. the full reels feed with per-item view counts), events and event search, Marketplace (keyword search, location search, item details), video and ad transcripts, keyword search over posts, pages, people, videos and groups (search/*), hashtag and page-mention search, and the full Facebook Ad Library (ads, company ads filterable by publisher platform and ad category, ad search, company search, advertiser profiles). `include=group` on facebook/post fills the group's name and member count.",
   },
   {
     slug: "reddit",
@@ -180,11 +180,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "google",
     name: "Google",
-    endpointCount: 12,
+    endpointCount: 13,
     social: true,
     category: "utility",
     description:
-      "Google web search, Google Maps business search (up to 100 places for a keyword in a location), Google Ads Transparency Center (ad details, advertiser search, company ads), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
+      "Google web search, Google Maps business search (up to 100 places for a keyword in a location), Google Ads Transparency Center (ad details, advertiser search, company ads, an advertiser's verified identity), Google Business Profile (place info, extended cross-source reviews, owner updates, Q&A), and Google Travel hotels (search + rich hotel details).",
   },
   {
     slug: "amazon",
@@ -445,11 +445,11 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "polymarket",
     name: "Polymarket",
-    endpointCount: 1,
+    endpointCount: 2,
     social: false,
     category: "utility",
     description:
-      "Prediction-market research — a server-side fan-out that expands a topic across multiple queries and ranks the merged Polymarket events.",
+      "Polymarket prediction markets — a direct market search (1 credit), and `research`: a server-side fan-out that expands a topic across multiple queries and ranks the merged events.",
   },
   {
     slug: "hackernews",
@@ -544,19 +544,19 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "search",
     name: "Universal Search",
-    endpointCount: 5,
+    endpointCount: 6,
     social: false,
     category: "utility",
     description:
-      "Meta-search lanes: `everywhere` fuses 16 platforms (up to 19 sources incl. hashtag lanes; Naver joins on Hangul queries) in a single flat-priced call; `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
+      "Meta-search lanes: `everywhere` fuses the social platforms plus news, Bluesky, Quora and Naver (Hangul queries) in a single flat-priced call, with date windows, platform include/exclude, language and country filters, `depth=quick`, row labels and comment/author follow-ups; `POST everywhere` runs a list of searches as one background run, or turns a search into a scheduled watch that delivers only new rows (runs, lists and watches are managed through `socialcrawl_manage` area `search_runs`); `multi` runs each named platform's own native search for one query in one call, priced as the sum of those native pages; `forums` fuses Reddit + Hacker News + Naver KiN/Cafe with top comments inline; `news` plans, localizes, and fans a query out across up to 12 Google News country editions with metered per-leg billing; `creators` fuses TikTok + Threads + Instagram creator discovery, ranked by relevance, followers and verification. LLM-planned, RRF-fused, LLM-reranked, clustered.",
   },
   {
     slug: "prism",
     name: "Prism",
-    endpointCount: 50,
+    endpointCount: 53,
     social: false,
     description:
-      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Multi-platform discovery runs (`discover`: keywords or a plain-language description, inline or as a background run or schedule, never spending past `max_credits`), universal URL lookup, full comment harvesting and new-comment polling on a whole profile (profile/comments), brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
+      "Cross-platform composite intelligence — server-side recipes that fan out across many platforms and fold the legs into one unified report. Creator search by niche, market and measured views (`creators`, GET or POST: lookalikes via `similar_to`, handle lists, contact filters, fill-to-limit under `max_credits`), comments under up to 25 post URLs in one call (`post-comments`), multi-platform discovery runs (`discover`: keywords or a plain-language description, inline or as a background run or schedule, never spending past `max_credits`), universal URL lookup, full comment harvesting and new-comment polling on a whole profile (profile/comments), brand-mention and consumer-demand nowcasts, AI share-of-voice / GEO monitoring, crisis radar and post-mortems, cross-source reputation, share-of-voice, creator vetting and creator cards, handle audits, name-to-accounts resolution (find-accounts), handle/link mention search, adverse-post screening, campaign-brief checks, hook/format lift, term earliness across platforms, a no-keyword country trend board, commenter language mix, comment-sourced buyer leads, multi-engine AI consensus answers, org/repo radar, Korea gap analysis, video/app/product intelligence, batch lookups (post-stats, profiles, comment-lookup), and async background jobs of up to 5,000 items (jobs). Each composite emits a per-leg transparency array; pricing is flat or metered per recipe (see the pricing docs topic and the socialcrawl_estimate tool).",
   },
   {
     slug: "content_analysis",
@@ -596,11 +596,65 @@ export const PLATFORMS: Platform[] = [
   {
     slug: "producthunt",
     name: "Product Hunt",
-    endpointCount: 1,
+    endpointCount: 5,
     social: false,
     category: "utility",
     description:
-      "The public Product Hunt launch feed — about 50 current launches in one page, optionally filtered by topic slug.",
+      "Product Hunt — the current launch feed (about 50 launches, optionally by topic), leaderboards for any day, week, month or year back to 2013, a product with its launches, the comments on a launch, and the products in a topic. 1 credit each.",
+  },
+  {
+    slug: "weibo",
+    name: "Weibo",
+    endpointCount: 8,
+    social: true,
+    category: "additional",
+    description:
+      "Weibo (China's microblog) — accounts by handle, id or URL, an account's posts (optionally media only), single posts, post comments and comment replies, keyword post search back through time, account search, and the hot-search trending list (promoted entries optional). Profiles and posts 1 credit, lists 5.",
+  },
+  {
+    slug: "goodreads",
+    name: "Goodreads",
+    endpointCount: 10,
+    social: false,
+    category: "utility",
+    description:
+      "Goodreads books — a book by id, URL or ISBN (with similar books, lists and a preview on request), its reader reviews (rating, language and text filters, free row labels, metered `label` presets), every edition, the comments under a review, book search, authors and their books, quotes by book, author, tag or query, series in reading order, and Listopia lists.",
+  },
+  {
+    slug: "airbnb",
+    name: "Airbnb",
+    endpointCount: 4,
+    social: false,
+    category: "commerce",
+    description:
+      "Airbnb stays — listing search for a place and stay (dates, adults, children, infants, pets), a listing's full card with stay-aware pricing, its guest reviews (free row labels, metered `label` presets), and its availability calendar by month.",
+  },
+  {
+    slug: "booking",
+    name: "Booking.com",
+    endpointCount: 3,
+    social: false,
+    category: "commerce",
+    description:
+      "Booking.com stays — property search for a destination and stay (dates, adults, children, rooms), a property's full card, and its guest reviews (free row labels, metered `label` presets).",
+  },
+  {
+    slug: "bing",
+    name: "Bing",
+    endpointCount: 4,
+    social: false,
+    category: "utility",
+    description:
+      "Bing web search — the first results page for a query (market, country, language, safe search, time range, device), a domain's rank up to 200 deep, Bing Videos, and search suggestions for a partial query.",
+  },
+  {
+    slug: "duckduckgo",
+    name: "DuckDuckGo",
+    endpointCount: 7,
+    social: false,
+    category: "utility",
+    description:
+      "DuckDuckGo search — web results (paged), a domain's rank up to 200 deep, News, Videos, Images (size, colour, type, layout, licence filters), the instant answer for a topic, and search suggestions. Region, safe search and time range on every search lane.",
   },
   {
     slug: "xiaohongshu",
